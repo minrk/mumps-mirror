@@ -1,0 +1,32 @@
+on:
+  workflow_dispatch:
+  schedule:
+    # run once/day at 4am
+    - cron: "0 4 * * *"
+  push:
+    branches:
+      - mirror
+
+jobs:
+  update-mirror:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: install dependencies
+        run: |
+          python3 -m pip install -r requirements.txt
+
+      - name: update mirror
+        run: |
+          python3 populate-mirror.py --push
