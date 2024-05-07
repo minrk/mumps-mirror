@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -58,14 +58,20 @@ C
           ENDIF
         ENDIF
       END SUBROUTINE DEALLOC_LRB
-      SUBROUTINE DEALLOC_BLR_PANEL(BLR_PANEL, NB_BLR, KEEP8)
-        INTEGER, INTENT(IN)           :: NB_BLR
-        TYPE(LRB_TYPE), INTENT(INOUT) :: BLR_PANEL(:) 
+      SUBROUTINE DEALLOC_BLR_PANEL(BLR_PANEL, IEND, KEEP8, IBEG_IN)
+        INTEGER, INTENT(IN)           :: IEND
+        TYPE(LRB_TYPE), INTENT(INOUT) :: BLR_PANEL(:)
         INTEGER(8) :: KEEP8(150)
-        INTEGER :: I
-        IF (NB_BLR.GT.0) THEN
+        INTEGER, INTENT(IN), OPTIONAL :: IBEG_IN
+        INTEGER :: I, IBEG
+        IF (present(IBEG_IN)) THEN
+          IBEG = IBEG_IN
+        ELSE
+          IBEG = 1
+        ENDIF
+        IF (IEND.GE.IBEG) THEN
           IF (BLR_PANEL(1)%M.NE.0) THEN
-            DO I=1, NB_BLR
+            DO I=IBEG, IEND
               CALL DEALLOC_LRB(BLR_PANEL(I), KEEP8)
             ENDDO
           ENDIF

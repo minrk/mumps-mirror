@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -22,7 +22,7 @@ C
      &           IW, LIW, 
      &           INTARR, LINTARR, ITLOC,
      &           FILS, FRERE_STEPS, 
-     &           KEEP, SON_LEVEL2, NIV1, NBPROCFILS, IFLAG, 
+     &           KEEP, SON_LEVEL2, NIV1, IFLAG, 
      &           DAD, PROCNODE_STEPS, SLAVEF, 
      &           FRT_PTR, FRT_ELT, Pos_First_NUMORG,
      &           SONROWS_PER_ROW, LSONROWS_PER_ROW
@@ -36,7 +36,7 @@ C
       INTEGER(8), INTENT(IN) :: PTRAIW(NELT+1)
       INTEGER STEP(N), PIMASTER(KEEP(28)), PTRIST(KEEP(28)),
      &        ITLOC(N+KEEP(253)), FILS(N), FRERE_STEPS(KEEP(28)),
-     &        NBPROCFILS(KEEP(28)), PERM(N)
+     &        PERM(N)
       INTEGER, TARGET :: IW(LIW)
       INTEGER, INTENT(IN), TARGET :: IWPOSCB
       INTEGER(8), INTENT(IN) :: LINTARR
@@ -59,9 +59,7 @@ C
       INTEGER :: K, K1, K2, K3, KK
       INTEGER(8) :: JJ8, J18, J28
       LOGICAL LEVEL1_SON
-#if ! defined(NO_XXNBPR)
       INTEGER INBPROCFILS_SON
-#endif
       INTEGER TYPESPLIT
       INTEGER ELTI, NUMELT_IBROT
       INCLUDE 'mumps_headers.h'
@@ -71,9 +69,7 @@ C
       INTEGER, ALLOCATABLE, DIMENSION(:) :: PTTRI, PTLAST
       INTEGER  MUMPS_TYPESPLIT, MUMPS_TYPENODE
       EXTERNAL MUMPS_TYPESPLIT, MUMPS_TYPENODE 
-#if ! defined(NO_XXNBPR)
       IW(IOLDPS+XXNBPR) = 0
-#endif
       Pos_First_NUMORG = 1
       TYPESPLIT  = MUMPS_TYPESPLIT (PROCNODE_STEPS(STEP(INODE)), 
      &              KEEP(199))
@@ -113,20 +109,13 @@ C
         ENDIF
         SON_IW      => IW
         SON_IWPOSCB => IWPOSCB
-#if ! defined(NO_XXNBPR)
         IF (K2 .GT. SON_IWPOSCB) THEN
           INBPROCFILS_SON = K2 + XXNBPR
         ELSE
           INBPROCFILS_SON = PTRIST(STEP(IFSON))+XXNBPR
         ENDIF
-#endif
-        NBPROCFILS(STEP(IFSON)) = NSLSON
-        NBPROCFILS(STEP(INODE)) = NSLSON
-#if ! defined(NO_XXNBPR)
         IW(IOLDPS+XXNBPR)=NSLSON
         SON_IW(INBPROCFILS_SON) = NSLSON
-        CALL CHECK_EQUAL(NBPROCFILS(STEP(INODE)),IW(IOLDPS+XXNBPR))
-#endif
         SONROWS_PER_ROW(1:NFRONT-NASS1) = 1
         IF ( K2.GT. IWPOSCB ) THEN
           NROWS = IW(K2 + 2+KEEP(IXSZ))
@@ -211,42 +200,22 @@ C
           NCOLS  = NPIVS + LSTK
           NROWS  = NCOLS
           ITRANS = NROWS
-#if ! defined(NO_XXNBPR)
           IF (K2 .GT. SON_IWPOSCB) THEN
             INBPROCFILS_SON = K2+XXNBPR
           ELSE
             INBPROCFILS_SON = PTRIST(STEP(ISON))+XXNBPR
           ENDIF
-#endif
           IF (NIV1) THEN
-           NBPROCFILS(STEP(ISON)) = NSLSON
-           NBPROCFILS(STEP(INODE)) = NBPROCFILS(STEP(INODE)) + NSLSON
-#if ! defined(NO_XXNBPR)
            SON_IW(INBPROCFILS_SON) = NSLSON
            IW(IOLDPS+XXNBPR) = IW(IOLDPS+XXNBPR) + NSLSON
-           CALL CHECK_EQUAL(NBPROCFILS(STEP(INODE)),IW(IOLDPS+XXNBPR))
-           CALL CHECK_EQUAL(NBPROCFILS(STEP(ISON)),
-     &                      SON_IW(INBPROCFILS_SON))
-#endif
           ELSE
            IF (LEVEL1_SON) THEN
-            NBPROCFILS(STEP(ISON)) = 1
-#if ! defined(NO_XXNBPR)
             SON_IW(INBPROCFILS_SON) = 1
-#endif
            ELSE
-            NBPROCFILS(STEP(ISON)) = NSLSON
-#if ! defined(NO_XXNBPR)
             SON_IW(INBPROCFILS_SON) = NSLSON
-#endif
            ENDIF
-           NBPROCFILS(STEP(INODE)) = NBPROCFILS(STEP(INODE))+
-     &                               NBPROCFILS(STEP(ISON))
-#if ! defined(NO_XXNBPR)
            IW(IOLDPS+XXNBPR) = IW(IOLDPS+XXNBPR) +
      &                         SON_IW(INBPROCFILS_SON)
-           CALL CHECK_EQUAL(NBPROCFILS(STEP(INODE)),IW(IOLDPS+XXNBPR))
-#endif
           ENDIF
           IF (K2.GT.SON_IWPOSCB) THEN
            NROWS = SON_IW(K2 + 2+KEEP(IXSZ))

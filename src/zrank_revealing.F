@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -17,13 +17,15 @@ C
           KEEP(19)=0
           RETURN
       END SUBROUTINE ZMUMPS_GET_NS_OPTIONS_FACTO
-      SUBROUTINE ZMUMPS_GET_NS_OPTIONS_SOLVE(ICNTL,KEEP,MPG,INFO)
+      SUBROUTINE ZMUMPS_GET_NS_OPTIONS_SOLVE(ICNTL, KEEP, 
+     &                                       NRHS, MPG, INFO)
       IMPLICIT NONE
-      INTEGER KEEP(500), MPG, INFO(80), ICNTL(60)
+      INTEGER, intent(in)   :: KEEP(500), NRHS, MPG, ICNTL(60)
+      INTEGER, intent(inout):: INFO(80)
       IF (KEEP(19).EQ.0.AND.KEEP(110).EQ.0) THEN
         IF (KEEP(111).NE.0) THEN
          INFO(1) = -37
-         INFO(2) = 16  
+         INFO(2) = 56  
          IF (KEEP(110).EQ.0) INFO(2) = 24 
           IF(MPG.GT.0) THEN
            WRITE( MPG,'(A)')
@@ -34,18 +36,78 @@ C
          GOTO 333
         ENDIF
       ENDIF
-      IF (ICNTL(9).NE.1) THEN
-        IF (KEEP(111).NE.0) THEN
+       IF (ICNTL(9).NE.1) THEN
+         IF (KEEP(111).NE.0) THEN
+          INFO(1) = -37
+          INFO(2) = 9  
+          IF (MPG.GT.0) THEN
+           WRITE(MPG,'(A)')
+     &'** ERROR  ICNTL(25) incompatible with '
+           WRITE( MPG,'(A)')
+     &'** option transposed system (ICNTL(9).ne.1) '
+          ENDIF
+         ENDIF
+         GOTO 333
+       ENDIF
+      IF (KEEP(19).EQ.2) THEN
+       IF ((KEEP(111).NE.0).AND.(KEEP(50).EQ.0)) THEN
          INFO(1) = -37
-         INFO(2) = 9  
+         INFO(2) = 0  
          IF (MPG.GT.0) THEN
           WRITE(MPG,'(A)')
      &'** ERROR  ICNTL(25) incompatible with '
           WRITE( MPG,'(A)')
-     &'** option transposed system (ICNLT(9)=1) '
+     &'** option RRQR (ICNLT(56)=2) and unsym. matrices '
          ENDIF
         ENDIF
         GOTO 333
+      ENDIF
+      IF (KEEP(111).eq.-1.AND.NRHS.NE.KEEP(112)+KEEP(17))THEN
+            INFO(1)=-32
+            INFO(2)=NRHS
+            GOTO 333
+      ENDIF
+      IF (KEEP(111).gt.0 .AND. NRHS .NE. 1) THEN
+            INFO(1)=-32
+            INFO(2)=NRHS
+            GOTO 333
+      ENDIF
+      IF (KEEP(248) .NE.0.AND.KEEP(111).NE.0) THEN
+         IF (MPG.GT.0) THEN
+            WRITE(MPG,'(A)')
+     &           ' ERROR: ICNTL(20) and ICNTL(30) functionalities ',
+     &           ' incompatible with null space'
+         ENDIF
+         INFO(1) = -37
+         IF (KEEP(237).NE.0) THEN
+            INFO(2) = 30    
+            IF (MPG.GT.0) THEN
+               WRITE(MPG,'(A)')
+     &           ' ERROR: ICNTL(30) functionality ',
+     &              ' incompatible with null space'
+            ENDIF
+         ELSE
+            IF (MPG.GT.0) THEN
+               WRITE(MPG,'(A)')
+     &              ' ERROR: ICNTL(20) functionality ',
+     &              ' incompatible with null space'
+            ENDIF
+            INFO(2) = 20    
+         ENDIF
+         GOTO 333
+      ENDIF
+      IF (( KEEP(111) .LT. -1 ) .OR.
+     &     (KEEP(111).GT.KEEP(112)+KEEP(17)) .OR.
+     &     (KEEP(111) .EQ.-1 .AND. KEEP(112)+KEEP(17).EQ.0))
+     &     THEN
+         INFO(1)=-36
+         INFO(2)=KEEP(111)
+         GOTO 333
+      ENDIF
+      IF (KEEP(221).NE.0.AND.KEEP(111).NE.0) THEN
+         INFO(1)=-37
+         INFO(2)=26
+         GOTO 333
       ENDIF
  333  CONTINUE
       RETURN

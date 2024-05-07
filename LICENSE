@@ -1,16 +1,16 @@
 
-  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
   Mumps Technologies, University of Bordeaux.
 
   This version of MUMPS is provided to you free of charge. It is
   released under the CeCILL-C license
   (see doc/CeCILL-C_V1-en.txt, doc/CeCILL-C_V1-fr.txt, and
   https://cecill.info/licences/Licence_CeCILL-C_V1-en.html), 
-  except for variants of AMD ordering distributed under BSD 3-clause 
-  license (see header of ana_orderings.F), 
-  and except for the external and optional ordering PORD
-  provided in a separate directory PORD which is public domain 
-  (see PORD/README)
+  except for variants of AMD ordering and xMUMPS_TRUNCATED_RRQR 
+  derived from the LAPACK package distributed under BSD 3-clause 
+  license (see headers of ana_orderings.F and lr_core.F), 
+  and except for the external and optional ordering PORD provided
+  in a separate directory PORD (see PORD/README for License information).
 
   You can acknowledge (using references [1] and [2]) the contribution 
   of this package in any scientific publication dependent upon the use 

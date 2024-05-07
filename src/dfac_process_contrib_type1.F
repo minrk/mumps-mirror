@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -19,6 +19,7 @@ C
      &           NSTK_S, COMP,
      &           FPERE, FLAG, IFLAG, IERROR, COMM,
      &           ITLOC, RHS_MUMPS )
+      USE DMUMPS_DYNAMIC_MEMORY_M, ONLY : DMUMPS_DM_SET_PTR
       IMPLICIT NONE
       INCLUDE 'mpif.h'
       INTEGER IERR
@@ -50,6 +51,8 @@ C
       INTEGER NBROWS_ALREADY_SENT, NBROWS_PACKET
       INCLUDE 'mumps_headers.h'
       LOGICAL PACKED_CB
+      DOUBLE PRECISION, POINTER, DIMENSION(:) :: SON_A
+      INTEGER(8) :: DYN_SIZE
       FLAG = .FALSE.
       POSITION = 0
       CALL MPI_UNPACK(BUFR, LBUFR_BYTES, POSITION,
@@ -101,12 +104,20 @@ C
         SIZE_PACKET = NBROWS_PACKET * FLCONT
       ENDIF
       IF (NBROWS_PACKET.NE.0) THEN
-        IF ( LREQCB .ne. 0_8 ) THEN
-        IPOS_NODE = PAMASTER(STEP(FINODE))-1_8
-        CALL MPI_UNPACK(BUFR, LBUFR_BYTES, POSITION,
-     &        A(IPOS_NODE + 1_8 + ISHIFT_PACKET),
-     &        SIZE_PACKET, MPI_DOUBLE_PRECISION, COMM, IERR)
-        END IF
+        CALL MUMPS_GETI8(DYN_SIZE, IW(PIMASTER(STEP(FINODE))+XXD))
+        IF (DYN_SIZE .GT. 0_8) THEN
+          CALL DMUMPS_DM_SET_PTR( PAMASTER(STEP(FINODE)),
+     &                            DYN_SIZE, SON_A )
+          IPOS_NODE = 1_8
+          CALL MPI_UNPACK(BUFR, LBUFR_BYTES, POSITION,
+     &         SON_A(IPOS_NODE + ISHIFT_PACKET),
+     &         SIZE_PACKET, MPI_DOUBLE_PRECISION, COMM, IERR)
+        ELSE
+          IPOS_NODE = PAMASTER(STEP(FINODE))
+          CALL MPI_UNPACK(BUFR, LBUFR_BYTES, POSITION,
+     &         A(IPOS_NODE + ISHIFT_PACKET),
+     &         SIZE_PACKET, MPI_DOUBLE_PRECISION, COMM, IERR)
+        ENDIF
       ENDIF
       IF (NBROWS_ALREADY_SENT+NBROWS_PACKET == FLCONT) THEN
         NSTK_S(STEP(FPERE)) = NSTK_S(STEP(FPERE)) - 1

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -56,6 +56,7 @@ C        -Out-of-Core factorization and solution
 C        -Solution phase:
 C          -Multiple Right-Hand-sides (RHS)
 C          -Sparse RHS
+C          -Distributed RHS
 C          -Computation of selected entries of the inverse of 
 C           original matrix.
 C        - Block Low-Rank (BLR) approximation based factorization
@@ -717,6 +718,8 @@ C       Value defined on MASTER is the reference
         CALL MPI_BCAST( id%KEEP(370), 2, MPI_INTEGER, MASTER, id%COMM,
      &         IERR )
         IF (LANA) THEN
+           CALL MPI_BCAST( id%KEEP(66), 1, MPI_INTEGER, MASTER, id%COMM,
+     &         IERR )
           IF (id%KEEP(370) .EQ. 1) THEN     
             id%KEEP(77)=0
             id%KEEP(78)=0
@@ -732,10 +735,23 @@ C       Value defined on MASTER is the reference
           IF (LFACTO) THEN
             id%KEEP(351) = 1 
             id%KEEP(206) = 2 
-            id%KEEP(378) = 1
           ENDIF
           IF (LSOLVE) THEN
             id%KEEP(350) = 2 
+          ENDIF
+        ENDIF
+        IF (LANA) THEN
+          IF (id%KEEP(66).NE.0) THEN
+            id%KEEP(77)=0
+            id%KEEP(78)=0
+            id%KEEP(375)=1           
+            IF ((id%KEEP(50).EQ.0) .AND. (id%NSLAVES.GT.1)) THEN
+              id%KEEP(376) = 1
+            ENDIF
+            IF (id%KEEP(66).EQ.2) THEN
+             id%KEEP(83) = 0
+             id%KEEP(91) = 0
+            ENDIF
           ENDIF
         ENDIF
       ENDIF ! LANA .OR. LFACTO .OR. LSOLVE
@@ -1606,14 +1622,6 @@ C           choice of scaling then we do not recompute scaling
      &               ' ** column scaling has to be permuted'
              ENDIF 
           ENDIF
-C
-          IF ( id%KEEP( 19 ) .ne. 0 .and. id%KEEP( 52 ).ne. 0 ) THEN
-            IF ( MPG .GT. 0 ) THEN
-              WRITE(MPG,'(A)') ' ** Warning: Scaling not applied.'
-              WRITE(MPG,'(A)') ' ** (incompatibility with null space)'
-            END IF
-            id%KEEP(52) = 0
-          END IF
 C         ------------------------
 C         If Schur has been asked
 C         for, scaling is disabled
@@ -2190,8 +2198,12 @@ C
      &               MASTER, COMM, IERR )
       RETURN
       END SUBROUTINE ZMUMPS_SET_INFOG
-      SUBROUTINE ZMUMPS_PRINT_ICNTL(id, LP)
+C--------------------------------------------------------------------
+      SUBROUTINE ZMUMPS_PRINT_ICNTL (id, LP)
       USE ZMUMPS_STRUC_DEF
+*
+* Purpose: 
+*   Print main control parameters CNTL and ICNTL 
 *
 *  ==========
 *  Parameters
@@ -2201,11 +2213,13 @@ C
 ** Local Variables
       INTEGER, POINTER :: JOB 
       INTEGER,DIMENSION(:),POINTER::ICNTL
+      DOUBLE PRECISION,   DIMENSION(:),POINTER::CNTL
       INTEGER MASTER
       PARAMETER( MASTER = 0 )
       IF (LP.LE.0) RETURN
       JOB=>id%JOB
       ICNTL=>id%ICNTL
+      CNTL=>id%CNTL
       IF (id%MYID.EQ.MASTER) THEN
          SELECT CASE (JOB)
          CASE(1);
@@ -2213,10 +2227,12 @@ C
            WRITE (LP,990) ICNTL(1),ICNTL(2),ICNTL(3),ICNTL(4)
            IF (id%SYM.EQ.2) THEN
             WRITE (LP,991) ICNTL(5),ICNTL(6),ICNTL(7),ICNTL(12),
-     &          ICNTL(13),ICNTL(18),ICNTL(19),ICNTL(22)
+     &          ICNTL(13),
+     &          ICNTL(18),ICNTL(19),ICNTL(22)
            ELSE
             WRITE (LP,891) ICNTL(5),ICNTL(6),ICNTL(7),
-     &          ICNTL(13),ICNTL(18),ICNTL(19),ICNTL(22)
+     &          ICNTL(13),
+     &          ICNTL(18),ICNTL(19),ICNTL(22)
            ENDIF
            IF ((ICNTL(6).EQ.5).OR.(ICNTL(6).EQ.6).OR.
      &          (ICNTL(12).NE.1) )  THEN
@@ -2227,9 +2243,12 @@ C
            WRITE (LP,993) ICNTL(14)
          CASE(2);
            WRITE (LP,980) 
+           WRITE (LP,981) CNTL(1), CNTL(3), CNTL(4), CNTL(5), CNTL(7)
            WRITE (LP,990) ICNTL(1),ICNTL(2),ICNTL(3),ICNTL(4)
            WRITE (LP,992) ICNTL(8)
-           WRITE (LP,993) ICNTL(14)
+           WRITE (LP,993) ICNTL(14) 
+           WRITE (LP,923) ICNTL(24), ICNTL(31), ICNTL(32), ICNTL(33),
+     &                    ICNTL(35), ICNTL(36)
          CASE(3);
            WRITE (LP,980)
            WRITE (LP,990) ICNTL(1),ICNTL(2),ICNTL(3),ICNTL(4)
@@ -2237,34 +2256,45 @@ C
      &     ICNTL(9),ICNTL(10),ICNTL(11),ICNTL(20),ICNTL(21)
          CASE(4);
            WRITE (LP,980) 
+           WRITE (LP,981) CNTL(1), CNTL(3), CNTL(4), CNTL(5), CNTL(7)
            WRITE (LP,990) ICNTL(1),ICNTL(2),ICNTL(3),ICNTL(4)
            WRITE (LP,992) ICNTL(8)
            IF (id%ICNTL(19).NE.0)
      &      WRITE(LP,998) id%SIZE_SCHUR
            WRITE (LP,993) ICNTL(14)
+           WRITE (LP,923) ICNTL(24), ICNTL(31), ICNTL(32), ICNTL(33),
+     &                    ICNTL(35), ICNTL(36)
          CASE(5);
            WRITE (LP,980) 
+           WRITE (LP,981) CNTL(1), CNTL(3), CNTL(4), CNTL(5), CNTL(7)
            WRITE (LP,990) ICNTL(1),ICNTL(2),ICNTL(3),ICNTL(4)
            IF (id%SYM.EQ.2) THEN
             WRITE (LP,991) ICNTL(5),ICNTL(6),ICNTL(7),ICNTL(12),
-     &          ICNTL(13),ICNTL(18),ICNTL(19),ICNTL(22)
+     &          ICNTL(13),
+     &          ICNTL(18),ICNTL(19),ICNTL(22)
            ELSE
             WRITE (LP,891) ICNTL(5),ICNTL(6),ICNTL(7),
-     &          ICNTL(13),ICNTL(18),ICNTL(19),ICNTL(22)
+     &          ICNTL(13),
+     &          ICNTL(18),ICNTL(19),ICNTL(22)
            ENDIF
            WRITE (LP,992) ICNTL(8)
            WRITE (LP,993) ICNTL(14)
            WRITE (LP,995)
      &     ICNTL(9),ICNTL(10),ICNTL(11),ICNTL(20),ICNTL(21)
+           WRITE (LP,923) ICNTL(24), ICNTL(31), ICNTL(32), ICNTL(33),
+     &                    ICNTL(35), ICNTL(36)
          CASE(6);
            WRITE (LP,980)
+           WRITE (LP,981) CNTL(1), CNTL(3), CNTL(4), CNTL(5), CNTL(7)
            WRITE (LP,990) ICNTL(1),ICNTL(2),ICNTL(3),ICNTL(4)
            IF (id%SYM.EQ.2) THEN
             WRITE (LP,991) ICNTL(5),ICNTL(6),ICNTL(7),ICNTL(12),
-     &          ICNTL(13),ICNTL(18),ICNTL(19),ICNTL(22)
+     &          ICNTL(13),
+     &          ICNTL(18),ICNTL(19),ICNTL(22)
            ELSE
             WRITE (LP,891) ICNTL(5),ICNTL(6),ICNTL(7),
-     &          ICNTL(13),ICNTL(18),ICNTL(19),ICNTL(22)
+     &          ICNTL(13),
+     &          ICNTL(18),ICNTL(19),ICNTL(22)
            ENDIF
            IF (id%ICNTL(19).NE.0)
      &      WRITE(LP,998) id%SIZE_SCHUR
@@ -2272,9 +2302,17 @@ C
            WRITE (LP,995)
      &     ICNTL(9),ICNTL(10),ICNTL(11),ICNTL(20),ICNTL(21)
            WRITE (LP,993) ICNTL(14)
+           WRITE (LP,923) ICNTL(24), ICNTL(31), ICNTL(32), ICNTL(33),
+     &                    ICNTL(35), ICNTL(36)
         END SELECT
       ENDIF
  980  FORMAT (/'***********CONTROL PARAMETERS (ICNTL)**************'/)
+ 981  FORMAT (
+     &     ' CNTL(1)   Effective threshold for pivoting)       =',D16.4/
+     &     ' CNTL(3)   Null pivot detection threshold          =',D16.4/
+     &     ' CNTL(4)   Threshold for static pivoting           =',D16.4/
+     &     ' CNTL(5)   Fixation for null pivots                =',D16.4/
+     &     ' CNTL(7)   Dropping threshold for BLR compression  =',D16.4)
  990  FORMAT (
      &     'ICNTL(1)   Output stream for error messages        =',I10/
      &     'ICNTL(2)   Output stream for diagnostic messages   =',I10/
@@ -2288,7 +2326,7 @@ C
      &     'ICNTL(13)  Parallel root (0=on, 1=off)             =',I10/
      &     'ICNTL(18)  Distributed matrix  ( keep(54) )        =',I10/
      &     'ICNTL(19)  Schur option ( keep(60) 0=off,else=on ) =',I10/
-     &     'ICNTL(22)  Out-off-core option (0=Off, >0=ON)      =',I10)
+     &     'ICNTL(22)  Out-off-core option (0=off, >0=on)      =',I10)
  891  FORMAT (
      &     'ICNTL(5)   Matrix format  ( keep(55) )             =',I10/
      &     'ICNTL(6)   Maximum transversal  ( keep(23) )       =',I10/
@@ -2296,9 +2334,16 @@ C
      &     'ICNTL(13)  Parallel root (0=on, 1=off)             =',I10/
      &     'ICNTL(18)  Distributed matrix  ( keep(54) )        =',I10/
      &     'ICNTL(19)  Schur option ( keep(60) 0=off,else=on ) =',I10/
-     &     'ICNTL(22)  Out-off-core option (0=Off, >0=ON)      =',I10)
+     &     'ICNTL(22)  Out-off-core option (0=off, >0=on)      =',I10)
  992  FORMAT (
      &     'ICNTL(8)   Scaling strategy                        =',I10)
+ 923  FORMAT (
+     &     'ICNTL(24)  Null pivot detection (0=off)            =',I10/
+     &     'ICNTL(31)  Discard factors (0=off, else=on)        =',I10/
+     &     'ICNTL(32)  Forward elimination during facto (0=off)=',I10/
+     &     'ICNTL(33)  Compute determinant (0=off)             =',I10/
+     &     'ICNTL(35)  Block Low Rank (BLR, 0=off >0=on)       =',I10/
+     &     'ICNTL(36)  BLR variant                             =',I10)
  993  FORMAT (
      &     'ICNTL(14)  Percent of memory increase              =',I10)
  995  FORMAT (

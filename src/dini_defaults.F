@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -106,9 +106,11 @@ C     DMUMPS Default values
 C     are set by DMUMPSID.  The elements of the arrays RINFO 
 C     and INFO provide information on the action of DMUMPS.
 C  
-C  CNTL(1) has default value 0.01 and is used for
-C     threshold pivoting. Values greater than 1.0
-C     are treated as 1.0, and less than zero as zero.
+C  CNTL(1) threshold for partial pivoting
+C     has default value 0.0 when SYM=1 and 0.01 otherwise
+C     Values and less than zero as treated as zero.
+C     Values greater than 1.0 are treated as 1.0 for
+C     SYM=1 and as 0.5 for SYM=2
 C     In general, a larger value of CNTL(1) leads to 
 C     greater fill-in but a more accurate factorization.
 C     If CNTL(1) is nonzero, numerical pivoting will be performed. 
@@ -123,29 +125,22 @@ C     refinement.
 C     Default value is sqrt(macheps).
 C     Values less than zero are treated as sqrt(macheps).
 C
-C  CNTL(3) is only used combined with null pivot row
-C     detection (ICNTL(24) .eq. 1)
-C     It must be set to the absolute threshold for numerical pivoting.
+C  CNTL(3) is used with null pivot row detection (ICNTL(24) .eq. 1)
 C     Default value is 0.0. 
 C     Let A_{preproc} be the preprocessed matrix to be factored (see
 C       equation in the user's guide).
-C     A pivot is considered to be null if the infinite norm of its row/column
-C     is smaller than a threshold. Let MACHEPS be the machine precision and 
-C     ||.|| be the infinite norm.
-C     The computed threshold value for postponing pivots in case of RR on root
-C     is stored in "SEUIL" and then "SEUIL_LDLT_NIV2"
-C     which are identical in current version.
-C     This absolute threshold value is stored in DKEEP(9).
-C
-C     The absolute value to detect a null pivot (when ICNTL(24) .NE.0) 
+C     A pivot is considered to be null if the infinite norm of its 
+C     row/column is smaller than a threshold. Let MACHEPS be the 
+C     machine precision and ||.|| be the infinite norm.
+C     The absolute value to detect a null pivot row (when ICNTL(24) .EQ.1) 
 C     is stored in DKEEP(1).
 C      IF CNTL(3)  > 0 THEN
 C          DKEEP(1) = CNTL(3)  ||A_{preproc}|| 
 C      ELSE IF CNTL(3)  = 0.0 THEN 
 C          DKEEP(1) = MACHEPS 10^{-5} ||A_{preproc}||
 C      ELSE IF CNTL(3)  < 0 THEN 
-C          DKEEP(1) = abs(CNTL(3))   ! this was added for EDF 
-C                                    ! in the context of SOLSTICE project
+C          DKEEP(1) = abs(CNTL(3))! this was added for EDF 
+C                                 ! in the context of SOLSTICE project
 C      ENDIF
 C
 C  CNTL(4) must be set to value for static pivoting.
@@ -154,7 +149,8 @@ C     Note that static pivoting is enabled only when
 C     Rank-Revealing and null pivot detection
 C     are off (KEEP(19).EQ.0).AND.(KEEP(110).EQ.0).
 C     If negative, static pivoting will be set OFF (KEEP(97)=0)
-C     If positive, static pivoting is ON (KEEP(97=1) with threshold CNTL(4)
+C     If positive, static pivoting is ON (KEEP(97=1) with 
+C     threshold CNTL(4)
 C     If = 0, static pivoting is ON with threshold MACHEPS^1/2 || A ||
 C
 C  CNTL(5) fixation for null pivots
@@ -162,32 +158,17 @@ C     Default value is 0.0
 C     Only active if ICNTL(24) = 1
 C     If > 0 after finding a null pivot, it is set to CNTL(5) x ||A||
 C     (This value is stored in DKEEP(2))
-C     If <=  0 then the row/column (except the pivot) is set to zero
-C     and the pivot is set to 1
+C     If <=  0 then 
+C       SYM=2:
+C         the row/column (except the pivot) is set to zero
+C         and the pivot is set to 1
+C       SYM=0:
+C         the fixation is automatically
+C         set to a large potitive value and the pivot row of the 
+C         U factors is set to zero.
 C     Default is 0.
-C     Note that in the symmetric parallel case, some elements of the column
-C     are not available on the local processor and cannot be set to 0 easily.
-C     In such cases, in the current version, 
-C            -the corresponding pivot is first set
-C                to a large value instead of 1, even when CNTL(5) < 0.
-C            -Updating of the off diag block is done with this large 
-C                value 
-C            -diagonal value is then reset to zero
 C
-C  CNTL(6) expresses the ratio between 
-C        absolute criterion for null pivots and absolute criterion 
-C        for posponing pivots before partial pivoting analysis of pivots.
-C        Typically 
-C          let SEUIL = F(CNTL(3)), and  0 < CNTL(6) < 1
-C          SEUIL is stored in DKEEP(9)
-C          if ||Pivot row|| < SEUIL*CNTL(6) then
-C              null pivot row detected (correct only if LDLT 
-C                                 for LU pivot_col must be checked too)
-C          else if || Pivot_Row || < SEUIL then
-C              pospone pivot
-C          else
-C              partial threshold pivoting
-C          endif
+C CNTL(6) not used yet 
 C
 C CNTL(7) tolerance for Low Rank approximation of the Blocks (BLR). 
 C         Dropping parameter expressed with a double precision, 
@@ -402,10 +383,9 @@ C               or ICNTL(13)=-1 THEN
 C               extra splitting of the root will be activated
 C               and is controlled by abs(KEEP(82)).
 C               The order of the root node is divided by KEEP(82)
-C             ENDIF
+C            ENDIF
 C            If ICNTL(13) .EQ. -1 then splitting of the root
-C            is done whatever the nb of procs is.
-C
+C            is done whatever the nb of procs is. 
 C             
 C            To summarize:
 C               -1         : root splitting and scalapack on
@@ -948,7 +928,6 @@ C     threshold value for pivoting
       CNTL(3) = 0.0D0
       CNTL(4) = -1.0D0
       CNTL(5) = 0.0D0
-      CNTL(6) = -1.0D0
 C     Working host ?
       KEEP(46) = PAR
       IF ( KEEP(46) .NE. 0 .AND.
@@ -1066,7 +1045,6 @@ C===================================
       END IF
       KEEP(63) = 60
       KEEP(48) = 5
-      KEEP(17) = 0
       CALL DMUMPS_SET_TYPE_SIZES( KEEP(34), KEEP(35),
      &                            KEEP(16), KEEP(10) )
       KEEP(51) = 70
@@ -1129,6 +1107,7 @@ C     Forcing proportional is ok with strategy 5
       KEEP(99)=4  ! new OOC -> asynchronous + buffer
 #endif
       KEEP(100)=0
+      KEEP(114) = 1
 C     strategy for MUMPS_BLOC2_GET_NSLAVESMIN
       KEEP(119)=0
 C     KEEP(199) for MUMPS_PROCNODE, MUMPS_TYPENODE, etc
@@ -1140,9 +1119,7 @@ C     KEEP(199)=NSLAVES + 7
       KEEP(209)=-1
       KEEP(104) = 16
       KEEP(107)=0
-#if ! defined(NO_XXNBPR)
       KEEP(121)=-999999
-#endif
       KEEP(122)=150
        KEEP(141)=1 ! min needed
       KEEP(206)=1 
@@ -1169,7 +1146,13 @@ C     KEEP(199)=NSLAVES + 7
       KEEP(240) = 10
       DKEEP(4) = -1.0D0
       DKEEP(5) = -1.0D0
-      DKEEP(10) = 1000.0D0  ! > 0 : GAP 
+C#if defined(try_null_space)
+      DKEEP(10) = -9D0  ! default value is 10D-1 set in fac_driver.F 
+      DKEEP(13) = -9D0  ! to define SEUIL for postponing with RR
+                        ! (default value is 10 set in fac_driver.F) 
+      DKEEP(24) = 1000.0D0 ! gap should be larger than dkeep(14)        
+      DKEEP(25) = 10.0D0 ! gap precision        
+C#endif
       KEEP(238)=14
       KEEP(234)= 1
       KEEP(235)=-1
@@ -1185,6 +1168,7 @@ C     KEEP(199)=NSLAVES + 7
       KEEP(263) = 1
       KEEP(266) = 0
       KEEP(267) = 0
+      KEEP(268)=77
       KEEP(350) = 1
       KEEP(351) = 0
       KEEP(360) = 256
@@ -1236,8 +1220,6 @@ C     probably a cache miss on the pivot.
       KEEP(496) = 1
       KEEP(495) = -1
       KEEP(497) = -1
-C     Allow more BLAS 3 in type 1 nodes when possible
-      KEEP(378) = 1
 C
       RETURN
       END SUBROUTINE DMUMPSID

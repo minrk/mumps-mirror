@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -337,7 +337,8 @@ C
 #if defined(scotch) || defined(ptscotch)
       SUBROUTINE MUMPS_SCOTCH_MIXEDto32(NCMP, LIW8, IPE8, PARENT, IWFR8,
      &           PTRAR, IW, IWL1, IKEEP1,
-     &           IKEEP2, NCMPA, INFO, LP, LPOK)
+     &           IKEEP2, NCMPA, INFO, LP, LPOK,
+     &           WEIGHTUSED, WEIGHTREQUESTED)
       IMPLICIT NONE
       INTEGER,    INTENT(IN)    :: NCMP
       INTEGER(8), INTENT(IN)    :: LIW8
@@ -353,6 +354,8 @@ C
       INTEGER,    INTENT(INOUT) :: INFO(2)
       INTEGER,    INTENT(IN)    :: LP
       LOGICAL,    INTENT(IN)    :: LPOK
+      INTEGER,    INTENT(OUT)   :: WEIGHTUSED
+      INTEGER,    INTENT(IN)    :: WEIGHTREQUESTED
       INTEGER, DIMENSION(:), ALLOCATABLE :: IPE
       INTEGER :: allocok
       IF (IWFR8 .GE. int(huge(IW),8)) THEN
@@ -371,7 +374,8 @@ C
       CALL MUMPS_ICOPY_64TO32(IPE8(1),NCMP+1,IPE)
       CALL MUMPS_SCOTCH( NCMP, int(LIW8), IPE, int(IWFR8),
      &                   PTRAR, IW(1), IWL1, IKEEP1(1),
-     &                   IKEEP2(1), NCMPA )
+     &                   IKEEP2(1), NCMPA,
+     &                   WEIGHTUSED, WEIGHTREQUESTED )
       PARENT(1:NCMP)=IPE(1:NCMP)
       DEALLOCATE(IPE)
       RETURN
@@ -380,7 +384,8 @@ C
      &           NCMP, LIW8, IPE8, PARENT, IWFR8,
      &           PTRAR, IW, IWL1, IKEEP1,
      &           IKEEP2, NCMPA, INFO, LP, LPOK, KEEP10,
-     &           INPLACE64_GRAPH_COPY)
+     &           INPLACE64_GRAPH_COPY,
+     &           WEIGHTUSED, WEIGHTREQUESTED )
       IMPLICIT NONE
       INTEGER,    INTENT(IN)    :: NCMP
       INTEGER(8), INTENT(IN)    :: LIW8
@@ -398,6 +403,8 @@ C
       LOGICAL,    INTENT(IN)    :: LPOK
       INTEGER,    INTENT(IN)    :: KEEP10
       LOGICAL, INTENT(IN)       :: INPLACE64_GRAPH_COPY
+      INTEGER,    INTENT(OUT)   :: WEIGHTUSED
+      INTEGER,    INTENT(IN)    :: WEIGHTREQUESTED
       INTEGER(8), DIMENSION(:), ALLOCATABLE :: 
      &                     PTRAR8, IW8, IWL18, IKEEP18,
      &                     IKEEP28, IPE8_TEMP
@@ -416,7 +423,8 @@ C
      &                        IPE8_TEMP(1), 
      &                        IWFR8,
      &                        PTRAR, IW(1), IWL1, IKEEP1(1),
-     &                        IKEEP2(1), NCMPA )
+     &                        IKEEP2(1), NCMPA,
+     &                        WEIGHTUSED, WEIGHTREQUESTED)
         PARENT(1:NCMP) = int(IPE8_TEMP(1:NCMP))
       ELSE
         IF (INPLACE64_GRAPH_COPY)  THEN
@@ -446,18 +454,25 @@ C
           GOTO 500
          ENDIF
         CALL MUMPS_ICOPY_32TO64(PTRAR,NCMP,PTRAR8)
+        IF (WEIGHTREQUESTED.EQ.1) THEN
+         CALL MUMPS_ICOPY_32TO64(IWL1,NCMP,IWL18)
+        ENDIF
         IF (INPLACE64_GRAPH_COPY) THEN
-         CALL MUMPS_SCOTCH_64( int(NCMP,8), LIW8,     
-     &                        IPE8_TEMP(1),           
-     &                        IWFR8,                  
-     &                        PTRAR8, IW(1), IWL18,    
-     &                        IKEEP1(1), IKEEP2(1), NCMPA )
+         CALL MUMPS_SCOTCH_64( int(NCMP,8), LIW8,   
+     &                        IPE8_TEMP(1),         
+     &                        IWFR8,                
+     &                        PTRAR8, IW(1), IWL18, 
+     &                        IKEEP1(1), IKEEP2(1), NCMPA, 
+     &                        WEIGHTUSED,           
+     &                        WEIGHTREQUESTED )     
         ELSE
-         CALL MUMPS_SCOTCH_64( int(NCMP,8), LIW8,     
-     &                        IPE8_TEMP(1),           
-     &                        IWFR8,                  
-     &                        PTRAR8, IW8, IWL18,     
-     &                        IKEEP1(1), IKEEP2(1), NCMPA )
+         CALL MUMPS_SCOTCH_64( int(NCMP,8), LIW8,   
+     &                        IPE8_TEMP(1),         
+     &                        IWFR8,                
+     &                        PTRAR8, IW8, IWL18,   
+     &                        IKEEP1(1), IKEEP2(1), NCMPA, 
+     &                        WEIGHTUSED,           
+     &                        WEIGHTREQUESTED )     
         ENDIF
         IF (NCMPA .LT. 0) THEN
            IF (LPOK) WRITE(LP,*) 

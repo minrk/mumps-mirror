@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.3.5, released
-#  on Thu Oct 22 09:29:08 UTC 2020
+#  This file is part of MUMPS 5.4.0, released
+#  on Tue Apr 13 15:26:30 UTC 2021
 #
 #
 topdir = ..
@@ -9,28 +9,31 @@ incdir = $(topdir)/include
 
 default: d
 
-.PHONY: default s d c z mumps_lib clean
+.PHONY: default all s d c z clean libcommon
 
-s:
-	$(MAKE) ARITH=s mumps_lib
-d:
-	$(MAKE) ARITH=d mumps_lib
-c:
-	$(MAKE) ARITH=c mumps_lib
-z:
-	$(MAKE) ARITH=z mumps_lib
+all: $(incdir)/mumps_int_def.h libcommon s d c z
+
+libcommon: $(incdir)/mumps_int_def.h
+	$(MAKE) $(libdir)/libmumps_common$(PLAT)$(LIBEXT)
+
+s: $(incdir)/mumps_int_def.h libcommon
+	$(MAKE) ARITH=s $(libdir)/libsmumps$(PLAT)$(LIBEXT)
+
+d: $(incdir)/mumps_int_def.h libcommon
+	$(MAKE) ARITH=d $(libdir)/libdmumps$(PLAT)$(LIBEXT)
+
+c: $(incdir)/mumps_int_def.h libcommon
+	$(MAKE) ARITH=c $(libdir)/libcmumps$(PLAT)$(LIBEXT)
+
+z: $(incdir)/mumps_int_def.h libcommon
+	$(MAKE) ARITH=z $(libdir)/libzmumps$(PLAT)$(LIBEXT)
 
 include $(topdir)/Makefile.inc
 
-mumps_lib:    $(incdir)/mumps_int_def.h \
-              $(libdir)/libmumps_common$(PLAT)$(LIBEXT) \
-              $(libdir)/lib$(ARITH)mumps$(PLAT)$(LIBEXT)
-
-# Build $(incdir)/mumps_int_def.h, needed by mumps_c_types.h
 $(incdir)/mumps_int_def.h: build_mumps_int_def 
 	./build_mumps_int_def > $(incdir)/mumps_int_def.h
 build_mumps_int_def:build_mumps_int_def.o
-	$(CC) $(OPTL) build_mumps_int_def.o -o build_mumps_int_def
+	$(CC) $(OPTC) $(OPTL) build_mumps_int_def.o -o build_mumps_int_def
 
 OBJS_COMMON_MOD = \
         ana_omp_m.o\
@@ -83,6 +86,7 @@ OBJS_COMMON_OTHER = \
         mumps_save_restore_C.o \
         mumps_config_file_C.o \
         mumps_thread_affinity.o \
+        mumps_register_thread.o \
         tools_common.o \
         sol_common.o
 
@@ -221,7 +225,8 @@ $(ARITH)fac_asm_master_ELT_m.o: omp_tps_common_m.o \
                                 $(ARITH)mumps_struc_def.o \
                                 $(ARITH)omp_tps_m.o \
                                 $(ARITH)mumps_comm_buffer.o \
-                                $(ARITH)mumps_load.o
+                                $(ARITH)mumps_load.o 
+
 $(ARITH)fac_asm_master_m.o:     omp_tps_common_m.o \
                                 fac_ibct_data_m.o \
                                 fac_asm_build_sort_index_m.o \
@@ -233,7 +238,7 @@ $(ARITH)fac_asm_master_m.o:     omp_tps_common_m.o \
                                 $(ARITH)mumps_struc_def.o \
                                 $(ARITH)omp_tps_m.o \
                                 $(ARITH)mumps_comm_buffer.o \
-                                $(ARITH)mumps_load.o
+                                $(ARITH)mumps_load.o 
 
 $(ARITH)fac_front_aux.o:        $(ARITH)lr_type.o\
                                 $(ARITH)lr_stats.o\
@@ -341,7 +346,8 @@ $(ARITH)lr_core.o:              $(ARITH)lr_type.o\
                                 $(ARITH)lr_stats.o\
                                 lr_common.o
 
-$(ARITH)lr_stats.o:             $(ARITH)lr_type.o
+$(ARITH)lr_stats.o:             $(ARITH)lr_type.o \
+                                $(ARITH)mumps_struc_def.o
 
 $(ARITH)mumps_comm_buffer.o:    mumps_comm_ibcast.o \
                                 $(ARITH)lr_type.o \
@@ -414,4 +420,4 @@ $(ARITH)mumps_c.o:	mumps_c.c
 	      $(IORDERINGSC) $(ORDERINGSC) -c mumps_c.c $(OUTC)$@
 
 clean:
-	$(RM) *.o *.mod $(incdir)/mumps_int_def.h
+	$(RM) *.o *.mod $(incdir)/mumps_int_def.h build_mumps_int_def

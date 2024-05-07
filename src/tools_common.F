@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -714,6 +714,7 @@ C
       KEEP12 = ICNTL14 
       RETURN
       END SUBROUTINE MUMPS_GET_PERLU
+#if defined(NOTUSED)
       SUBROUTINE MUMPS_BCAST_I8( I8_VALUE, ROOT, MYID, COMM, IERR)
       IMPLICIT NONE
       INCLUDE 'mpif.h'
@@ -728,6 +729,7 @@ C
       I8_VALUE = int( DBLE_VALUE,8)
       RETURN
       END SUBROUTINE MUMPS_BCAST_I8
+#endif
       SUBROUTINE MUMPS_REDUCEI8( IN, OUT, MPI_OP, ROOT, COMM)
       IMPLICIT NONE
       INCLUDE 'mpif.h'
@@ -1000,17 +1002,6 @@ C
       DEALLOCATE(IPOOL,TNSTK)
       RETURN
       END SUBROUTINE MUMPS_SORT_STEP
-#if ! defined(NO_XXNBPR)
-      SUBROUTINE CHECK_EQUAL(NBPR, IWNBPR)
-      IMPLICIT NONE
-      INTEGER, intent(in) :: NBPR, IWNBPR
-      IF (NBPR .NE. IWNBPR) THEN
-        WRITE(*,*) " NBPROCFILS(...), IW(..+XXNBPR_ = ", NBPR, IWNBPR
-        CALL MUMPS_ABORT()
-      ENDIF
-      RETURN
-      END SUBROUTINE CHECK_EQUAL
-#endif
       SUBROUTINE MUMPS_CHECK_COMM_NODES(COMM_NODES, EXIT_FLAG)
       IMPLICIT NONE
       INTEGER, INTENT(IN)  :: COMM_NODES
@@ -1182,3 +1173,59 @@ C
         NNZ_i = int(NZ, 8)
       ENDIF
       END SUBROUTINE MUMPS_GET_NNZ_INTERNAL
+      SUBROUTINE MUMPS_NPIV_CRITICAL_PATH(
+     &     N, NSTEPS, STEP, FRERE, FILS,
+     &     NA, LNA, NE, MAXNPIVTREE )
+      IMPLICIT NONE
+      INTEGER, intent(in) :: N, NSTEPS, LNA
+      INTEGER, intent(in) :: FRERE(NSTEPS), FILS(N), STEP(N)
+      INTEGER, intent(in) :: NA(LNA), NE(NSTEPS)
+      INTEGER, intent(out) :: MAXNPIVTREE
+      INTEGER :: IFATH,INODE,ISON
+      INTEGER :: NPIV,ILEAF,NBLEAF,NBROOT
+      INTEGER, DIMENSION(:) , ALLOCATABLE :: MAXNPIV
+      INTEGER :: I, allocok
+      MAXNPIVTREE = -9999
+      ALLOCATE ( MAXNPIV(NSTEPS), stat=allocok)
+      IF (allocok .gt.0) THEN
+         WRITE(*, *) 'Allocation error in MUMPS_NPIV_CRITICAL_PATH' 
+     &           ,NSTEPS
+         CALL MUMPS_ABORT()
+      ENDIF
+      NBLEAF = NA(1)      
+      NBROOT = NA(2)
+      MAXNPIV = 0
+      NBLEAF = NA(1)
+      NBROOT = NA(2)
+      DO ILEAF = 1, NBLEAF
+        INODE = NA(2+ILEAF)
+ 95     CONTINUE
+        NPIV = 0
+        ISON = INODE
+ 100    NPIV = NPIV + 1
+        ISON = FILS(ISON)
+        IF (ISON .GT. 0 ) GOTO 100
+        ISON = -ISON
+        MAXNPIV( STEP(INODE) ) = NPIV
+        DO I = 1, NE(STEP(INODE))
+          MAXNPIV(STEP(INODE)) = max( MAXNPIV(STEP(INODE)),
+     &                                NPIV + MAXNPIV(STEP(ISON)) )
+          ISON     = FRERE(STEP(ISON))
+        ENDDO
+        IFATH = INODE
+        DO WHILE (IFATH .GT. 0)
+          IFATH = FRERE(STEP(IFATH))
+        ENDDO
+        IFATH = -IFATH
+        IF (IFATH.EQ.0) THEN 
+          MAXNPIVTREE = max(MAXNPIVTREE, MAXNPIV(STEP(INODE)))
+        ELSE 
+          IF (FRERE(STEP(INODE)) .LT. 0) THEN
+            INODE = IFATH
+            GOTO 95
+          ENDIF
+        ENDIF
+      ENDDO
+      DEALLOCATE( MAXNPIV )
+      RETURN
+      END SUBROUTINE MUMPS_NPIV_CRITICAL_PATH

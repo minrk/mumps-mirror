@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -11,7 +11,7 @@ C  released under the CeCILL-C license
 C  (see doc/CeCILL-C_V1-en.txt, doc/CeCILL-C_V1-fr.txt, and
 C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html)
 C
-      MODULE IDLL
+      MODULE MUMPS_IDLL
       IMPLICIT NONE
       TYPE IDLL_NODE_T
           TYPE ( IDLL_NODE_T ), POINTER :: NEXT, PREV
@@ -523,8 +523,8 @@ C
           END DO
           IDLL_2_ARRAY = 0
       END FUNCTION IDLL_2_ARRAY
-      END MODULE IDLL
-      MODULE DDLL
+      END MODULE MUMPS_IDLL
+      MODULE MUMPS_DDLL
       IMPLICIT NONE
       TYPE DDLL_NODE_T
           TYPE ( DDLL_NODE_T ), POINTER :: NEXT, PREV
@@ -1037,4 +1037,4 @@ C
           END DO
           DDLL_2_ARRAY = 0
       END FUNCTION DDLL_2_ARRAY
-      END MODULE DDLL
+      END MODULE MUMPS_DDLL

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -762,3 +762,186 @@ C
       ENDDO
       RETURN
       END SUBROUTINE SMUMPS_ASM_SLAVE_ARROWHEADS
+      SUBROUTINE SMUMPS_SET_PARPIVT1 ( INODE, NFRONT, NASS1, KEEP,
+     &                                 PARPIV_T1)
+       IMPLICIT NONE
+      INTEGER, intent(in)  :: INODE, NFRONT, NASS1, KEEP(500)
+      INTEGER, intent(out) :: PARPIV_T1
+      INTEGER :: NCB
+      LOGICAL, EXTERNAL :: SMUMPS_IS_TRSM_LARGE_ENOUGH, 
+     &                     SMUMPS_IS_GEMM_LARGE_ENOUGH
+      PARPIV_T1 = KEEP(269)
+      IF (PARPIV_T1.EQ.-3) THEN
+        PARPIV_T1 = 0
+      ENDIF
+      IF (PARPIV_T1.EQ.77) THEN
+       PARPIV_T1 = 0
+      ENDIF
+      IF (PARPIV_T1.EQ.0) RETURN
+      NCB = NFRONT-NASS1
+      IF (PARPIV_T1.EQ.-2) THEN
+         IF ( 
+     &   ( SMUMPS_IS_TRSM_LARGE_ENOUGH ( NASS1, NCB
+     &                                 ) 
+     &   )
+     &   .OR. 
+     &   ( SMUMPS_IS_GEMM_LARGE_ENOUGH ( NCB, NCB, NASS1
+     &                                 ) 
+     &   )
+     &       ) THEN
+            PARPIV_T1 = 1
+         ELSE
+            PARPIV_T1 = 0
+         ENDIF
+      ENDIF
+      IF (NCB.EQ.KEEP(253)) THEN
+       PARPIV_T1 = 0
+      ENDIF
+      RETURN
+      END SUBROUTINE SMUMPS_SET_PARPIVT1 
+      LOGICAL FUNCTION SMUMPS_IS_TRSM_LARGE_ENOUGH 
+     &           ( M, N
+     &           )
+      IMPLICIT NONE
+      INTEGER, INTENT(in) :: M, N
+      DOUBLE PRECISION    :: AI 
+      INTEGER, PARAMETER  :: THRES_AI = 400
+      AI = ( dble(M)*dble(N) ) /
+     &     ( dble(M)/dble(2) + dble(2)*dble(N) )
+      SMUMPS_IS_TRSM_LARGE_ENOUGH = (AI.GE.dble(THRES_AI))
+      RETURN
+      END FUNCTION SMUMPS_IS_TRSM_LARGE_ENOUGH
+      LOGICAL FUNCTION SMUMPS_IS_GEMM_LARGE_ENOUGH 
+     &           ( M, N, K
+     &           )
+      IMPLICIT NONE
+      INTEGER, INTENT(in) :: M, N, K
+      DOUBLE PRECISION    :: AI 
+      INTEGER, PARAMETER  :: THRES_AI = 400
+      AI = ( dble(2)*dble(M)*dble(N)*dble(K) ) /
+     &     ( dble(M)*dble(N) + dble(M)*dble(K) + dble(K)*dble(N) )
+      SMUMPS_IS_GEMM_LARGE_ENOUGH = (AI.GE.dble(THRES_AI))
+      RETURN
+      END FUNCTION SMUMPS_IS_GEMM_LARGE_ENOUGH
+      SUBROUTINE SMUMPS_PARPIVT1_SET_MAX ( INODE, 
+     &                                 A, LAELL8, KEEP, NFRONT, 
+     &                                 NASS1, NVSCHUR_K253 )
+     &               
+       IMPLICIT NONE
+      INTEGER(8), intent(in) :: LAELL8
+      INTEGER, intent(in)    :: INODE
+      INTEGER, intent(in)    :: KEEP(500), NFRONT, NASS1, 
+     &                          NVSCHUR_K253
+      REAL, intent(inout) :: A(LAELL8)
+      INTEGER(8) :: APOSMAX, APOS, NASS1_8, NFRONT_8
+      INTEGER    :: I, J, NCB
+      REAL    :: ZERO
+      REAL       :: RMAX
+      PARAMETER( ZERO = 0.0E0 )
+      NASS1_8  = int(NASS1, 8)
+      NFRONT_8 = int(NFRONT, 8)
+      NCB      =  NFRONT-NASS1-NVSCHUR_K253
+       IF ((NCB.EQ.0).AND.(NVSCHUR_K253.EQ.0)) CALL MUMPS_ABORT()
+       APOSMAX  = LAELL8 - NASS1_8 + 1_8
+       A(APOSMAX:APOSMAX+NASS1_8-1_8)= ZERO
+       IF (NCB.EQ.0) RETURN
+      IF (KEEP(50).EQ.2) THEN
+       APOS = 1_8 + (NASS1_8*NFRONT_8)
+       DO I = 1, NCB
+        DO J = 1, NASS1
+         RMAX = real(A(APOSMAX+int(J,8)-1_8))
+         RMAX = max(RMAX, abs(A(APOS+int(J,8)-1_8)))
+         A(APOSMAX+int(J,8)-1_8) = RMAX
+        ENDDO
+        APOS = APOS+NFRONT_8
+       ENDDO
+      ELSE
+       APOS = 1_8 + NASS1_8
+       DO I = 1, NASS1
+        RMAX =  real(A(APOSMAX+int(I,8)-1_8))
+        DO J = 1, NCB
+         RMAX =  max(RMAX, abs(A(APOS+int(J,8)-1)))
+        ENDDO
+        A(APOSMAX+int(I,8)-1_8) = RMAX
+        APOS = APOS+NFRONT_8
+       ENDDO
+      ENDIF
+      CALL SMUMPS_UPDATE_PARPIV_ENTRIES ( INODE,
+     &     KEEP, A(APOSMAX), NASS1)
+      RETURN
+      END SUBROUTINE SMUMPS_PARPIVT1_SET_MAX
+      SUBROUTINE SMUMPS_UPDATE_PARPIV_ENTRIES ( INODE,
+     &           KEEP, PARPIV, LPARPIV)
+      IMPLICIT NONE
+      INTEGER, intent(in)   :: INODE, LPARPIV, KEEP(500)
+      REAL, intent(inout):: PARPIV(LPARPIV)
+      INTEGER    :: I
+      REAL       :: EPS, RMIN, RZERO, RTMP
+      LOGICAL    :: UPDATE_PARPIV
+      PARAMETER( RZERO = 0.0E0 )
+      UPDATE_PARPIV=.FALSE.
+      RMIN = huge(RZERO)
+      DO I = 1, LPARPIV
+        RTMP = real(PARPIV(I))
+        IF (RTMP.GT.RZERO) THEN
+         RMIN = min(RMIN,  RTMP)
+        ELSE 
+         UPDATE_PARPIV=.TRUE.
+        ENDIF
+      ENDDO
+      IF (UPDATE_PARPIV) THEN
+       IF (RMIN.LT.huge(RMIN)) THEN
+        EPS  = sqrt(epsilon(RZERO))
+        RMIN = min(RMIN, EPS)
+        DO I = 1, LPARPIV
+          RTMP = real(PARPIV(I))
+          IF (real(PARPIV(I)).EQ.RZERO) THEN
+            PARPIV(I) = -RMIN
+          ENDIF
+        ENDDO
+       ENDIF
+      ENDIF
+      RETURN
+      END SUBROUTINE SMUMPS_UPDATE_PARPIV_ENTRIES
+      SUBROUTINE SMUMPS_PARPIVT1_SET_NVSCHUR_and_MAX
+     &    (N, INODE, IW, LIW, A, LA, KEEP, PERM,
+     &     IOLDPS, POSELT, 
+     &     NFRONT, NASS1, PARPIV_T1)
+      USE SMUMPS_FAC_FRONT_AUX_M, 
+     &                      ONLY: SMUMPS_COMPUTE_SIZE_SCHUR_IN_FRONT
+      IMPLICIT NONE
+      INTEGER, intent(in)    :: N, INODE, LIW, IOLDPS,
+     &                          NFRONT, NASS1
+      INTEGER(8), intent(in) :: LA, POSELT
+      INTEGER, intent(in)    :: IW (LIW), PERM(N), KEEP(500)
+      REAL, intent(inout) :: A(LA)
+      INTEGER, intent(inout) :: PARPIV_T1
+      INTEGER     :: NVSCHUR_K253, IROW_L
+      INTEGER(8)  :: LAELL8, NFRONT8
+      INCLUDE 'mumps_headers.h'
+      IF (PARPIV_T1.EQ.-999) THEN
+        CALL SMUMPS_SET_PARPIVT1 ( INODE, NFRONT, NASS1, KEEP, 
+     &                             PARPIV_T1) 
+      ELSE IF ((PARPIV_T1.NE.0.AND.PARPIV_T1.NE.1)) THEN
+       PARPIV_T1 = 0
+      ENDIF
+      IF (PARPIV_T1.NE.0) THEN
+          IF ((KEEP(114).EQ.1) .AND. (KEEP(116).GT.0) ) THEN
+             IROW_L = IOLDPS+6+KEEP(IXSZ)+NASS1
+             CALL SMUMPS_COMPUTE_SIZE_SCHUR_IN_FRONT ( 
+     &                   N, 
+     &                   NFRONT-NASS1, 
+     &                   KEEP(116), 
+     &                   IW(IROW_L), PERM, 
+     &                   NVSCHUR_K253 )
+          ELSE
+             NVSCHUR_K253 = KEEP(253)
+          ENDIF
+          NFRONT8 = int(NFRONT,8)
+          LAELL8  = NFRONT8 * NFRONT8 + int(NASS1,8)
+          CALL SMUMPS_PARPIVT1_SET_MAX ( INODE, 
+     &                            A(POSELT), LAELL8, KEEP, 
+     &                            NFRONT, NASS1, NVSCHUR_K253 )
+      ENDIF
+      RETURN
+      END SUBROUTINE SMUMPS_PARPIVT1_SET_NVSCHUR_and_MAX

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -25,6 +25,7 @@ C
      &     DKEEP,PIVNUL_LIST,LPN_LIST, 
      &     IWPOS 
      &               , LRGROUPS
+     &               , PERM
      &     )
       USE CMUMPS_FAC_FRONT_AUX_M
       USE CMUMPS_OOC
@@ -54,7 +55,7 @@ C
       INTEGER LPN_LIST
       INTEGER PIVNUL_LIST(LPN_LIST)
       REAL DKEEP(230)
-      INTEGER :: LRGROUPS(N)
+      INTEGER :: LRGROUPS(N), PERM(N)
       INTEGER INOPV, IFINB, NFRONT, NPIV, IBEG_BLOCK, IEND_BLOCK
       INTEGER NASS, NBKJIB_ORIG, XSIZE
       INTEGER NBLR_ORIG, IBEG_BLR, IEND_BLR
@@ -75,15 +76,19 @@ C
       INTEGER TYPEF_LOC
       TYPE(IO_BLOCK) :: MonBloc 
       LOGICAL LAST_CALL
+      INTEGER PARPIV_T1
       INTEGER CURRENT_BLR
       LOGICAL LR_ACTIVATED
       LOGICAL COMPRESS_CB, COMPRESS_PANEL
-      LOGICAL OOCWRITE_COMPATIBLE_WITH_BLR
+      LOGICAL OOCWRITE_COMPATIBLE_WITH_BLR,
+     &        OOC_EFFECTIVE_ON_FRONT, 
+     &        OOC_EFF_AND_WRITE_BYPANEL
       INTEGER :: K473_LOC
       INTEGER FIRST_BLOCK, LAST_BLOCK
       INTEGER INFO_TMP(2), MAXI_RANK
       INTEGER HF, NPARTSASS, NPARTSCB, NB_BLR
       INTEGER MAXI_CLUSTER, LWORK, NELIM, NELIM_LOC
+      INTEGER :: IROW_L, NVSCHUR
       INTEGER, POINTER, DIMENSION(:)          :: PTDummy
       INTEGER, POINTER, DIMENSION(:)          :: BEGS_BLR
       TYPE(LRB_TYPE), POINTER, DIMENSION(:,:) :: CB_LRB
@@ -106,6 +111,8 @@ C
       INTEGER :: MY_NUM
       TYPE(LRB_TYPE), POINTER, DIMENSION(:) :: NEXT_BLR_U, NEXT_BLR_L 
       INTEGER, POINTER, DIMENSION(:) :: BEGS_BLR_STATIC
+      COMPLEX :: ZERO
+      PARAMETER (ZERO=(0.0E0,0.0E0))
       INCLUDE 'mumps_headers.h'
       INTEGER(8):: KEEP8TMPCOPY, KEEP873COPY
       FIRST_BLOCK = -99999
@@ -130,7 +137,7 @@ C
       ELSE
         UUTEMP=UU
       ENDIF
-      PIVOT_OPTION = KEEP(468)
+      PIVOT_OPTION  = KEEP(468)
       LRTRSM_OPTION = KEEP(475)
       LAFAC  = -9999_8  
       XSIZE      = KEEP(IXSZ)
@@ -163,24 +170,23 @@ C
      &          ( .NOT.LR_ACTIVATED.OR.(.NOT.COMPRESS_PANEL).OR.
      &            (KEEP(486).NE.2) 
      &          )
-      IF (KEEP(378).EQ.1) THEN
-        IF ( UUTEMP == 0.0E0 .AND.
-     &    .NOT.( 
-     &      (KEEP(201).EQ.1).AND. OOCWRITE_COMPATIBLE_WITH_BLR
-     &         ) 
-     &     )
-     &     THEN  
-          PIVOT_OPTION = 0
-        ENDIF
+      OOC_EFFECTIVE_ON_FRONT= ((KEEP(201).EQ.1).AND. 
+     &                         OOCWRITE_COMPATIBLE_WITH_BLR)
+      CALL CMUMPS_SET_PARPIVT1 ( INODE, NFRONT, NASS, KEEP, PARPIV_T1)
+      IF (UUTEMP.EQ.ZERO) THEN 
+        PIVOT_OPTION=0
+      ELSE IF (PARPIV_T1.NE.0) THEN
+         PIVOT_OPTION = min(PIVOT_OPTION,2)
       ENDIF
       IF (LR_ACTIVATED) THEN
         IF (LRTRSM_OPTION.EQ.3) THEN
           PIVOT_OPTION = MIN(PIVOT_OPTION,1)
         ELSEIF (LRTRSM_OPTION.EQ.2) THEN
-          PIVOT_OPTION = 2
-        ELSE
-          PIVOT_OPTION = 3
+          PIVOT_OPTION = MIN(PIVOT_OPTION, 2)
         ENDIF
+      ENDIF
+      IF (PIVOT_OPTION.LE.1) THEN
+         PARPIV_T1 = 0
       ENDIF
       IF (NASS.LT.KEEP(4)) THEN
         NBKJIB_ORIG = NASS
@@ -194,13 +200,25 @@ C
       ELSE
           NBLR_ORIG  = -9999 
       ENDIF
+      IF ((KEEP(114).EQ.1) .AND. 
+     &    (KEEP(116).GT.0) .AND. ((NFRONT-NASS-KEEP(253)).GT.0) 
+     &   ) THEN
+         IROW_L = IOLDPS+6+XSIZE+NASS
+         CALL CMUMPS_COMPUTE_SIZE_SCHUR_IN_FRONT ( 
+     &     N, 
+     &     NFRONT-NASS-KEEP(253), 
+     &     KEEP(116), 
+     &     IW(IROW_L), PERM, 
+     &     NVSCHUR )
+      ELSE
+         NVSCHUR = 0
+      ENDIF
       IEND_BLOCK  = 0
       IEND_BLR    = 0
       CURRENT_BLR = 0
-      IF ( (KEEP(201).EQ.1) .AND. OOCWRITE_COMPATIBLE_WITH_BLR )
-     &          THEN 
-          CALL MUMPS_GETI8(LAFAC,IW(IOLDPS+XXR))
-          LIWFAC    = IW(IOLDPS+XXI)
+      CALL MUMPS_GETI8(LAFAC,IW(IOLDPS+XXR))
+      LIWFAC    = IW(IOLDPS+XXI)
+      IF ( OOC_EFFECTIVE_ON_FRONT ) THEN 
           LNextPiv2beWritten = 1 
           UNextPiv2beWritten = 1 
           PP_FIRST2SWAP_L = LNextPiv2beWritten 
@@ -229,10 +247,8 @@ C
              ENDIF
       ELSE IF (KEEP(486).NE.0) THEN
       ENDIF
-      IF ( (KEEP(201).EQ.1).AND.OOCWRITE_COMPATIBLE_WITH_BLR )
-     &     THEN  
-       IF (PIVOT_OPTION.LT.3) PIVOT_OPTION=3
-      ENDIF
+      OOC_EFF_AND_WRITE_BYPANEL  = ( (PIVOT_OPTION.GE.3) .AND.
+     &                                     OOC_EFFECTIVE_ON_FRONT )
       HF = 6 + IW(IOLDPS+5+XSIZE)+XSIZE
       IF (LR_ACTIVATED) THEN
          CALL GET_CUT(IW(IOLDPS+HF:IOLDPS+HF+NFRONT-1), NASS,
@@ -440,7 +456,8 @@ C
      &      PP_FIRST2SWAP_U,  MonBloc%LastPanelWritten_U,
      &      PP_LastPIVRPTRFilled_U,
      &      PIVOT_OPTION, LR_ACTIVATED, IEND_BLR,
-     &      Inextpiv, OOCWRITE_COMPATIBLE_WITH_BLR
+     &      Inextpiv, OOC_EFFECTIVE_ON_FRONT, 
+     &      NVSCHUR, PARPIV_T1
      &      )
             IF (IFLAG.LT.0) GOTO 500  
           IF (INOPV.EQ.1) THEN
@@ -458,14 +475,15 @@ C
             ENDIF
             CALL CMUMPS_FAC_MQ(IBEG_BLOCK, IEND_BLOCK,
      &              NFRONT, NASS, IW(IOLDPS+1+XSIZE),
-     &              LAST_COL, A, LA, POSELT, IFINB)
+     &              LAST_COL, A, LA, POSELT, IFINB,
+     &              LR_ACTIVATED
+     &              )
             IW(IOLDPS+1+XSIZE) = IW(IOLDPS+1+XSIZE) + 1
             IF (IFINB.EQ.0) THEN
               GOTO 50 
             ENDIF
           ENDIF
-          IF ( (KEEP(201).EQ.1).AND.OOCWRITE_COMPATIBLE_WITH_BLR
-     &        .AND. (PIVOT_OPTION.GE.3) ) THEN
+          IF ( OOC_EFF_AND_WRITE_BYPANEL ) THEN
             MonBloc%LastPiv= IW(IOLDPS+1+XSIZE)
             STRAT          = STRAT_TRY_WRITE
             LAST_CALL      = .FALSE.
@@ -494,7 +512,9 @@ C
      &            A, LA, POSELT, 
      &            -66666, 
      &            .TRUE., .FALSE., .TRUE., 
-     &            .FALSE. ) 
+     &            .FALSE., 
+     &            LR_ACTIVATED      
+     &            )
           ENDIF
         END DO 
         NPIV   =  IW(IOLDPS+1+XSIZE)
@@ -515,7 +535,8 @@ C
             CALL CMUMPS_FAC_SQ(IBEG_BLR, IEND_BLR,
      &            NPIV, NFRONT, LAST_ROW, LAST_COL, 
      &            A, LA, POSELT, IEND_BLR, .TRUE., (PIVOT_OPTION.LT.2),
-     &            .TRUE., .FALSE. ) 
+     &            .TRUE., .FALSE.,  
+     &            LR_ACTIVATED)       
           ENDIF
         ELSE
           NELIM = IEND_BLR - NPIV
@@ -626,7 +647,8 @@ C
      &            A, LA, POSELT, 
      &            FIRST_COL, CALL_LTRSM,
      &            CALL_UTRSM, .FALSE.,
-     &            .FALSE. ) 
+     &            .FALSE.,  
+     &            LR_ACTIVATED)    
         ENDIF
 #if defined(BLR_MT)          
 #endif
@@ -707,12 +729,6 @@ C
      &                BEGS_BLR, CURRENT_BLR, BLR_U, NB_BLR, 
      &                FIRST_BLOCK, IBEG_BLR, NPIV, NELIM)
             ENDIF
-#if defined(BLR_MT)          
-!$OMP MASTER
-#endif          
-#if defined(BLR_MT)          
-!$OMP END MASTER
-#endif          
           ENDIF
 #if defined(BLR_MT)          
 !$OMP BARRIER
@@ -776,12 +792,6 @@ C
 !$OMP BARRIER
 #endif
           IF (IFLAG.LT.0) GOTO 400
-#if defined(BLR_MT)
-!$OMP MASTER
-#endif
-#if defined(BLR_MT)          
-!$OMP END MASTER
-#endif          
           IF (KEEP(486).NE.2) THEN
             LAST_BLOCK = NB_BLR
           ELSEIF(UU.GT.0) THEN
@@ -795,13 +805,9 @@ C
      &            NFRONT, .TRUE.,
      &             BEGS_BLR(CURRENT_BLR),
      &             BEGS_BLR(CURRENT_BLR+1), 
-     &             NB_BLR, BLR_L, CURRENT_BLR, 'V',
+     &             NB_BLR, BLR_L, CURRENT_BLR, 'V', 1,
      &             BEG_I_IN=FIRST_BLOCK, END_I_IN=LAST_BLOCK)
 #if defined(BLR_MT)          
-!$OMP MASTER
-#endif          
-#if defined(BLR_MT)          
-!$OMP END MASTER
 #endif          
           ENDIF
           IF (LRTRSM_OPTION.GE.2) THEN
@@ -814,14 +820,8 @@ C
      &            NFRONT, .TRUE.,
      &             BEGS_BLR(CURRENT_BLR),
      &             BEGS_BLR(CURRENT_BLR+1), 
-     &             NB_BLR, BLR_U, CURRENT_BLR, 'H',
+     &             NB_BLR, BLR_U, CURRENT_BLR, 'H', 1,
      &             BEG_I_IN=FIRST_BLOCK, END_I_IN=LAST_BLOCK)
-#if defined(BLR_MT)          
-!$OMP MASTER
-#endif          
-#if defined(BLR_MT)          
-!$OMP END MASTER
-#endif          
           ENDIF
  400      CONTINUE
 #if defined(BLR_MT)          
@@ -844,8 +844,7 @@ C
           NULLIFY(BLR_L)
           NULLIFY(BLR_U)
         ENDIF
-        IF ( (KEEP(201).EQ.1) .AND. OOCWRITE_COMPATIBLE_WITH_BLR )
-     &                THEN  
+        IF ( OOC_EFF_AND_WRITE_BYPANEL ) THEN
              IF (PIVOT_OPTION.LT.4) THEN
                TYPEF_LOC = TYPEF_U
              ELSE
@@ -1021,10 +1020,6 @@ C
               ENDDO
 #if defined(BLR_MT)
 !$OMP BARRIER
-!$OMP MASTER
-#endif
-#if defined(BLR_MT)
-!$OMP END MASTER
 #endif
  445          CONTINUE
             ENDIF 
@@ -1053,10 +1048,6 @@ C
      &          CB_LRB, KEEP8)
 #if defined(BLR_MT)
 !$OMP BARRIER
-!$OMP MASTER
-#endif
-#if defined(BLR_MT)
-!$OMP END MASTER
 #endif
           ENDIF
           IF (IFLAG.LT.0) GOTO 450
@@ -1102,14 +1093,10 @@ C
      &      DKEEP(12), KEEP(466), KEEP(484), KEEP(489), CB_LRB,
      &      WORK, TAU, JPVT, LWORK, RWORK, BLOCK,
      &      MAXI_CLUSTER, KEEP8, 
-     &      -9999, -9999, KEEP(1), 
+     &      -9999, -9999, -9999, KEEP(1), 
      &      NELIM=NELIM)
 #if defined(BLR_MT)
 !$OMP BARRIER
-!$OMP MASTER
-#endif
-#if defined(BLR_MT)
-!$OMP END MASTER
 #endif
           ENDIF
  450      CONTINUE          
@@ -1139,15 +1126,14 @@ C
      &     PP_LastPIVRPTRFilled_L, PP_LastPIVRPTRFilled_U,
      &     
      &     XSIZE, SEUIL, UU, DKEEP, KEEP8, KEEP, IFLAG,
-     &     OOCWRITE_COMPATIBLE_WITH_BLR )
+     &     OOC_EFFECTIVE_ON_FRONT, NVSCHUR )
        ENDIF
        IF (KEEP(486).NE.0) THEN
          IF (.NOT.LR_ACTIVATED) THEN
            CALL UPD_FLOP_FRFRONTS(NFRONT, NPIV, NASS, 0, 1)
          ENDIF
        ENDIF
-      IF ( (KEEP(201).EQ.1) .AND. OOCWRITE_COMPATIBLE_WITH_BLR )
-     &                THEN 
+      IF ( OOC_EFFECTIVE_ON_FRONT ) THEN
           STRAT            = STRAT_WRITE_MAX   
           MonBloc%Last     = .TRUE.
           MonBloc%LastPiv  = IW(IOLDPS+1+XSIZE)
@@ -1210,6 +1196,5 @@ C
         ENDIF
       ENDIF
       NPVW = NPVW + IW(IOLDPS+1+XSIZE)
-      RETURN
       END SUBROUTINE CMUMPS_FAC1_LU
       END MODULE CMUMPS_FAC1_LU_M

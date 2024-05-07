@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -56,8 +56,6 @@ C
 #if defined(BLR_MT)
       write(MPG,*) "MUMPS compiled with option -DBLR_MT"
 #endif
-      write(MPG,*) "This MUMPS version includes code for SAVE_RESTORE"
-      write(MPG,*) "This MUMPS version includes code for DIST_RHS"
 #if defined(NODYNAMICCB)
       write(MPG,*) "MUMPS compiled with option -DNODYNAMICCB"
 #endif

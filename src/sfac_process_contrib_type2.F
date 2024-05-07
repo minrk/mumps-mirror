@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -16,7 +16,7 @@ C
      &   LBUFR_BYTES, PROCNODE_STEPS,
      &   SLAVEF, IWPOS, IWPOSCB, IPTRLU, LRLU, LRLUS, POSFAC,
      &   N, IW, LIW, A, LA, PTRIST, PTLUST, PTRFAC, PTRAST,
-     &   STEP, PIMASTER, PAMASTER, NBPROCFILS,
+     &   STEP, PIMASTER, PAMASTER, PERM,
      &   COMP, root, OPASSW, OPELIW, ITLOC, RHS_MUMPS, NSTK_S,
      &   FILS, DAD, PTRARW, PTRAIW, INTARR, DBLARR, NBFIN,
      &   MYID, COMM, ICNTL, KEEP,KEEP8,DKEEP, IFLAG, IERROR,
@@ -51,7 +51,7 @@ C
       INTEGER(8) :: PTRFAC(KEEP(28))
       INTEGER STEP(N), PIMASTER(KEEP(28))
       INTEGER PTLUST( KEEP(28) )
-      INTEGER NBPROCFILS( KEEP(28) )
+      INTEGER PERM(N)
       INTEGER IW( LIW )
       REAL A( LA )
       INTEGER, intent(in) :: LRGROUPS(N)
@@ -70,7 +70,6 @@ C
       INTEGER ISTEP_TO_INIV2(KEEP(71)), 
      &        TAB_POS_IN_PERE(SLAVEF+2,max(1,KEEP(56)))
       INTEGER NFS4FATHER
-      INCLUDE 'mumps_headers.h'
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'
       INTEGER MUMPS_PROCNODE, MUMPS_TYPESPLIT
@@ -89,9 +88,7 @@ C
       INTEGER ISHIFT_BUFR, LBUFR_LOC, LBUFR_BYTES_LOC
       INTEGER TYPESPLIT
       INTEGER DECR
-#if ! defined(NO_XXNBPR)
       INTEGER :: INBPROCFILS_SON 
-#endif
       LOGICAL :: CB_IS_LR
       INTEGER :: CB_IS_LR_INT, NB_BLR_COLS, allocok,
      &           NBROWS_PACKET_2PACK, PANEL_BEG_OFFSET
@@ -101,6 +98,9 @@ C
       TYPE (LRB_TYPE), ALLOCATABLE, TARGET :: BLR_CB(:)
       INTEGER(8) :: IACHK, SIZFR8, DYN_SIZE
       REAL, DIMENSION(:), POINTER :: DYNPTR
+      INTEGER    :: NSLAVES, NFRONT, NASS1, IOLDPS, PARPIV_T1
+      INTEGER(8) :: POSELT
+      INCLUDE 'mumps_headers.h'
       POSITION = 0
       CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION, INODE, 1,
      &                 MPI_INTEGER, COMM, IERR )
@@ -138,7 +138,7 @@ C
      &     PTRIST, PTLUST, PTRFAC,
      &     PTRAST, STEP, PIMASTER, PAMASTER, NSTK_S, COMP,
      &     IFLAG, IERROR, COMM,
-     &     NBPROCFILS, IPOOL, LPOOL, LEAF,
+     &     PERM, IPOOL, LPOOL, LEAF,
      &     NBFIN, MYID, SLAVEF,
      &
      &     root, OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS, DAD,
@@ -199,11 +199,8 @@ C
          END DO
          IF ( SLAVE_NODE ) THEN
             IF ( NBROWS_ALREADY_SENT + NBROWS_PACKET == NBROW ) THEN
-              NBPROCFILS(STEP(INODE))=NBPROCFILS(STEP(INODE))-NBROW
-#if ! defined(NO_XXNBPR)
               IW(PTRIST(STEP(INODE))+XXNBPR) =
      &        IW(PTRIST(STEP(INODE))+XXNBPR) - NBROW
-#endif
             ENDIF
             IF ( KEEP(55) .eq. 0 ) THEN               
                CALL SMUMPS_ASM_SLAVE_TO_SLAVE_INIT
@@ -241,7 +238,7 @@ C
                 LRB => BLR_CB(I)
                 CALL SMUMPS_MPI_UNPACK_LRB(BUFR, LBUFR, 
      &             LBUFR_BYTES, POSITION, LRB, KEEP8, 
-     &             COMM, IERR, IFLAG, IERROR)
+     &             COMM, IFLAG, IERROR)
               ENDDO
               NBROWS_PACKET_2PACK = max(NBROWS_PACKET,BLR_CB(1)%M)
               LA_TEMP = NBROWS_PACKET_2PACK*LROW
@@ -257,7 +254,7 @@ C
 #endif
               CALL SMUMPS_DECOMPRESS_PANEL(A_TEMP, LA_TEMP, 1_8,
      &              LROW, LROW, .TRUE., 1, 1, 
-     &              NB_BLR_COLS, BLR_CB, 0, 'V', 
+     &              NB_BLR_COLS, BLR_CB, 0, 'V', 3,
      &              CBASM_TOFIX_IN=.TRUE.,
      &              ONLY_NELIM_IN=NBROWS_PACKET_2PACK-PANEL_BEG_OFFSET)
 #if defined(BLR_MT)             
@@ -332,7 +329,7 @@ C
                 LRB => BLR_CB(I)
                 CALL SMUMPS_MPI_UNPACK_LRB(BUFR, LBUFR, 
      &             LBUFR_BYTES, POSITION, LRB, KEEP8, 
-     &             COMM, IERR, IFLAG, IERROR)
+     &             COMM, IFLAG, IERROR)
               ENDDO
               NBROWS_PACKET_2PACK = max(NBROWS_PACKET,BLR_CB(1)%M)
               LA_TEMP = NBROWS_PACKET_2PACK*LROW
@@ -348,7 +345,7 @@ C
 #endif
               CALL SMUMPS_DECOMPRESS_PANEL(A_TEMP, LA_TEMP, 1_8,
      &              LROW, LROW, .TRUE., 1, 1, 
-     &              NB_BLR_COLS, BLR_CB, 0, 'V', 
+     &              NB_BLR_COLS, BLR_CB, 0, 'V', 4,
      &              CBASM_TOFIX_IN=.TRUE., 
      &              ONLY_NELIM_IN=NBROWS_PACKET_2PACK-PANEL_BEG_OFFSET)
 #if defined(BLR_MT)             
@@ -433,11 +430,8 @@ C
           ENDIF
           IF (NBROWS_ALREADY_SENT + NBROWS_PACKET == NBROW ) THEN
             DECR = 1
-            NBPROCFILS(STEP(INODE)) = NBPROCFILS(STEP(INODE)) - DECR
-            NBPROCFILS(STEP(ISON))  = NBPROCFILS(STEP(ISON)) - DECR
             ISTCHK = PIMASTER(STEP(ISON))
             SAME_PROC = ISTCHK .LT. IWPOSCB
-#if ! defined(NO_XXNBPR)
             IW(PTLUST(STEP(INODE))+XXNBPR) =
      &      IW(PTLUST(STEP(INODE))+XXNBPR) - DECR
             IF (SAME_PROC) THEN
@@ -446,12 +440,7 @@ C
               INBPROCFILS_SON = PIMASTER(STEP(ISON))+XXNBPR
             ENDIF
             IW(INBPROCFILS_SON) = IW(INBPROCFILS_SON) - DECR
-#endif
-#if ! defined(NO_XXNBPR)
             IF ( IW(INBPROCFILS_SON) .EQ. 0 ) THEN
-#else
-            IF ( NBPROCFILS(STEP(ISON)) .EQ. 0 ) THEN
-#endif
                IF (SAME_PROC) THEN
                   CALL SMUMPS_RESTORE_INDICES(N, ISON, INODE, IWPOSCB,
      &                 PIMASTER, PTLUST, IW, LIW, STEP, KEEP,KEEP8)
@@ -476,11 +465,19 @@ C
      &                                      KEEP(405).EQ.1, KEEP8 )
                ENDIF
             ENDIF
-#if ! defined(NO_XXNBPR)
             IF (IW(PTLUST(STEP(INODE))+XXNBPR) .EQ. 0) THEN
-#else
-            IF ( NBPROCFILS(STEP(INODE)) .EQ. 0 ) THEN
-#endif
+             IOLDPS = PTLUST(STEP(INODE))
+             NSLAVES= IW(IOLDPS+5+KEEP(IXSZ))
+             IF (NSLAVES.EQ.0) THEN 
+               NFRONT = IW(IOLDPS+KEEP(IXSZ))
+               NASS1  = iabs(IW(IOLDPS + 2+KEEP(IXSZ)))
+               POSELT = PTRAST(STEP(INODE))
+               PARPIV_T1 = -999 
+               CALL SMUMPS_PARPIVT1_SET_NVSCHUR_and_MAX (
+     &           N, INODE, IW, LIW, A, LA, KEEP, PERM,
+     &            IOLDPS, POSELT, 
+     &            NFRONT, NASS1, PARPIV_T1)
+             ENDIF
                CALL SMUMPS_INSERT_POOL_N( N, IPOOL, LPOOL,
      &              PROCNODE_STEPS,
      &              SLAVEF, KEEP(199), KEEP(28), KEEP(76), KEEP(80),

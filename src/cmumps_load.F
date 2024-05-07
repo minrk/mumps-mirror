@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -311,7 +311,8 @@ C
      &  KEEP,KEEP8,ICNTL,
      &  CAND_OF_NODE,
      &  MEM_DISTRIB, NCB, NFRONT, NSLAVES_NODE,
-     &  TAB_POS, SLAVES_LIST, SIZE_SLAVES_LIST,INODE)
+     &  TAB_POS, SLAVES_LIST, SIZE_SLAVES_LIST,INODE
+     &)
        IMPLICIT NONE
       INTEGER, intent(in) :: KEEP(500),SIZE_SLAVES_LIST
       INTEGER(8) KEEP8(150)
@@ -383,7 +384,8 @@ C
      &        CAND_OF_NODE,
      &        MEM_DISTRIB, NCB, NFRONT, NSLAVES_NODE,
      &        TAB_POS, SLAVES_LIST, SIZE_SLAVES_LIST,MYID,INODE,
-     &        TAB_MAXS,TMP_ARRAY,DUMMY1,DUMMY2)
+     &        TAB_MAXS,TMP_ARRAY,DUMMY1,DUMMY2
+     &        )
       ELSE
         WRITE(*,*) "Strategy 6 not implemented"
         CALL MUMPS_ABORT()
@@ -466,7 +468,7 @@ C
       INTEGER(8), intent(in) :: MAXS
       INTEGER K34_LOC
       INTEGER(8) :: I8SIZE
-      INTEGER allocok, IERR, i, BUF_LOAD_SIZE
+      INTEGER allocok, IERR, IERR_MPI, i, BUF_LOAD_SIZE
       DOUBLE PRECISION :: MAX_SBTR
       DOUBLE PRECISION ZERO
       DOUBLE PRECISION MEMORY_SENT
@@ -557,7 +559,7 @@ C
          ENDIF
       ENDIF
       K50      = id%KEEP(50)
-      CALL MPI_COMM_RANK( COMM_LD, MYID, IERR )
+      CALL MPI_COMM_RANK( COMM_LD, MYID, IERR_MPI )
       NPROCS = id%NSLAVES
       DM_SUMLU=ZERO
       POOL_SIZE=0
@@ -1177,12 +1179,13 @@ C
       IMPLICIT NONE
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'
-      INTEGER IERR, MSGTAG, MSGLEN, MSGSOU,COMM
+      INTEGER MSGTAG, MSGLEN, MSGSOU,COMM
+      INTEGER IERR_MPI
       INTEGER :: STATUS(MPI_STATUS_SIZE)
       LOGICAL FLAG
  10   CONTINUE
       CALL MPI_IPROBE( MPI_ANY_SOURCE, MPI_ANY_TAG, COMM,
-     &     FLAG, STATUS, IERR )
+     &     FLAG, STATUS, IERR_MPI )
       IF (FLAG) THEN
         KEEP_LOAD(65)=KEEP_LOAD(65)+1
         KEEP_LOAD(267)=KEEP_LOAD(267)-1
@@ -1193,14 +1196,14 @@ C
      &    MSGTAG
           CALL MUMPS_ABORT()
         ENDIF
-        CALL MPI_GET_COUNT(STATUS, MPI_PACKED, MSGLEN, IERR)
+        CALL MPI_GET_COUNT(STATUS, MPI_PACKED, MSGLEN, IERR_MPI)
         IF ( MSGLEN > LBUF_LOAD_RECV_BYTES ) THEN
           write(*,*) "Internal error 2 in CMUMPS_LOAD_RECV_MSGS",
      &    MSGLEN, LBUF_LOAD_RECV_BYTES
           CALL MUMPS_ABORT()
         ENDIF
         CALL MPI_RECV( BUF_LOAD_RECV, LBUF_LOAD_RECV_BYTES,
-     &    MPI_PACKED, MSGSOU, MSGTAG, COMM_LD, STATUS, IERR)
+     &    MPI_PACKED, MSGSOU, MSGTAG, COMM_LD, STATUS, IERR_MPI)
         CALL CMUMPS_LOAD_PROCESS_MESSAGE( MSGSOU, BUF_LOAD_RECV,
      &  LBUF_LOAD_RECV, LBUF_LOAD_RECV_BYTES )
         GOTO 10
@@ -1214,7 +1217,8 @@ C
       INTEGER MSGSOU, LBUFR, LBUFR_BYTES
       INTEGER BUFR( LBUFR )
       INCLUDE 'mpif.h'
-      INTEGER POSITION, IERR, WHAT, NSLAVES, i
+      INTEGER POSITION, WHAT, NSLAVES, i
+      INTEGER IERR_MPI
       DOUBLE PRECISION LOAD_RECEIVED
       INTEGER INODE_RECEIVED,NCB_RECEIVED
       DOUBLE PRECISION SURF
@@ -1225,30 +1229,30 @@ C
       POSITION = 0
       CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     WHAT, 1, MPI_INTEGER,
-     &     COMM_LD, IERR )
+     &     COMM_LD, IERR_MPI )
       IF ( WHAT == 0 ) THEN
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     LOAD_RECEIVED, 1,
      &     MPI_DOUBLE_PRECISION,
-     &     COMM_LD, IERR )
+     &     COMM_LD, IERR_MPI )
       LOAD_FLOPS( MSGSOU ) = LOAD_FLOPS(MSGSOU) + LOAD_RECEIVED
         IF ( BDC_MEM ) THEN
           CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &       LOAD_RECEIVED, 1, MPI_DOUBLE_PRECISION,
-     &       COMM_LD, IERR )
+     &       COMM_LD, IERR_MPI )
           DM_MEM(MSGSOU)  = DM_MEM(MSGSOU) + LOAD_RECEIVED
           MAX_PEAK_STK=max(MAX_PEAK_STK,DM_MEM(MSGSOU))
         END IF
         IF(BDC_SBTR)THEN
           CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &       LOAD_RECEIVED, 1, MPI_DOUBLE_PRECISION,
-     &       COMM_LD, IERR )
+     &       COMM_LD, IERR_MPI )
           SBTR_CUR(MSGSOU)=LOAD_RECEIVED
         ENDIF
         IF(BDC_MD)THEN
            CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &          LOAD_RECEIVED, 1, MPI_DOUBLE_PRECISION,
-     &          COMM_LD, IERR )
+     &          COMM_LD, IERR_MPI )
            IF(KEEP_LOAD(201).EQ.0)THEN
               LU_USAGE(MSGSOU)=LOAD_RECEIVED
            ENDIF
@@ -1256,18 +1260,18 @@ C
       ELSEIF (( WHAT == 1).OR.(WHAT.EQ.19)) THEN
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     NSLAVES, 1, MPI_INTEGER,
-     &     COMM_LD, IERR )
+     &     COMM_LD, IERR_MPI )
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     INODE_RECEIVED, 1, MPI_INTEGER,
-     &     COMM_LD, IERR )
+     &     COMM_LD, IERR_MPI )
         LIST_SLAVES => IDWLOAD
         LOAD_INCR => WLOAD
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     LIST_SLAVES(1), NSLAVES, MPI_INTEGER,
-     &     COMM_LD, IERR)
+     &     COMM_LD, IERR_MPI)
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     LOAD_INCR(1), NSLAVES, MPI_DOUBLE_PRECISION,
-     &     COMM_LD, IERR)
+     &     COMM_LD, IERR_MPI)
         DO i = 1, NSLAVES
             LOAD_FLOPS(LIST_SLAVES(i)) =
      &      LOAD_FLOPS(LIST_SLAVES(i)) + 
@@ -1276,7 +1280,7 @@ C
         IF ( BDC_MEM ) THEN
           CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     LOAD_INCR(1), NSLAVES, MPI_DOUBLE_PRECISION,
-     &     COMM_LD, IERR)
+     &     COMM_LD, IERR_MPI)
           DO i = 1, NSLAVES
               DM_MEM(LIST_SLAVES(i)) = DM_MEM(LIST_SLAVES(i)) + 
      &        LOAD_INCR(i)
@@ -1286,7 +1290,7 @@ C
         IF(WHAT.EQ.19)THEN
            CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &          LOAD_INCR(1), NSLAVES, MPI_DOUBLE_PRECISION,
-     &          COMM_LD, IERR)
+     &          COMM_LD, IERR_MPI)
            CALL CMUMPS_LOAD_CLEAN_MEMINFO_POOL(INODE_RECEIVED)
            CB_COST_ID(POS_ID)=INODE_RECEIVED
            CB_COST_ID(POS_ID+1)=NSLAVES
@@ -1310,7 +1314,7 @@ C
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     LOAD_RECEIVED, 1,
      &     MPI_DOUBLE_PRECISION,
-     &     COMM_LD, IERR )
+     &     COMM_LD, IERR_MPI )
         POOL_MEM(MSGSOU)=LOAD_RECEIVED
       ELSE IF ( WHAT == 3 ) THEN
          IF ( .NOT. BDC_SBTR) THEN
@@ -1320,14 +1324,14 @@ C
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     LOAD_RECEIVED, 1,
      &     MPI_DOUBLE_PRECISION,
-     &     COMM_LD, IERR )
+     &     COMM_LD, IERR_MPI )
         SBTR_MEM(MSGSOU)=SBTR_MEM(MSGSOU)+LOAD_RECEIVED
       ELSE IF (WHAT == 4) THEN
         FUTURE_NIV2(MSGSOU+1)=0
         IF(BDC_MD)THEN
            CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &          SURF, 1, MPI_DOUBLE_PRECISION,
-     &          COMM_LD, IERR )
+     &          COMM_LD, IERR_MPI )
           MD_MEM(MSGSOU)=999999999_8
           TAB_MAXS(MSGSOU)=TAB_MAXS(MSGSOU)+int(SURF,8)
         ENDIF
@@ -1341,7 +1345,7 @@ C
          CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     INODE_RECEIVED, 1,
      &     MPI_INTEGER,
-     &     COMM_LD, IERR )
+     &     COMM_LD, IERR_MPI )
          IF(BDC_M2_MEM) THEN
             CALL CMUMPS_PROCESS_NIV2_MEM_MSG(INODE_RECEIVED)
          ELSEIF(BDC_M2_FLOPS) THEN
@@ -1351,11 +1355,11 @@ C
             CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &           INODE_RECEIVED, 1,
      &           MPI_INTEGER,
-     &           COMM_LD, IERR )   
+     &           COMM_LD, IERR_MPI )   
                CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &              NCB_RECEIVED, 1,
      &              MPI_INTEGER,
-     &              COMM_LD, IERR )   
+     &              COMM_LD, IERR_MPI )   
             IF(
      &          MUMPS_TYPENODE(PROCNODE_LOAD(STEP_LOAD(INODE_RECEIVED)),
      &                         KEEP_LOAD(199)).EQ.1
@@ -1379,7 +1383,7 @@ C
          CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     LOAD_RECEIVED, 1,
      &     MPI_DOUBLE_PRECISION,
-     &     COMM_LD, IERR )
+     &     COMM_LD, IERR_MPI )
          IF(BDC_M2_MEM) THEN
             NIV2(MSGSOU+1) = LOAD_RECEIVED
          ELSEIF(BDC_M2_FLOPS) THEN
@@ -1398,13 +1402,13 @@ C
          CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     LOAD_RECEIVED, 1,
      &     MPI_DOUBLE_PRECISION,
-     &     COMM_LD, IERR )
+     &     COMM_LD, IERR_MPI )
          IF(BDC_M2_MEM) THEN
             NIV2(MSGSOU+1) = LOAD_RECEIVED
             CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &           LOAD_RECEIVED, 1,
      &           MPI_DOUBLE_PRECISION,
-     &           COMM_LD, IERR )
+     &           COMM_LD, IERR_MPI )
             IF(BDC_MD)THEN
                DM_MEM(MYID)=DM_MEM(MYID)+LOAD_RECEIVED
             ELSEIF(BDC_POOL)THEN
@@ -1424,7 +1428,7 @@ C
             CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &           LOAD_RECEIVED, 1,
      &           MPI_DOUBLE_PRECISION,
-     &           COMM_LD, IERR )
+     &           COMM_LD, IERR_MPI )
             LOAD_FLOPS( MSGSOU ) = LOAD_FLOPS(MSGSOU) + LOAD_RECEIVED
          ENDIF
       ELSEIF ( WHAT == 7 ) THEN
@@ -1435,18 +1439,18 @@ C
          ENDIF
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     NSLAVES, 1, MPI_INTEGER,
-     &     COMM_LD, IERR )
+     &     COMM_LD, IERR_MPI )
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     INODE_RECEIVED, 1, MPI_INTEGER,
-     &     COMM_LD, IERR )
+     &     COMM_LD, IERR_MPI )
         LIST_SLAVES => IDWLOAD
         LOAD_INCR => WLOAD
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     LIST_SLAVES(1), NSLAVES, MPI_INTEGER,
-     &     COMM_LD, IERR)
+     &     COMM_LD, IERR_MPI )
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     LOAD_INCR(1), NSLAVES, MPI_DOUBLE_PRECISION,
-     &     COMM_LD, IERR)
+     &     COMM_LD, IERR_MPI )
         DO i = 1, NSLAVES
             MD_MEM(LIST_SLAVES(i)) =
      &      MD_MEM(LIST_SLAVES(i)) + 
@@ -1464,7 +1468,7 @@ C
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     LOAD_RECEIVED, 1,
      &     MPI_DOUBLE_PRECISION,
-     &     COMM_LD, IERR )
+     &     COMM_LD, IERR_MPI )
         MD_MEM(MSGSOU)=MD_MEM(MSGSOU)+int(LOAD_RECEIVED,8)
         IF(FUTURE_NIV2(MSGSOU+1).EQ.0)THEN
            MD_MEM(MSGSOU)=999999999_8
@@ -1478,7 +1482,7 @@ C
         CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &     LOAD_RECEIVED, 1,
      &     MPI_DOUBLE_PRECISION,
-     &     COMM_LD, IERR )
+     &     COMM_LD, IERR_MPI )
         TAB_MAXS(MSGSOU)=int(LOAD_RECEIVED,8)
       ELSE
           WRITE(*,*) "Internal error 1 in CMUMPS_LOAD_PROCESS_MESSAGE"
@@ -5562,7 +5566,8 @@ C
      &     PROCS,
      &     MEM_DISTRIB, NCB, NFRONT, NSLAVES_NODE,
      &     TAB_POS, SLAVES_LIST, SIZE_SLAVES_LIST,MYID,INODE,
-     &     TAB_MAXS_ARG,SUP_PROC_ARG,MAX_SURF,NB_ROW_MAX)
+     &     TAB_MAXS_ARG,SUP_PROC_ARG,MAX_SURF,NB_ROW_MAX
+     &     )
       IMPLICIT NONE
       INTEGER, intent(in) :: KEEP(500),SIZE_SLAVES_LIST
       INTEGER(8) KEEP8(150)
@@ -5575,6 +5580,7 @@ C
       INTEGER, intent(out):: TAB_POS(SLAVEF+2)
       INTEGER, intent(out):: NSLAVES_NODE,NB_ROW_MAX
       INTEGER(8), intent(out):: MAX_SURF
+      LOGICAL :: FORCE_LDLTRegular_NIV2
       INTEGER NSLAVES,ACC
       INTEGER i,J,NELIM,NB_SUP,K50,NB_ROWS(PROCS(SLAVEF+1))
       INTEGER TMP_NROW,X,K
@@ -5584,6 +5590,7 @@ C
       INTEGER IDWLOAD(SLAVEF)
       INTEGER(8) MEM_CONSTRAINT(2)
       K50=KEEP(50)
+      FORCE_LDLTRegular_NIV2 = .FALSE.
       MAX_SURF=0
       NB_ROW_MAX=0
       NELIM=NFRONT-NCB
@@ -5629,7 +5636,7 @@ C
          ENDIF
          J=J+1
       ENDDO
-      IF (K50.EQ.0) THEN
+      IF ((K50.EQ.0).OR.FORCE_LDLTRegular_NIV2) THEN
          ACC=0
          J=PROCS(SLAVEF+1)-NB_SUP+1
          DO i=1,NB_SUP

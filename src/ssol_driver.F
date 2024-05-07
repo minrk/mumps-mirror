@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -86,6 +86,7 @@ C     buffer sizes
       INTEGER(8) :: SMUMPS_LBUF_8
       INTEGER :: LBUFR, LBUFR_BYTES
       INTEGER :: MSG_MAX_BYTES_SOLVE, MSG_MAX_BYTES_GTHRSOL
+      INTEGER(8) :: MSG_MAX_BYTES_SOLVE8
 C     reception buffer
       INTEGER, ALLOCATABLE, DIMENSION(:) :: BUFR
 C     null space
@@ -370,6 +371,11 @@ C     to free space allocated
       ICNTL21  = -99998  ! will be bcasted later to slaves
       IBEG_RHSCOMP =-152525_8  ! Should not be used
       BUILD_POSINRHSCOMP = .TRUE.
+      IBEG_GLOB_DEF = -9888  ! unitialized state
+      IEND_GLOB_DEF = -9888  ! unitialized state
+      IBEG_ROOT_DEF = -9777  ! unitialized state
+      IEND_ROOT_DEF = -9777  ! unitialized state
+      IROOT_DEF_RHS_COL1 = -9666 ! unitialized state
 C     Not needed anymore (since new version of gather)
 C     LD_RHSCOMP = max(KEEP(89),1)  ! at the nb of pivots eliminated on
                                     ! that proc
@@ -748,6 +754,13 @@ C            Sparse RHS may be due to A-1 (ICNTL(30)
           IF (id%NRHS .LE. 0) THEN
              id%INFO(1)=-45
              id%INFO(2)=id%NRHS
+             IF ((id%KEEP(111).NE.0).AND.(id%INFOG(28).EQ.0)) THEN
+               IF (PROKG) THEN
+                WRITE(MPG,'(A)')
+     &              'ICNTL(25) NE 0 but INFOG(28)=0',
+     &              '  the matrix is not deficient'
+               ENDIF
+             ENDIF
              GOTO 333
           ENDIF
 C         Entries of A-1 are stored in place of the input sparse RHS
@@ -849,58 +862,12 @@ C             Possible in case of dupplicate entries in Sparse RHS
 C         --------------------------------
 C         Set null space options for solve
 C         --------------------------------
-          CALL SMUMPS_GET_NS_OPTIONS_SOLVE(ICNTL(1),KEEP(1),MPG,INFO(1))
+          CALL SMUMPS_GET_NS_OPTIONS_SOLVE(ICNTL(1),KEEP(1),
+     &                                     id%NRHS,
+     &                                     MPG,INFO(1))
           IF (INFO(1) .LT. 0) GOTO 333
-          IF (KEEP(111).eq.-1.AND.id%NRHS.NE.KEEP(112)+KEEP(17))THEN
-                INFO(1)=-32
-                INFO(2)=id%NRHS
-                GOTO 333
-          ENDIF
-          IF (KEEP(111).gt.0 .AND. id%NRHS .NE. 1) THEN
-                INFO(1)=-32
-                INFO(2)=id%NRHS
-                GOTO 333
-          ENDIF
-          IF (KEEP(248) .NE.0.AND.KEEP(111).NE.0) THEN
-C             Ignore sparse RHS in case we compute
-C             vectors of the null space (KEEP(111)).NE.0.)
-             IF (PROKG) THEN
-                WRITE(MPG,'(A)')
-     &               ' ERROR: ICNTL(20) and ICNTL(30) functionalities ',
-     &               ' incompatible with null space'
-             ENDIF
-             INFO(1) = -37
-             IF (KEEP(237).NE.0) THEN
-                INFO(2) = 30    ! icntl(30)
-                IF (PROKG) THEN
-                   WRITE(MPG,'(A)')
-     &               ' ERROR: ICNTL(30) functionality ',
-     &                  ' incompatible with null space'
-                ENDIF
-             ELSE
-                IF (PROKG) THEN
-                   WRITE(MPG,'(A)')
-     &                  ' ERROR: ICNTL(20) functionality ',
-     &                  ' incompatible with null space'
-                ENDIF
-                INFO(2) = 20    ! inclt(20)
-             ENDIF
-             GOTO 333
-          ENDIF
-          IF (( KEEP(111) .LT. -1 ) .OR.
-     &         (KEEP(111).GT.KEEP(112)+KEEP(17)) .OR.
-     &         (KEEP(111) .EQ.-1 .AND. KEEP(112)+KEEP(17).EQ.0))
-     &         THEN
-             INFO(1)=-36
-             INFO(2)=KEEP(111)
-             GOTO 333
-          ENDIF
-          IF (KEEP(221).NE.0.AND.KEEP(111).NE.0) THEN
-             INFO(1)=-37
-             INFO(2)=26
-             GOTO 333
-          ENDIF
-       END IF                   ! MASTER
+C
+      END IF                   ! MASTER
 C     --------------------------------------
 C     Check distributed solution vectors
 C     --------------------------------------
@@ -1287,15 +1254,6 @@ C     Treating ICNTL(27)=0 as if ICNTL(27)=1
           IF (NBRHS .GT. NRHS_NONEMPTY ) NBRHS = NRHS_NONEMPTY
 C
         ENDIF
-C       Avoid to have overflows in NFRONT * NBRHS
-C       32-bit integer compuitations.
-C       Should be hopefully large-enough for a while.
-        IF(huge(NBRHS)/id%KEEP(133).LT.NBRHS) THEN
-          IF (PROKG) WRITE(MPG,'(A,I6,A)')'Warning: NBRHS = ',NBRHS,
-     &   ' might be too large.'
-          NBRHS = huge(NBRHS)/id%KEEP(133)-1 ! -1 to avoid rounding pbs
-          IF (PROKG) WRITE(MPG,'(A,I6)')'NBRHS reset to ',NBRHS
-        END IF
       ENDIF
 #if defined(V_T)
       CALL VTBEGIN(glob_comm_ini,IERR)
@@ -1725,7 +1683,6 @@ C   Write a warning.
               ENDIF
               INFO(1) = -13
               INFO(2) = id%N*NBRHS
-              GOTO 111
             END IF
             NB_BYTES = NB_BYTES + int(size(SAVERHS),8)*K35_8
             NB_BYTES_MAX = max(NB_BYTES_MAX,NB_BYTES)
@@ -1743,6 +1700,9 @@ C         We should still allocate IRHS_SPARSE
         ENDIF
 C     -- end of test master
       END IF
+      CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
+     &                   id%COMM,id%MYID)
+      IF (INFO(1) .LT.0 ) GOTO 90
 C     --------------------------------------------------
 C     Broadcast information to have all processes do the
 C     same thing (error analysis/iterative refinements/
@@ -1758,7 +1718,7 @@ C     --------------------------------------------------
      &               id%COMM,IERR)
       CALL MPI_BCAST(LSCAL,1,MPI_LOGICAL,MASTER,
      &               id%COMM,IERR)
-      CALL MPI_BCAST(KEEP(111),1,MPI_INTEGER,MASTER,
+      CALL MPI_BCAST(KEEP(237),1,MPI_INTEGER,MASTER,
      &               id%COMM,IERR)
 C     KEEP(248)==1 if not_NullSpace (KEEP(111)=0)
 C           and sparse RHS on input (id%ICNTL(20)/KEEP(248)==1)
@@ -1790,20 +1750,35 @@ C       --------------------------------------
 C       Compute an upperbound of message size
 C       for forward and backward solutions:
 C       --------------------------------------
-        MSG_MAX_BYTES_SOLVE =  ( 4 + KEEP(133) ) * KEEP(34) +
-     &                           KEEP(133) * NBRHS * KEEP(35)
-     &  + 16 * KEEP(34) !   for request id, pointer to next + safety
-C       --------------------------------------
+        MSG_MAX_BYTES_SOLVE8 = int(( 4 + KEEP(133) ) * KEEP(34),8) +
+     &                         int(KEEP(133)*KEEP(35),8) * int(NBRHS,8)
+     &  + int(16*KEEP(34),8) ! for request id, pointer to next + safety
+C       Note that
+        IF ( MSG_MAX_BYTES_SOLVE8 .GT.
+     &                int(huge(MSG_MAX_BYTES_SOLVE),8)) THEN
+          INFO(1) = -18
+          INFO(2) = ( huge(MSG_MAX_BYTES_SOLVE) -
+     &    ( 16 + 4 + KEEP(133) ) ) / 
+     &    ( KEEP(133) * KEEP(35) )
+        ENDIF
+        IF (INFO(1) .LT.0 ) GOTO 111
+        MSG_MAX_BYTES_SOLVE = int(MSG_MAX_BYTES_SOLVE8)
+C       ------------------------------------------
 C       Compute an upperbound of message size
-C       for SMUMPS_GATHER_SOLUTION
-C       --------------------------------------
-C
+C       for SMUMPS_GATHER_SOLUTION. Except
+C       possibly on the non working host, it
+C       should be smaller than MSG_MAX_BYTES_SOLVE
+#if defined(MPI_TO_K_OMPP)
+#endif
+C       ------------------------------------------
         IF (KEEP(237).EQ.0) THEN
 C         Note that for SMUMPS_GATHER_SOLUTION LBUFR buffer should
 C         be larger that MAX_inode(NPIV))*NBRHS + NPIV
 C         which is covered by next formula since KMAX_246_247  is larger
 C         than  MAX_inode(NPIV))
 C                   2 integers packed (npiv and termination)
+C         Note that MSG_MAX_BYTES_GTHRSOL < MSG_MAX_BYTES_SOLVE
+C         so that it should not overflow
           KMAX_246_247 = max(KEEP(246),KEEP(247))
           MSG_MAX_BYTES_GTHRSOL =  ( 2 + KMAX_246_247 ) * KEEP(34) +
      &                             KMAX_246_247 * NBRHS * KEEP(35)
@@ -1814,7 +1789,9 @@ C            1 complex   : (Aij)-1
 C            1 terminaison
           MSG_MAX_BYTES_GTHRSOL =  (  3  * KEEP(34) + KEEP(35) )
         ELSE
-C         Not needed in case of distributed solution
+C         Not needed in case of distributed solution and A-1
+C         because the entries of A −1 are 
+C         returned in RHS SPARSE on the host.
           MSG_MAX_BYTES_GTHRSOL =  0
         ENDIF
 C       The buffer is used both for solve and for SMUMPS_GATHER_SOLUTION
@@ -1917,8 +1894,6 @@ C
         ENDIF
       ENDIF
 C
-      CALL MPI_BCAST(KEEP(497),1,MPI_INTEGER,MASTER,
-     &               id%COMM,IERR)
 C     Parallel A-1 or General sparse and 
 C     exploit sparsity between columns
       DO_NBSPARSE = ( ( (KEEP(237).NE.0).OR.(KEEP(235).NE.0) )
@@ -3560,7 +3535,7 @@ C       -----------------------------------
 #if defined(V_T)
         CALL VTBEGIN(soln_dist,IERR)
 #endif
-        IF(id%MYID.EQ.MASTER) TIMESCATTER1=MPI_WTIME()
+        TIMESCATTER1=MPI_WTIME()
         IF ((KEEP(111).eq.0).AND.(KEEP(252).EQ.0)
      &        .AND.(KEEP(221).NE.2 )) THEN
 C           ------------------------
@@ -3913,9 +3888,7 @@ C             to -1 on the roots for the id%N+KEEP(253) variables added
 C             to the roots.
             ENDIF ! End of null space (test on KEEP(111))
         ENDIF  ! I am slave
-        IF(id%MYID.EQ.MASTER) THEN
-           TIMESCATTER2=MPI_WTIME()-TIMESCATTER1+TIMESCATTER2
-        ENDIF
+        TIMESCATTER2=MPI_WTIME()-TIMESCATTER1+TIMESCATTER2
 C       -------------------------------------------
 C       Reserve space at the end of WORK_WCB on the
 C       master of the root node. It will be used to
@@ -4061,11 +4034,11 @@ C       -----------------
 C       End of slave code
 C       -----------------
 C
-        TIMEC2=MPI_WTIME()-TIMEC1+TIMEC2
 C
 C       Propagate errors
         CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
      &                   id%COMM,id%MYID)
+        TIMEC2=MPI_WTIME()-TIMEC1+TIMEC2
 C
 C       Change error code.
         IF (INFO(1).eq.-2) then
@@ -4209,7 +4182,7 @@ C           Return in case of error.
               ENDIF
             ENDIF
             LIW_PASSED = max( LIW, 1 )
-            IF(id%MYID.EQ.MASTER) TIMEGATHER1=MPI_WTIME()
+            TIMEGATHER1=MPI_WTIME()
             IF ( .NOT.I_AM_SLAVE ) THEN
 C             I did not participate to computing part of the solution
 C             (id%RHSCOMP not set/allocate) : receive solution, store
@@ -4285,9 +4258,7 @@ C               --- A-1 related entries
      &          )
               ENDIF
             ENDIF
-            IF (id%MYID.EQ.MASTER) THEN
-              TIMEGATHER2=MPI_WTIME()-TIMEGATHER1+TIMEGATHER2
-            ENDIF
+            TIMEGATHER2=MPI_WTIME()-TIMEGATHER1+TIMEGATHER2
             IF (KEEP(237).EQ.0)  DEALLOCATE( CWORK )
             IF ( (id%MYID.EQ.MASTER).AND. (KEEP(237).NE.0)
      &        ) THEN
@@ -5266,17 +5237,31 @@ C  Store and print timings
       id%DKEEP(115)=real(TIMESCATTER2)
       id%DKEEP(116)=real(TIMEGATHER2)
       id%DKEEP(122)=real(TIMECOPYSCALE2)
+C     Reductions of DKEEP(115,116,117,118,119,122):
+      CALL MPI_REDUCE( id%DKEEP(115), id%DKEEP(160),1,
+     &MPI_REAL, MPI_MAX, MASTER, id%COMM, IERR )
+      CALL MPI_REDUCE( id%DKEEP(116), id%DKEEP(161),1,
+     &MPI_REAL, MPI_MAX, MASTER, id%COMM, IERR )
+      CALL MPI_REDUCE( id%DKEEP(117), id%DKEEP(162),1,
+     &MPI_REAL, MPI_MAX, MASTER, id%COMM, IERR )
+      CALL MPI_REDUCE( id%DKEEP(118), id%DKEEP(163),1,
+     &MPI_REAL, MPI_MAX, MASTER, id%COMM, IERR )
+      CALL MPI_REDUCE( id%DKEEP(119), id%DKEEP(164),1,
+     &MPI_REAL, MPI_MAX, MASTER, id%COMM, IERR )
+      CALL MPI_REDUCE( id%DKEEP(122), id%DKEEP(165),1,
+     &MPI_REAL, MPI_MAX, MASTER, id%COMM, IERR )
+C
       IF (PROKG) THEN
         WRITE ( MPG, *)
         WRITE ( MPG, *) "Leaving solve with ..."
-        WRITE( MPG, 434 ) id%DKEEP(115)
-        WRITE( MPG, 432 ) id%DKEEP(113)
-        WRITE( MPG, 435 ) id%DKEEP(117)
+        WRITE( MPG, 434 ) id%DKEEP(160) ! max id%DKEEP(115)
+        WRITE( MPG, 432 ) id%DKEEP(113) ! ok without reduction
+        WRITE( MPG, 435 ) id%DKEEP(162) ! max id%DKEEP(117)
         IF ((KEEP(38).NE.0).OR.(KEEP(20).NE.0))
-     &     WRITE( MPG, 437 ) id%DKEEP(119)
-        WRITE( MPG, 436 ) id%DKEEP(118)
-        WRITE( MPG, 433 ) id%DKEEP(116) ! non-zero if gather
-        WRITE( MPG, 431 ) id%DKEEP(122) ! Distributed solution
+     &     WRITE( MPG, 437 ) id%DKEEP(164) ! id%DKEEP(119)
+        WRITE( MPG, 436 ) id%DKEEP(163) ! id%DKEEP(118)
+        WRITE( MPG, 433 ) id%DKEEP(161) ! max(DKEEP(116)) -- Gather
+        WRITE( MPG, 431 ) id%DKEEP(165) ! max(DKEEP(122)) -- Dist. sol.
       ENDIF
       IF ( PROK ) THEN
         WRITE ( MP, *)

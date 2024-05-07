@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.3.5, released
- *  on Thu Oct 22 09:29:08 UTC 2020
+ *  This file is part of MUMPS 5.4.0, released
+ *  on Tue Apr 13 15:26:30 UTC 2021
  *
  *
- *  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -27,10 +27,34 @@ MUMPS_SCOTCH( const MUMPS_INT * const  n,
                     MUMPS_INT * const  nvtab,
                     MUMPS_INT * const  elentab,
                     MUMPS_INT * const  lasttab,
-                    MUMPS_INT * const  ncmpa )
+                    MUMPS_INT * const  ncmpa,
+                    MUMPS_INT * const  weightused,
+                    MUMPS_INT * const  weightrequested )
 {
+/* weightused(out) = 1 if weight of nodes provided in nvtab are used (esmumpsv is called) 
+                   = 0 otherwise
+*/
+#if ((SCOTCH_VERSION == 6) && (SCOTCH_RELEASE >= 1)) || (SCOTCH_VERSION >= 7)
+/* esmumpsv prototype with 64-bit integers weights of nodes in the graph are used on entry (nvtab) */
+     if ( *weightrequested == 1 )
+     {
+       *ncmpa = esmumpsv( *n, *iwlen, petab, *pfree,
+                          lentab, iwtab, nvtab, elentab, lasttab );
+       *weightused=1;
+     }
+     else
+     {
+       /* esmumps prototype with standard integers (weights of nodes not used on entry) */
+       *ncmpa = esmumps( *n, *iwlen, petab, *pfree,
+                         lentab, iwtab, nvtab, elentab, lasttab );
+       *weightused=0;
+     }
+#else
+     /* esmumps prototype with standard integers (weights of nodes not used on entry) */
      *ncmpa = esmumps( *n, *iwlen, petab, *pfree,
                        lentab, iwtab, nvtab, elentab, lasttab );
+     *weightused=0;
+#endif
 }
 #endif /* scotch */
 #if defined(ptscotch)

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -135,6 +135,7 @@ C
       LOGICAL PACKED_CB
       DOUBLE PRECISION OPS_NODE, OPS_NODE_MASTER, OPS_NODE_SLAVE
       INTEGER(8) ENTRIES_NODE_UPPER_PART, ENTRIES_NODE_LOWER_PART
+      INTEGER NBouter_MIN
       INCLUDE 'mumps_headers.h'
       INTEGER WHAT
       INTEGER(8) IDUMMY8
@@ -175,6 +176,28 @@ C
          LKJIB_FR = max(LKJIB_FR, KEEP(420))
       ENDIF
       LKJIB_LR = max(LKJIB_FR,KEEP(488))
+      IF (KEEP(66).NE.0.AND.SLAVEF.GT.1) THEN
+         IF ( KEEP(50).EQ.0 ) THEN
+           NBouter_MIN = ceiling
+     &    (
+     &       (dble(KEEP(59))*dble(KEEP(108))*dble(KEEP(35)))
+     &       /
+     &       (dble(huge(KEEP(108))-10000000)) 
+     &    )
+         ELSE
+           NBouter_MIN = ceiling
+     &    (
+     &       ( max (dble(KEEP(108))*dble(KEEP(108)), 
+     &              dble(KEEP(59))*dble(KEEP(108)/2) 
+     &             )
+     &        *dble(KEEP(35)))
+     &       /
+     &       (dble(huge(KEEP(108))-10000000)) 
+     &    )
+         ENDIF
+           NBouter_MIN = max (NBouter_MIN, 4)
+           LKJIB_FR = min(KEEP(108)/NBouter_MIN, 4321)
+      ENDIF
       TNSTK = NE
       LEAF = LIPOOL+1 
 #if defined(OLD_OOC_NOPANEL)
@@ -486,6 +509,10 @@ C
             IF(LEVEL.EQ.1)THEN
                MAX_FRONT_SURFACE_LOCAL=max(MAX_FRONT_SURFACE_LOCAL,
      &              NFR8*NFR8)
+               IF (KEEP(268).NE.0) THEN
+                 MAX_FRONT_SURFACE_LOCAL=max(MAX_FRONT_SURFACE_LOCAL,
+     &              NFR8*NFR8+NELIM8)
+               ENDIF
             ELSEIF(LEVEL.EQ.2)THEN
                IF(KEEP(50).EQ.0)THEN
                  MAX_FRONT_SURFACE_LOCAL=max(MAX_FRONT_SURFACE_LOCAL,

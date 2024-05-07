@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -230,6 +230,7 @@ C
       INCLUDE 'mumps_headers.h'
       INTEGER    :: ICURRENT, INODE, TYPEINODE, CB_STATE
       INTEGER(8) :: RCURRENT, RCURRENT_SIZE, SIZEHOLE
+      INTEGER(8) :: KEEP8TMPCOPY
       LOGICAL    :: MOVE2DYNAMIC
       LOGICAL    :: SSARBRDAD 
       INTEGER(8) :: TMP_ADDRESS, ITMP8
@@ -287,7 +288,7 @@ C
      &                     CB_STATE .EQ. S_NOLCLEANED .OR.
      &                     CB_STATE .EQ. S_ALL .OR.
      &                     CB_STATE .EQ. S_ACTIVE
-          ELSE IF (STRATEGY .EQ. 2) THEN
+          ELSE IF (STRATEGY .EQ. 2 .OR. STRATEGY .EQ. 3) THEN
             MOVE2DYNAMIC = .TRUE. 
             MOVE2DYNAMIC = MOVE2DYNAMIC .AND. (TYPEINODE.NE.3)
           ELSE IF (STRATEGY .EQ. 1) THEN
@@ -303,13 +304,22 @@ C
           MOVE2DYNAMIC = MOVE2DYNAMIC .AND. (RCURRENT_SIZE .NE. 0_8)
           MOVE2DYNAMIC = MOVE2DYNAMIC .AND. 
      &         .NOT. ((ICURRENT.EQ.IWPOSCB + 1).AND.(SKIP_TOP_STACK))
-          IF (RCURRENT_SIZE+KEEP8(73).GT.KEEP8(75)) THEN
+          IF (STRATEGY .NE. 3) THEN
+            IF ( KEEP(405) .EQ. 1 ) THEN
+!$OMP         ATOMIC READ
+              KEEP8TMPCOPY = KEEP8(73)
+!$OMP         END ATOMIC
+            ELSE
+              KEEP8TMPCOPY = KEEP8(73)
+            ENDIF
+            IF ( RCURRENT_SIZE + KEEP8TMPCOPY .GT. KEEP8(75) ) THEN
                IFLAG_M19_OCCURED= .TRUE.
                MIN_SIZE_M19     = min( MIN_SIZE_M19,  
      &           RCURRENT_SIZE+KEEP8(73)-KEEP8(75) )
                MOVE2DYNAMIC = .FALSE.
+            ENDIF
           ENDIF
-          IF (MOVE2DYNAMIC) THEN
+          IF ( MOVE2DYNAMIC ) THEN
             ALLOCATE(DYNAMIC_CB(RCURRENT_SIZE), stat=allocok)
             IF (allocok .GT. 0) THEN
               IF ( (STRATEGY .NE. 1).OR. 
@@ -328,17 +338,6 @@ C
      &        LIW-ICURRENT+1, SIZEHOLE, KEEP(IXSZ))
             ENDIF
             CALL MUMPS_STOREI8(RCURRENT_SIZE,IW(ICURRENT+XXD))
-!$         CHUNK8 = max( int(KEEP(361),8),
-!$   &             (RCURRENT_SIZE+NOMP-1) / NOMP)
-!$         OMP_FLAG = ( (RCURRENT_SIZE > int(KEEP(361),8))
-!$   &                  .AND.(NOMP.GT.1)
-!$   &                 )
-!$OMP      PARALLEL DO PRIVATE(I8) SCHEDULE(STATIC, CHUNK8)
-!$OMP&     IF (OMP_FLAG) 
-            DO I8=1_8, RCURRENT_SIZE
-              DYNAMIC_CB(I8) = A(RCURRENT+I8-1_8)
-            ENDDO
-!$OMP      END PARALLEL DO 
             CALL MUMPS_ADDR_C(DYNAMIC_CB(1), TMP_ADDRESS)
             IF (IS_PTRAST) THEN
               PTRAST(STEP(INODE)) = TMP_ADDRESS
@@ -352,9 +351,20 @@ C
             ENDIF
             ITMP8 = (RCURRENT_SIZE-SIZEHOLE)
             LRLUS = LRLUS + ITMP8
-!$OMP ATOMIC UPDATE
-            KEEP8(69) = KEEP8(69)- ITMP8
-!$OMP END ATOMIC
+            IF (KEEP(405).EQ.1) THEN
+              IF (SIZEHOLE .NE. 0_8) THEN
+!$OMP           ATOMIC CAPTURE
+                KEEP8(69) = KEEP8(69) + SIZEHOLE
+                KEEP8TMPCOPY = KEEP8(69)
+!$OMP           END ATOMIC
+!$OMP           ATOMIC UPDATE
+                KEEP8(68) = max( KEEP8(68), KEEP8TMPCOPY )
+!$OMP           END ATOMIC
+              ENDIF
+            ELSE
+              KEEP8(69) = KEEP8(69) + SIZEHOLE
+              KEEP8(68) = max( KEEP8(68), KEEP8(69) )
+            ENDIF
             CALL MUMPS_SET_SSARBR_DAD(SSARBRDAD, INODE,
      &           DAD, N, KEEP(28),
      &           STEP, PROCNODE_STEPS, KEEP(199))
@@ -366,10 +376,23 @@ C
               LRLU = LRLU + RCURRENT_SIZE
               CALL MUMPS_STOREI8(0_8, IW(ICURRENT+XXR))
             ENDIF
-            CALL SMUMPS_DM_FAC_UPD_DYN_MEMCNTS (
+            IF (STRATEGY .NE. 3) THEN
+              CALL SMUMPS_DM_FAC_UPD_DYN_MEMCNTS (
      &                      RCURRENT_SIZE, KEEP(405).EQ.1, KEEP8, 
-     &                      IFLAG, IERROR)
-            IF (IFLAG.LT.0) GOTO 500
+     &                      IFLAG, IERROR, .FALSE.)
+              IF (IFLAG.LT.0) GOTO 500
+            ENDIF
+!$          CHUNK8 = max( int(KEEP(361),8),
+!$   &              (RCURRENT_SIZE+NOMP-1) / NOMP)
+!$          OMP_FLAG = ( (RCURRENT_SIZE > int(KEEP(361),8))
+!$   &                   .AND.(NOMP.GT.1)
+!$   &                  )
+!$OMP       PARALLEL DO PRIVATE(I8) SCHEDULE(STATIC, CHUNK8)
+!$OMP&      IF (OMP_FLAG) 
+             DO I8=1_8, RCURRENT_SIZE
+               DYNAMIC_CB(I8) = A(RCURRENT+I8-1_8)
+             ENDDO
+!$OMP       END PARALLEL DO 
           ENDIF
         ENDIF
  100    CONTINUE

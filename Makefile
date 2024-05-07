@@ -1,61 +1,48 @@
 #
-#  This file is part of MUMPS 5.3.5, released
-#  on Thu Oct 22 09:29:08 UTC 2020
+#  This file is part of MUMPS 5.4.0, released
+#  on Tue Apr 13 15:26:30 UTC 2021
 #
 topdir = .
 libdir = $(topdir)/lib
 
-default:	dexamples
+default: d
 
-.PHONY: default alllib all c z s d \
-	sexamples dexamples cexamples zexamples multi_example \
-	mumps_lib requiredobj libseqneeded clean
+.PHONY: default all s d c z prerequisites libseqneeded clean
 
-alllib:		c z s d
-all:		cexamples zexamples sexamples dexamples multi_example
+all: prerequisites
+	cd src; $(MAKE) all
+	cd examples; $(MAKE) all
 
-# Basic dependencies c->z->s->d to avoid issues with make -j
-c: z
-	$(MAKE) ARITH=c mumps_lib
-z: s
-	$(MAKE) ARITH=z mumps_lib
-s: d
-	$(MAKE) ARITH=s mumps_lib
-d:
-	$(MAKE) ARITH=d mumps_lib
+s: prerequisites
+	cd src; $(MAKE) s
+	cd examples; $(MAKE) s
+
+d: prerequisites
+	cd src; $(MAKE) d
+	cd examples; $(MAKE) d
+
+c: prerequisites
+	cd src; $(MAKE) c
+	cd examples; $(MAKE) c
+
+z: prerequisites
+	cd src; $(MAKE) z
+	cd examples; $(MAKE) z
 
 
 # Is Makefile.inc available ?
 Makefile.inc:
 	@echo "######################################################################"
-	@echo "# BEFORE COMPILING MUMPS, YOU SHOULD HAVE AN APPROPRIATE FILE"
-	@echo "# Makefile.inc AVALAIBLE. PLEASE LOOK IN THE DIRECTORY ./Make.inc FOR"
-	@echo "# EXAMPLES OF Makefile.inc FILES, AT Make.inc/Makefile.inc.generic"
-	@echo "# IN CASE YOU NEED TO BUILD A NEW ONE AND READ THE MAIN README FILE"
+	@echo "# BEFORE COMPILING MUMPS, YOU MUST HAVE AN APPROPRIATE Makefile.inc"
+	@echo "# FILE AVAILABLE. PLEASE CHECK THE DIRECTORY ./Make.inc FOR EXAMPLES"
+	@echo "# OF Makefile.inc FILES, AND USE Make.inc/Makefile.inc.generic IF YOU"
+	@echo "# NEED TO BUILD A NEW ONE. SEE ALSO THE README AND INSTALL FILES"
 	@echo "######################################################################"
 	@exit 1
 
 include Makefile.inc
 
-mumps_lib: requiredobj
-	(cd src ; $(MAKE) $(ARITH))
-
-cexamples:	c
-	(cd examples ; $(MAKE) c)
-
-zexamples:	z
-	(cd examples ; $(MAKE) z)
-
-sexamples:	s
-	(cd examples ; $(MAKE) s)
-
-dexamples:	d
-	(cd examples ; $(MAKE) d)
-
-multi_example:	s d c z
-	(cd examples ; $(MAKE) multi)
-
-requiredobj: Makefile.inc $(LIBSEQNEEDED) $(libdir)/libpord$(PLAT)$(LIBEXT)
+prerequisites: Makefile.inc $(LIBSEQNEEDED) $(libdir)/libpord$(PLAT)$(LIBEXT)
 
 # dummy MPI library (sequential version)
 

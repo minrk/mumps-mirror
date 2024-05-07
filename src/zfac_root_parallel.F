@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -51,16 +51,6 @@ C
       EXTERNAL numroc
       INTEGER numroc
         IF ( .NOT. root%yes ) RETURN
-        IF (MPA.GT.0) THEN
-         IF (MYID.EQ.MASTER_OF_ROOT) THEN
-           CALL  MUMPS_GET_FLOPS_COST
-     &     (root%TOT_ROOT_SIZE, root%TOT_ROOT_SIZE, root%TOT_ROOT_SIZE,
-     &      LDLT, 3, FLOPS_ROOT)
-           WRITE(MPA,'(A, A, 1PD10.3)')
-     &     " ... Start processing the root node with ScaLAPACK, ", 
-     &     " remaining flops                = ", FLOPS_ROOT
-         ENDIF
-        ENDIF
         IF ( KEEP(60) .NE. 0 ) THEN
           IF ((LDLT == 1 .OR. LDLT == 2) .AND. KEEP(60) == 3 ) THEN
             CALL ZMUMPS_SYMMETRIZE( WK, root%MBLOCK,
@@ -70,6 +60,16 @@ C
      &      root%TOT_ROOT_SIZE, MYID, COMM )
           ENDIF
         RETURN
+        ENDIF
+        IF (MPA.GT.0) THEN
+         IF (MYID.EQ.MASTER_OF_ROOT) THEN
+           CALL  MUMPS_GET_FLOPS_COST
+     &     (root%TOT_ROOT_SIZE, root%TOT_ROOT_SIZE, root%TOT_ROOT_SIZE,
+     &      LDLT, 3, FLOPS_ROOT)
+           WRITE(MPA,'(A, A, 1PD10.3)')
+     &     " ... Start processing the root node with ScaLAPACK, ", 
+     &     " remaining flops                = ", FLOPS_ROOT
+         ENDIF
         ENDIF
         IOLDPS  = PTLUST_S(STEP(IROOT))+KEEP(IXSZ)
         IAPOS   = PTRAST(STEP(IROOT))

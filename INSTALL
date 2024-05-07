@@ -1,5 +1,5 @@
 ===========================================
-MUMPS 5.3.5 INSTALLATION
+MUMPS 5.4.0 INSTALLATION
 ===========================================
 
 Pre-requisites
@@ -35,8 +35,8 @@ Installation
 
 The following steps can be applied.
 
-% tar zxvf MUMPS_5.3.5.tar.gz
-% cd MUMPS_5.3.5
+% tar zxvf MUMPS_5.4.0.tar.gz
+% cd MUMPS_5.4.0
 
 You then need to build a file called Makefile.inc corresponding
 to your architecture. A few examples are available in the
@@ -87,7 +87,7 @@ will compile versions of MUMPS for all 4 arithmetics.
 
 
 After issuing the command:
-% make
+% make all
 , ./lib will contain the mumps libraries libxmumps.a (with x = 'd', 'c',
 's' or 'z') and libmumps_common.a. Both must be included at link time in
 an external program.
@@ -100,6 +100,18 @@ program.
 
 Preprocessing constants (Makefile.inc)
 --------------------------------------
+
+-DDETERMINISTIC_PARALLEL_GRAPH:
+When using several MPI processes, the order of the edges of the graphs
+constructed by MUMPS in parallel may vary between successive execuions.
+Ordering packages (e.g., SCOTCH, PT-SCOTCH, METIS, parMETIS) are
+sensitive to this order, possibly leading to different flops and
+memory estimates between executions.
+
+When compiling MUMPS with -DDETERMINISTIC_PARALLEL_GRAPH, the order of
+the edges of the graph passed to ordering packages will be identical
+for each run.
+
 
 -DMAIN_COMP:
 Note that some Fortran runtime libraries define the "main" symbol.

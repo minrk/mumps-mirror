@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -16,7 +16,7 @@ C
      &   BUFR, LBUFR,
      &   LBUFR_BYTES, PROCNODE_STEPS, MSGSOU,
      &   SLAVEF, IWPOS, IWPOSCB, IPTRLU, LRLU, LRLUS, N, IW, LIW,
-     &   A, LA, PTRIST, PTRAST, NSTK_S, NBPROCFILS,
+     &   A, LA, PTRIST, PTRAST, NSTK_S, PERM,
      &   COMP, STEP, PIMASTER, PAMASTER, POSFAC,
      &   MYID, COMM, IFLAG, IERROR, NBFIN,
      &
@@ -36,6 +36,8 @@ C
       USE SMUMPS_LR_DATA_M
       USE SMUMPS_STRUC_DEF, ONLY : SMUMPS_ROOT_STRUC
       USE SMUMPS_DYNAMIC_MEMORY_M, ONLY : SMUMPS_DM_SET_DYNPTR
+      USE SMUMPS_FAC_FRONT_AUX_M, 
+     &                ONLY : SMUMPS_COMPUTE_SIZE_SCHUR_IN_FRONT
 #if defined(BLR_MT)
 !$    USE OMP_LIB
 #endif
@@ -56,7 +58,7 @@ C
       INTEGER IFLAG, IERROR, NBFIN, MSGSOU
       INTEGER PROCNODE_STEPS(KEEP(28)), PTRIST(KEEP(28)),
      &        NSTK_S(KEEP(28))
-      INTEGER NBPROCFILS(KEEP(28)), STEP(N), PIMASTER(KEEP(28))
+      INTEGER PERM(N), STEP(N), PIMASTER(KEEP(28))
       INTEGER IW( LIW )
       REAL A( LA )
       INTEGER, intent(in) :: LRGROUPS(N)
@@ -112,6 +114,7 @@ C
       INTEGER :: OMP_NUM, LWORK
       INTEGER :: II,JJ
        INTEGER :: NFS4FATHER, NASS1, NELIM, INFO_TMP(2)
+       INTEGER :: NVSCHUR_K253, NSLAVES_L, IROW_L
        INTEGER :: NBROWSinF
        REAL, ALLOCATABLE, DIMENSION(:) :: M_ARRAY
       REAL, ALLOCATABLE, DIMENSION(:) :: UDYNAMIC
@@ -200,8 +203,6 @@ C
       IF (DYNAMIC)  THEN
         ALLOCATE(UDYNAMIC(LAELL), stat=allocok)
         if (allocok .GT. 0) THEN
-          write(*,*) MYID, ' : PB allocation U in blfac_slave '
-     &     , LAELL
           IFLAG = -13 
           CALL MUMPS_SET_IERROR(LAELL,IERROR)
           GOTO 700
@@ -223,7 +224,7 @@ C
      &    PTLUST_S, PTRFAC,
      &    PTRAST, STEP, PIMASTER, PAMASTER, NSTK_S, COMP,
      &    IFLAG, IERROR, COMM,
-     &    NBPROCFILS,
+     &    PERM,
      &    IPOOL, LPOOL, LEAF,
      &    NBFIN, MYID, SLAVEF,
      &
@@ -252,7 +253,7 @@ C
      &    PTLUST_S, PTRFAC,
      &    PTRAST, STEP, PIMASTER, PAMASTER, NSTK_S, COMP,
      &    IFLAG, IERROR, COMM,
-     &    NBPROCFILS, IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
+     &    PERM, IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
      &
      &    root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &    FILS, DAD, PTRARW, PTRAIW,
@@ -276,7 +277,7 @@ C
      &    PTLUST_S, PTRFAC,
      &    PTRAST, STEP, PIMASTER, PAMASTER, NSTK_S, COMP,
      &    IFLAG, IERROR, COMM,
-     &    NBPROCFILS, IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
+     &    PERM, IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
      &
      &    root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &    FILS, DAD, PTRARW, PTRAIW,
@@ -332,18 +333,18 @@ C
       CPOS = POSELT + int(JPOSK - 1,8)
       LPOS = POSELT + int(IPOSK - 1,8)
       IF ( NPIV .GT. 0 ) THEN
-       IF (DYNAMIC) THEN
-        CALL sgemm( 'T', 'N', NCOLU, NROW1, NPIV, ALPHA,
+          IF (DYNAMIC) THEN
+            CALL sgemm( 'T', 'N', NCOLU, NROW1, NPIV, ALPHA,
      &            UDYNAMIC(1), NPIV,
      &            A_PTR( LPOS ), NCOL1, ONE,
      &            A_PTR( CPOS ), NCOL1 )
-       ELSE
-        CALL sgemm( 'T', 'N', NCOLU, NROW1, NPIV, ALPHA,
+          ELSE
+            CALL sgemm( 'T', 'N', NCOLU, NROW1, NPIV, ALPHA,
      &            A( POSBLOCFACTO ), NPIV,
      &            A_PTR( LPOS ), NCOL1, ONE,
      &            A_PTR( CPOS ), NCOL1 )
-       ENDIF
-      ENDIF
+          ENDIF
+      ENDIF 
       ENDIF
       IF (NPIV .GT. 0) THEN
         FLOP1 = dble(NCOLU*NPIV)*dble(2*NROW1)
@@ -458,6 +459,21 @@ C
      &                NBROWSinF
      &                )
               ENDIF
+              IF ((KEEP(114).EQ.1) .AND. (KEEP(116).GT.0)
+     &            .AND. (KEEP(50).EQ.2)
+     &           ) THEN
+                 NSLAVES_L = IW(PTRIST(STEP(INODE)) + 5 + KEEP(IXSZ))
+                 IROW_L    = PTRIST(STEP(INODE)) + 6 + NSLAVES_L + 
+     &                       KEEP(IXSZ)
+                 CALL SMUMPS_COMPUTE_SIZE_SCHUR_IN_FRONT ( 
+     &                N, 
+     &                NROW1,
+     &                KEEP(116), 
+     &                IW(IROW_L),
+     &                PERM, NVSCHUR_K253 )
+              ELSE
+                 NVSCHUR_K253 = 0
+              ENDIF
 #if defined(BLR_MT)          
 !$OMP PARALLEL
 #endif
@@ -473,7 +489,8 @@ C
      &          CB_LRB(1,1),
      &          WORK, TAU, JPVT, LWORK, RWORK, BLOCKLR,
      &          MAXI_CLUSTER, KEEP8, OMP_NUM,
-     &          NFS4FATHER, NPIV1, KEEP(1), M_ARRAY,
+     &          NFS4FATHER, NPIV1, NVSCHUR_K253, KEEP(1), 
+     &          M_ARRAY,
      &          NELIM, NBROWSinF )
 #if defined(BLR_MT)
 !$OMP END PARALLEL
@@ -507,7 +524,7 @@ C
      &    IWPOS, IWPOSCB, IPTRLU, LRLU, LRLUS, IW, LIW, A, LA,
      &    PTRIST, PTLUST_S, PTRFAC,
      &    PTRAST, STEP, PIMASTER, PAMASTER,
-     &    NSTK_S, COMP, IFLAG, IERROR, NBPROCFILS,
+     &    NSTK_S, COMP, IFLAG, IERROR, PERM,
      &    IPOOL, LPOOL, LEAF, NBFIN, SLAVEF,
      &    OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS, DAD, PTRARW, PTRAIW,
      &    INTARR,DBLARR,ICNTL,KEEP,KEEP8,DKEEP,ND,FRERE_STEPS,

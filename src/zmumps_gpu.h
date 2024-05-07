@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.3.5, released
- *  on Thu Oct 22 09:29:08 UTC 2020
+ *  This file is part of MUMPS 5.4.0, released
+ *  on Tue Apr 13 15:26:30 UTC 2021
  *
  *
- *  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -15,6 +15,7 @@
  */
 #ifndef ZMUMPS_GPU_H
 #define ZMUMPS_GPU_H
+#include "mumps_compat.h"
 #include "mumps_common.h"
 void MUMPS_CALL zmumps_gpu_return();
 #endif /* ZMUMPS_GPU_H */

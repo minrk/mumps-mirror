@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -26,8 +26,8 @@ C
      &                   PP_FIRST2SWAP_L, PP_LastPanelonDisk,
      &                   PP_LastPIVRPTRIndexFilled, 
      &                   PIVOT_OPTION,   
-     &                   Inextpiv, IEND_BLR, 
-     &                   OOCWRITE_COMPATIBLE_WITH_BLR)
+     &                   Inextpiv, IEND_BLR, LR_ACTIVATED,
+     &                   OOC_EFFECTIVE_ON_FRONT)
       USE MUMPS_OOC_COMMON, ONLY : TYPEF_L   
       USE DMUMPS_FAC_FRONT_AUX_M
       IMPLICIT NONE
@@ -42,8 +42,9 @@ C
       INTEGER TIPIV( NASS2 )
       INTEGER PIVSIZ,LPIV
       INTEGER, intent(in)    :: PIVOT_OPTION, IEND_BLR
+      LOGICAL, intent(in)    :: LR_ACTIVATED
       INTEGER, intent(inout) :: Inextpiv
-      LOGICAL, intent(in)    :: OOCWRITE_COMPATIBLE_WITH_BLR
+      LOGICAL, intent(in)    :: OOC_EFFECTIVE_ON_FRONT
       INTEGER(8) :: LA
       DOUBLE PRECISION A(LA) 
       DOUBLE PRECISION UU, UULOC, SEUIL
@@ -101,8 +102,7 @@ C
       CSEUIL = SEUIL
       LDAFS  = NASS
       LDAFS8 = int(LDAFS,8)
-      IF (KEEP(201).EQ.1 .AND. KEEP(50).NE.1 .AND.
-     &    OOCWRITE_COMPATIBLE_WITH_BLR) THEN
+      IF ((KEEP(50).NE.1) .AND. OOC_EFFECTIVE_ON_FRONT) THEN
              CALL DMUMPS_GET_OOC_PERM_PTR(TYPEF_L, NBPANELS_L, 
      &       I_PIVRPTR, I_PIVR, 
      &       IOLDPS+2*NFRONT+6+IW(IOLDPS+5+KEEP(IXSZ))
@@ -110,7 +110,7 @@ C
      &       IW, LIW)
       ENDIF
         UULOC = UU
-        K219   = KEEP(219)  
+        K219  = KEEP(219)  
         IF (UULOC.GT.RZERO) THEN 
           UULOCM1 = RONE/UULOC
         ELSE
@@ -141,8 +141,7 @@ C
            ELSE IF (KEEP(258) .NE.0 ) THEN
              CALL DMUMPS_UPDATEDETER( A(APOS), DET_MANTW, DET_EXPW )
            ENDIF
-           IF (KEEP(201).EQ.1.AND.KEEP(50).NE.1.AND.
-     &         OOCWRITE_COMPATIBLE_WITH_BLR) THEN
+           IF ((KEEP(50).NE.1) .AND. OOC_EFFECTIVE_ON_FRONT) THEN
              CALL DMUMPS_STORE_PERMINFO( IW(I_PIVRPTR), NBPANELS_L,
      &               IW(I_PIVR), NASS, NPIVP1, NPIVP1, 
      &               PP_LastPanelonDisk,
@@ -441,11 +440,11 @@ C
                DIAG_ORIG(NPIVP1) = RSWOP 
               ENDIF
  416          CONTINUE
-              IF (KEEP(201).EQ.1.AND.KEEP(50).NE.1.AND.
-     &            OOCWRITE_COMPATIBLE_WITH_BLR) THEN
-                CALL DMUMPS_STORE_PERMINFO( IW(I_PIVRPTR), NBPANELS_L,
-     &               IW(I_PIVR), NASS, NPIVP1, LPIV, PP_LastPanelonDisk,
-     &               PP_LastPIVRPTRIndexFilled)
+              IF ((KEEP(50).NE.1) .AND. OOC_EFFECTIVE_ON_FRONT) THEN
+                CALL DMUMPS_STORE_PERMINFO( 
+     &           IW(I_PIVRPTR), NBPANELS_L,
+     &           IW(I_PIVR), NASS, NPIVP1, LPIV, PP_LastPanelonDisk,
+     &           PP_LastPIVRPTRIndexFilled)
               ENDIF
               NPIVP1 = NPIVP1+1
            ENDDO
@@ -488,7 +487,7 @@ C
      &     (IEND_BLOCK,
      &     NASS, NPIV, INODE, A, LA, LDAFS, 
      &     POSELT,IFINB,PIVSIZ,
-     &     K219, PIVOT_OPTION, IEND_BLR)
+     &     K219, PIVOT_OPTION, IEND_BLR, LR_ACTIVATED)
       IMPLICIT NONE
       INTEGER(8), intent(in) :: LA, POSELT
       INTEGER,    intent(in) :: K219
@@ -498,6 +497,7 @@ C
       INTEGER, intent(in)    :: NASS,INODE,LDAFS
       INTEGER, intent(out)   :: IFINB
       INTEGER, intent(in)    :: PIVOT_OPTION, IEND_BLR
+      LOGICAL, intent(in)    :: LR_ACTIVATED
       DOUBLE PRECISION    VALPIV
       INTEGER NCB1
       INTEGER(8) :: APOS, APOSMAX
@@ -556,7 +556,7 @@ C
          IF (K219.eq. -1) THEN
            APOSMAX = POSELT + int(NASS,8) * LDAFS8 + int(NPIV,8)
            A(APOSMAX) = A(APOSMAX) * abs(VALPIV)
-           DO J8 = 1_8, int(NASS - NPIV_NEW,8) 
+           DO J8 = 1_8, int(NEL2+NCB1,8)
              A(APOSMAX+J8) = A(APOSMAX+J8) +
      &                      A(APOSMAX) * abs(A(APOS+J8))
            ENDDO
@@ -647,7 +647,7 @@ C
      &             SLAVEF, POSFAC, IWPOS, IWPOSCB, IPTRLU, LRLU,
      &             LRLUS, COMP, PTRIST, PTRAST, PTLUST_S, PTRFAC,
      &             STEP, PIMASTER, PAMASTER,
-     &             NSTK_S,NBPROCFILS,PROCNODE_STEPS, root,
+     &             NSTK_S,PERM,PROCNODE_STEPS, root,
      &             OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &             FILS, DAD, PTRARW, PTRAIW,
      &             INTARR, DBLARR, ICNTL, KEEP,KEEP8,DKEEP, ND, FRERE,
@@ -692,7 +692,7 @@ C
       INTEGER PTRIST(KEEP(28)), PTLUST_S(KEEP(28)),
      &        STEP(N), PIMASTER(KEEP(28)),
      &        NSTK_S(KEEP(28)),
-     &        NBPROCFILS(KEEP(28)), PROCNODE_STEPS(KEEP(28))
+     &        PERM(N), PROCNODE_STEPS(KEEP(28))
       INTEGER ISTEP_TO_INIV2(KEEP(71)), 
      &        TAB_POS_IN_PERE(SLAVEF+2,max(1,KEEP(56)))
       DOUBLE PRECISION OPASSW, OPELIW
@@ -770,7 +770,7 @@ C
      &       PTLUST_S, PTRFAC,
      &       PTRAST, STEP, PIMASTER, PAMASTER, NSTK_S, COMP, IFLAG,
      &       IERROR, COMM,
-     &       NBPROCFILS,
+     &       PERM,
      &       IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
      &       root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &       FILS, DAD, PTRARW, PTRAIW,

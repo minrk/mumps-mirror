@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -59,7 +59,9 @@ C
       DOUBLE PRECISION :: TIME_FRSWAP_COMPRESS
       DOUBLE PRECISION :: TIME_CB_COMPRESS
       DOUBLE PRECISION :: TIME_LR_MODULE
-      DOUBLE PRECISION :: TIME_TRSM
+      DOUBLE PRECISION :: TIME_UPD_NELIM
+      DOUBLE PRECISION :: TIME_LRTRSM
+      DOUBLE PRECISION :: TIME_FRTRSM
       DOUBLE PRECISION :: TIME_PANEL
       DOUBLE PRECISION :: TIME_FAC_I
       DOUBLE PRECISION :: TIME_FAC_MQ
@@ -159,9 +161,9 @@ C
         M = int(LR_B%M,8)
         N = int(LR_B%N,8)
         K = int(LR_B%K,8)
-        HR_COST =  dble(4_8*K*K*K/3_8 + 4_8*K*M*N - 2_8*(M+N)*K*K)
+        HR_COST =  dble(K*K*K/3_8 + 4_8*K*M*N - (2_8*M+N)*K*K)
         IF (LR_B%ISLR) THEN 
-          BUILDQ_COST = dble(4_8*K*K*M - K*K*K)
+          BUILDQ_COST = dble(2_8*K*K*M - K*K*K)
         ELSE 
           BUILDQ_COST = 0.0d0
         END IF
@@ -266,9 +268,9 @@ C
           COST_FR = 2.0D0*M1*M2*N1
         ELSE
           IF (MIDBLK_COMPRESS.GE.1) THEN
-            COST_COMPRESS =  4.0D0*RANK*RANK*RANK/3.0D0 + 
+            COST_COMPRESS =  RANK*RANK*RANK/3.0D0 + 
      &                       4.0D0*RANK*K1*K2 - 
-     &                       2.0D0*(K1+K2)*RANK*RANK
+     &                       (2.0D0*K1+K2)*RANK*RANK
             IF (BUILDQ) THEN
               COST_COMPRESS = COST_COMPRESS + 4.0D0*RANK*RANK*K1 
      &                                      - RANK*RANK*RANK
@@ -293,7 +295,8 @@ C
         IF (IS_SYMDIAG) THEN
           COST_FR = COST_FR/2.0D0
           COST_LRLR3 = COST_LRLR3/2.0D0
-          COST_LR = COST_LR - COST_LRLR3
+          COST_FRFR = COST_FRFR/2.0D0
+          COST_LR = COST_LR - COST_LRLR3 - COST_FRFR
         ENDIF
         IF (LUA_ACTIVATED) THEN
           COST_LR = COST_LR - COST_LRLR3
@@ -340,7 +343,7 @@ C
         RETURN
       END SUBROUTINE UPD_FLOP_ROOT
       SUBROUTINE INIT_STATS_GLOBAL(id)
-        use ZMUMPS_STRUC_DEF
+        USE ZMUMPS_STRUC_DEF
         TYPE (ZMUMPS_STRUC), TARGET :: id
         MRY_LU_FR = 0.D0
         MRY_LU_LRGAIN = 0.D0
@@ -389,7 +392,9 @@ C
         TIME_COMPRESS = 0.D0 
         TIME_CB_COMPRESS = 0.D0 
         TIME_LR_MODULE = 0.D0 
-        TIME_TRSM = 0.D0 
+        TIME_UPD_NELIM = 0.D0 
+        TIME_LRTRSM = 0.D0 
+        TIME_FRTRSM = 0.D0 
         TIME_PANEL = 0.D0 
         TIME_FAC_I = 0.D0 
         TIME_FAC_MQ = 0.D0 

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -15,7 +15,7 @@ C
      &     LBUFR_BYTES,
      &     IWPOS, IWPOSCB,
      &     IPTRLU, LRLU, LRLUS,
-     &     TNBPROCFILS, N, IW, LIW, A, LA, SLAVEF, PROCNODE_STEPS, DAD,
+     &     N, IW, LIW, A, LA, SLAVEF, PROCNODE_STEPS, DAD,
      &     PTRIST, PTRAST, STEP, PIMASTER, PAMASTER, COMP,
      &     KEEP,KEEP8, DKEEP, ITLOC, RHS_MUMPS, ISTEP_TO_INIV2,
 #if ! defined(NO_FDM_DESCBAND)
@@ -45,7 +45,7 @@ C
       INTEGER(8) :: PTRAST(KEEP(28))
       INTEGER PTRIST(KEEP(28)), STEP(N), 
      & PIMASTER(KEEP(28)), 
-     & TNBPROCFILS( KEEP(28) ), ITLOC( N + KEEP(253) )
+     & ITLOC( N + KEEP(253) )
       COMPLEX :: RHS_MUMPS(KEEP(255))
       INTEGER :: ISTEP_TO_INIV2(KEEP(71))
 #if ! defined(NO_FDM_DESCBAND)
@@ -154,10 +154,7 @@ C
      &      IWPOSCB + 6+XTRA_SLAVES_SYM+KEEP(IXSZ)+NSLAVES_RECU ) =
      &       BUFR( IBUFR: IBUFR - 1 + NSLAVES_RECU )
       END IF
-      TNBPROCFILS(STEP( INODE )) = NBPROCFILS
-#     if ! defined(NO_XXNBPR)
       IW(IWPOSCB+1+XXNBPR)=NBPROCFILS
-#     endif
       IW(IWPOSCB+1+XXLR)=LRSTATUS
       COMPRESS_CB    = ((LRSTATUS.EQ.1).OR.
      &                  (LRSTATUS.EQ.3))
@@ -196,7 +193,7 @@ C
      &    LRLU, LRLUS, N, IW, LIW, A, LA, PTRIST,
      &    PTLUST, PTRFAC,
      &    PTRAST, STEP, PIMASTER, PAMASTER, NSTK_S, COMP,
-     &    IFLAG, IERROR, COMM, NBPROCFILS,
+     &    IFLAG, IERROR, COMM, PERM,
      &    IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
      &
      &    root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
@@ -236,7 +233,7 @@ C
      & PIMASTER(KEEP(28))
       INTEGER COMP
       INTEGER NSTK_S(KEEP(28)), PROCNODE_STEPS( KEEP(28) )
-      INTEGER NBPROCFILS( KEEP(28) )
+      INTEGER PERM(N)
       INTEGER IFLAG, IERROR, COMM
       INTEGER LPOOL, LEAF
       INTEGER IPOOL( LPOOL )
@@ -275,7 +272,7 @@ C
      &       LBUFR_BYTES,
      &       IWPOS, IWPOSCB,
      &       IPTRLU, LRLU, LRLUS,
-     &       NBPROCFILS, N, IW, LIW, A, LA, SLAVEF, PROCNODE_STEPS, DAD,
+     &       N, IW, LIW, A, LA, SLAVEF, PROCNODE_STEPS, DAD,
      &       PTRIST, PTRAST, STEP, PIMASTER, PAMASTER, COMP,
      &       KEEP, KEEP8, DKEEP, ITLOC, RHS_MUMPS, ISTEP_TO_INIV2,
      &       IWHANDLER,
@@ -304,7 +301,7 @@ C
      &    PTLUST, PTRFAC,
      &    PTRAST, STEP, PIMASTER, PAMASTER, NSTK_S, COMP,
      &    IFLAG, IERROR, COMM,
-     &    NBPROCFILS, IPOOL, LPOOL, LEAF,
+     &    PERM, IPOOL, LPOOL, LEAF,
      &    NBFIN, MYID, SLAVEF,
      &    root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &    FILS, DAD, PTRARW, PTRAIW,

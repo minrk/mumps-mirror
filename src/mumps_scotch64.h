@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.3.5, released
- *  on Thu Oct 22 09:29:08 UTC 2020
+ *  This file is part of MUMPS 5.4.0, released
+ *  on Tue Apr 13 15:26:30 UTC 2021
  *
  *
- *  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -17,7 +17,14 @@
 #define MUMPS_SCOTCH64_H
 #include "mumps_common.h"
 #if defined(scotch) || defined(ptscotch)
-/* esmumps prototype with 64-bit integers */
+#include "scotch.h"
+#if ((SCOTCH_VERSION == 6) && (SCOTCH_RELEASE >= 1)) || (SCOTCH_VERSION >= 7)
+/* esmumpsv prototype with 64-bit integers weights of nodes in the graph are used on entry (nv) */
+MUMPS_INT esmumpsv( const MUMPS_INT8 n, const MUMPS_INT8 iwlen, MUMPS_INT8 * const pe, const MUMPS_INT8 pfree,
+             MUMPS_INT8 * const len, MUMPS_INT8 * const iw, MUMPS_INT8 * const nv, MUMPS_INT8 * const elen,
+             MUMPS_INT8 * const last);
+#endif
+/* esmumps prototype with standard integers (weights of nodes not used on entry) */
 MUMPS_INT esmumps( const MUMPS_INT8 n, const MUMPS_INT8 iwlen, MUMPS_INT8 * const pe, const MUMPS_INT8 pfree,
              MUMPS_INT8 * const len, MUMPS_INT8 * const iw, MUMPS_INT8 * const nv, MUMPS_INT8 * const elen,
              MUMPS_INT8 * const last);
@@ -33,6 +40,8 @@ MUMPS_SCOTCH_64( const MUMPS_INT8 * const  n,
                        MUMPS_INT8 * const  nvtab,
                        MUMPS_INT8 * const  elentab,
                        MUMPS_INT8 * const  lasttab,
-                       MUMPS_INT  * const  ncmpa );
+                       MUMPS_INT  * const  ncmpa,
+                       MUMPS_INT  * const  weightused,
+                       MUMPS_INT  * const  weightrequested );
 #endif
 #endif

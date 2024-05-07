@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.3.5, released
- *  on Thu Oct 22 09:29:08 UTC 2020
+ *  This file is part of MUMPS 5.4.0, released
+ *  on Tue Apr 13 15:26:30 UTC 2021
  *
  *
- *  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -564,7 +564,7 @@ MUMPS_INT mumps_init_file_name(char* mumps_dir,char* mumps_file,
   }
   if(tmp_fname!=NULL){
 #if ! defined( MUMPS_WIN32 )
-      sprintf(base_name,"_%s%d_XXXXXX",mumps_base,*_myid);
+      sprintf(base_name,"_%s%d_XXXXXX",mumps_base,(int)*_myid);
 #else
       sprintf(base_name,"_%s%d",mumps_base,*_myid);
 #endif
@@ -575,7 +575,7 @@ MUMPS_INT mumps_init_file_name(char* mumps_dir,char* mumps_file,
       sprintf(mumps_ooc_file_prefix,"%s%s%s%s",tmp_dir,SEPARATOR,tmp_fname,base_name);
   }else{
 #if ! defined( MUMPS_WIN32 )
-    sprintf(base_name,"%s%s%d_XXXXXX",SEPARATOR,mumps_base,*_myid);
+    sprintf(base_name,"%s%s%d_XXXXXX",SEPARATOR,mumps_base,(int)*_myid);
 #else
     sprintf(base_name,"%s%s%d",SEPARATOR,mumps_base,*_myid);
 #endif

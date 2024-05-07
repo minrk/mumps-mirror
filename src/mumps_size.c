@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.3.5, released
- *  on Thu Oct 22 09:29:08 UTC 2020
+ *  This file is part of MUMPS 5.4.0, released
+ *  on Tue Apr 13 15:26:30 UTC 2021
  *
  *
- *  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -25,7 +25,7 @@ void MUMPS_CALL MUMPS_ADDR_C(char *a, MUMPS_INT8 *addr)
 /*
     With the form "*addr=(MUMPS_INT8)a", "(MUMPS_INT8)a"
     and "a" may have different binary representations
-    for large addresses. In the aboce code, "(MUMPS_INT8*)&a"
+    for large addresses. In the above code, "(MUMPS_INT8*)&a"
     is a pointer to the address "a", considering that "a" is
     a MUMPS_INT8 rather than an address. Then the content of
     that pointer is the exact binary representation of the

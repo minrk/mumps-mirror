@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -21,7 +21,7 @@ C
      &    POSFAC, LRLU, LRLUS, LRLUSM, IPTRLU, ICNTL, KEEP,KEEP8,DKEEP,
      &    COMP, IWPOS, IWPOSCB, PROCNODE_STEPS, SLAVEF,
      &    FPERE, COMM, MYID, IPOOL, LPOOL, LEAF, NSTK_S,
-     &    NBPROCFILS, BUFR, LBUFR, LBUFR_BYTES, NBFIN, root,
+     &    PERM, BUFR, LBUFR, LBUFR_BYTES, NBFIN, root,
      &    OPASSW, ITLOC, RHS_MUMPS,
      &    FILS, DAD, PTRARW, PTRAIW, INTARR, DBLARR,
      &    ND, FRERE, LPTRAR, NELT, FRTPTR, FRTELT,
@@ -64,7 +64,7 @@ C
       INTEGER LPOOL, LEAF, COMP
       INTEGER IPOOL( LPOOL )
       INTEGER NSTK_S( KEEP(28) )
-      INTEGER NBPROCFILS( KEEP(28) )
+      INTEGER PERM(N) 
       INTEGER LBUFR, LBUFR_BYTES
       INTEGER BUFR( LBUFR )
       INTEGER NBFIN
@@ -174,6 +174,7 @@ C
       FAC_ENTRIES = FAC_ENTRIES + int(NBROW,8) * int(NPIV,8)
       IF ( KEEP(405) .EQ. 0 ) THEN
         KEEP8(10) = KEEP8(10) + FAC_ENTRIES
+        KEEP(429) = KEEP(429) - 1
       ELSE
 !$OMP ATOMIC UPDATE
         KEEP8(10) = KEEP8(10) + FAC_ENTRIES
@@ -248,7 +249,7 @@ C
      &    IWPOS, IWPOSCB, IPTRLU, LRLU, LRLUS, IW, LIW, A, LA,
      &    PTRIST, PTLUST_S, PTRFAC,
      &    PTRAST, STEP, PIMASTER, PAMASTER,
-     &    NSTK_S, COMP, IFLAG, IERROR, NBPROCFILS,
+     &    NSTK_S, COMP, IFLAG, IERROR, PERM,
      &    IPOOL, LPOOL, LEAF, NBFIN, SLAVEF,
      &    OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS, DAD, PTRARW, PTRAIW,
      &    INTARR,DBLARR,ICNTL,KEEP,KEEP8,DKEEP,.FALSE., ND, FRERE,
@@ -295,7 +296,7 @@ C
      &       IWPOS, IWPOSCB, IPTRLU,
      &       LRLU, LRLUS, N, IW, LIW, A, LA, PTRIST, PTLUST_S, PTRFAC,
      &       PTRAST, STEP, PIMASTER, PAMASTER, NSTK_S, COMP,
-     &       IFLAG, IERROR, COMM, NBPROCFILS,
+     &       IFLAG, IERROR, COMM, PERM,
      &       IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
      &       root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &       FILS, DAD, PTRARW, PTRAIW,
@@ -375,7 +376,7 @@ C
      &       PTRIST, PTLUST_S, PTRFAC,
      &       PTRAST, STEP, PIMASTER, PAMASTER, NSTK_S, COMP,
      &       IFLAG, IERROR, COMM,
-     &       NBPROCFILS, IPOOL, LPOOL, LEAF,
+     &       PERM, IPOOL, LPOOL, LEAF,
      &       NBFIN, MYID, SLAVEF,
      &
      &       root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,

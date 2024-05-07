@@ -8325,6 +8325,7 @@ C   PREVIOUS DOCUMENTATION
 C   section)
 C
 C N (in): the size of the matrix 
+C         number of supervariables if blocked format
 C TOTEL (in) : Number of variables to eliminate
 C
 C IWLEN (in): the length of the workspace IW
@@ -8353,6 +8354,8 @@ C       On output:  (PE is copied on output into PARENT array)
 C
 C  
 C NV(inout): 
+C          On input:  encoding of a blocked matrix if NV(1) = -1 
+C            NV(I) holds the weight of node I. 
 C          During execution, 
 C            abs (nv (i)) is equal to the number of rows
 C            that are represented by the principal supervariable i.  
@@ -8401,6 +8404,14 @@ C      variables.
 C      (it should be ok for the Schur too).
 C
 C LAST  used internally as working space; 
+C       On output, last (1..n) holds the permutation,  i = last (k), then
+C       row i is the kth pivot row.
+C       Not used on output and 
+C       Computation has been suppressed 
+C       since in the context of blocked matrix format
+C       one cannot so easily compute last out of elen 
+C       (see end of MUMPS_QAMD in case of COMRPESS, 
+C       because elen(i) \in [1:TOTEL] and not \in [1:N])
 C
 C AGG6 (in): controls if aggressive absorption should be authorized.
 C
@@ -9905,6 +9916,7 @@ C     and compute the permutation (last (1..n)).
 C     ----------------------------------------------------------------
       DO 300 I = 1, N
         K = abs (ELEN (I))
+C        LAST (K) = I
 C        LAST (K) = I
         ELEN (I) = K
   300 CONTINUE

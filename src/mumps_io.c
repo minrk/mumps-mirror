@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.3.5, released
- *  on Thu Oct 22 09:29:08 UTC 2020
+ *  This file is part of MUMPS 5.4.0, released
+ *  on Tue Apr 13 15:26:30 UTC 2021
  *
  *
- *  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -35,7 +35,10 @@ void MUMPS_CALL
 MUMPS_TEST_REQUEST_C(MUMPS_INT *request_id,MUMPS_INT *flag,MUMPS_INT *ierr)
 {
   char buf[64]; /* for error message */
-  MUMPS_INT request_id_loc,flag_loc;
+  MUMPS_INT request_id_loc;
+#if ! defined(MUMPS_WIN32) && ! defined(WITHOUT_PTHREAD)
+  MUMPS_INT flag_loc;
+#endif
 #if ! defined(MUMPS_WIN32)
   struct timeval start_time,end_time;
   gettimeofday(&start_time,NULL);
@@ -58,7 +61,7 @@ MUMPS_TEST_REQUEST_C(MUMPS_INT *request_id,MUMPS_INT *flag,MUMPS_INT *ierr)
 #endif
   default:
     *ierr=-92;
-    sprintf(buf,"Error: unknown I/O strategy : %d\n",mumps_io_flag_async);
+    sprintf(buf,"Error: unknown I/O strategy : %d\n",(int)mumps_io_flag_async);
     mumps_io_error((MUMPS_INT)*ierr,buf);
     return;
   }
@@ -92,7 +95,7 @@ MUMPS_WAIT_REQUEST(MUMPS_INT *request_id,MUMPS_INT *ierr)
 #endif
   default:
     *ierr=-92;
-    sprintf(buf,"Error: unknown I/O strategy : %d\n",mumps_io_flag_async);
+    sprintf(buf,"Error: unknown I/O strategy : %d\n",(int)mumps_io_flag_async);
     mumps_io_error((MUMPS_INT)*ierr,buf);
     return;
     /*    printf("Error: unknown I/O strategy : %d\n",mumps_io_flag_async);
@@ -147,7 +150,10 @@ MUMPS_LOW_LEVEL_INIT_OOC_C(MUMPS_INT *_myid, MUMPS_INT *total_size_io, MUMPS_INT
                            MUMPS_INT *flag_tab, MUMPS_INT *ierr)
 {
   char buf[128]; /* for error message */
-  MUMPS_INT myid_loc,async_loc,ierr_loc,size_element_loc,nb_file_type_loc,*flag_tab_loc;
+  MUMPS_INT myid_loc,async_loc,size_element_loc,nb_file_type_loc,*flag_tab_loc;
+#if ! defined(MUMPS_WIN32) && ! defined(WITHOUT_PTHREAD)
+  MUMPS_INT ierr_loc;
+#endif
   long long total_size_io_loc;
   MUMPS_INT i;
   myid_loc=(MUMPS_INT)*_myid;
@@ -214,7 +220,7 @@ MUMPS_LOW_LEVEL_INIT_OOC_C(MUMPS_INT *_myid, MUMPS_INT *total_size_io, MUMPS_INT
   if(async_loc){
     switch(async_loc){
     case IO_SYNC:
-      printf("mumps_low_level_init_ooc_c should not be called with strategy %d\n",mumps_io_flag_async);
+      printf("mumps_low_level_init_ooc_c should not be called with strategy %d\n",(int)mumps_io_flag_async);
       break;
 #if ! defined(MUMPS_WIN32) && ! defined(WITHOUT_PTHREAD)
     case IO_ASYNC_TH:
@@ -227,7 +233,7 @@ MUMPS_LOW_LEVEL_INIT_OOC_C(MUMPS_INT *_myid, MUMPS_INT *total_size_io, MUMPS_INT
 #endif
     default:
       *ierr=-92;
-      sprintf(buf,"Error: unknown I/O strategy : %d\n",(MUMPS_INT)*async);
+      sprintf(buf,"Error: unknown I/O strategy : %d\n",(int)*async);
       mumps_io_error((MUMPS_INT)*ierr,buf);
       return;
     }
@@ -284,7 +290,7 @@ MUMPS_LOW_LEVEL_WRITE_OOC_C(const MUMPS_INT * strat_IO,
 #endif
     default:
       *ierr=-91;
-      sprintf(buf,"Error: unknown I/O strategy : %d\n",(MUMPS_INT)*strat_IO);
+      sprintf(buf,"Error: unknown I/O strategy : %d\n",(int)*strat_IO);
       mumps_io_error((MUMPS_INT)*ierr,buf);
       return;
     }
@@ -342,7 +348,7 @@ MUMPS_LOW_LEVEL_READ_OOC_C(const MUMPS_INT * strat_IO,
 #endif
       default:
         *ierr=-91;
-        sprintf(buf,"Error: unknown I/O strategy : %d\n",(MUMPS_INT)*strat_IO);
+        sprintf(buf,"Error: unknown I/O strategy : %d\n",(int)*strat_IO);
         mumps_io_error((MUMPS_INT)*ierr,buf);
         return;
       }
@@ -422,7 +428,7 @@ MUMPS_CLEAN_IO_DATA_C(MUMPS_INT *myid,MUMPS_INT *step,MUMPS_INT *ierr)
 #endif
   default:
     *ierr=-91;
-    sprintf(buf,"Error: unknown I/O strategy : %d\n",mumps_io_flag_async);
+    sprintf(buf,"Error: unknown I/O strategy : %d\n",(int)mumps_io_flag_async);
     mumps_io_error((MUMPS_INT)*ierr,buf);
     return;
   }
@@ -434,12 +440,12 @@ void MUMPS_CALL
 MUMPS_OOC_PRINT_STATS()
 {
 #if ! defined(MUMPS_WIN32)
-  printf("%d: total time spent in i/o mode = %lf\n",mumps_io_myid,mumps_time_spent_in_sync);
+  printf("%d: total time spent in i/o mode = %lf\n",(int)mumps_io_myid,mumps_time_spent_in_sync);
 #endif
-  printf("%d: Volume of read i/o = %lf\n",mumps_io_myid,read_op_vol);
-  printf("%d: Volume of write i/o = %lf\n",mumps_io_myid,write_op_vol);
+  printf("%d: Volume of read i/o = %lf\n",(int)mumps_io_myid,read_op_vol);
+  printf("%d: Volume of write i/o = %lf\n",(int)mumps_io_myid,write_op_vol);
   total_vol=total_vol+read_op_vol+write_op_vol;
-  printf("%d: Total i/o volume = %lf\n",mumps_io_myid,total_vol);
+  printf("%d: Total i/o volume = %lf\n",(int)mumps_io_myid,total_vol);
   return;
 }
 void MUMPS_CALL
@@ -458,7 +464,7 @@ MUMPS_GET_MAX_NB_REQ_C(MUMPS_INT *max,MUMPS_INT *ierr)
 #endif
   default:
     *ierr=-91;
-    sprintf(buf,"Error: unknown I/O strategy : %d\n",mumps_io_flag_async);
+    sprintf(buf,"Error: unknown I/O strategy : %d\n",(int)mumps_io_flag_async);
     mumps_io_error((MUMPS_INT)*ierr,buf);
     return;
   }
@@ -559,7 +565,7 @@ MUMPS_OOC_START_LOW_LEVEL(MUMPS_INT *ierr)
 #endif
     default:
       *ierr=-91;
-      sprintf(buf,"Error: unknown I/O strategy : %d\n",mumps_io_flag_async);
+      sprintf(buf,"Error: unknown I/O strategy : %d\n",(int)mumps_io_flag_async);
       mumps_io_error((MUMPS_INT)*ierr,buf);
       return;
     }

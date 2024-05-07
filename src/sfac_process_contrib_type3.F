@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -14,7 +14,7 @@ C
       SUBROUTINE SMUMPS_PROCESS_CONTRIB_TYPE3(BUFR,LBUFR,
      &     LBUFR_BYTES,
      &     root, N, IW, LIW, A, LA,
-     &     NBPROCFILS, LRLU, IPTRLU, IWPOS, IWPOSCB,
+     &     LRLU, IPTRLU, IWPOS, IWPOSCB,
      &     PTRIST, PTLUST, PTRFAC, PTRAST, STEP, PIMASTER, PAMASTER,
      &     COMP, LRLUS, IPOOL, LPOOL, LEAF,
      &     FILS, DAD, MYID,
@@ -44,7 +44,7 @@ C
       INTEGER PTLUST(KEEP(28))
       INTEGER STEP(N), PIMASTER(KEEP(28)), ITLOC( N+KEEP(253) )
       REAL :: RHS_MUMPS(KEEP(255))
-      INTEGER BUFR( LBUFR_BYTES ), NBPROCFILS( KEEP(28) )
+      INTEGER BUFR( LBUFR_BYTES )
       INTEGER IW( LIW )
       INTEGER ND(KEEP(28)), PROCNODE_STEPS(KEEP(28))
       INTEGER SLAVEF
@@ -101,14 +101,8 @@ C
           IF (NBROWS_ALREADY_SENT + NBROWS_PACKET .EQ. NSUBSET_ROW
      &       - NSUPROW .OR.  NSUBSET_ROW - NSUPROW.EQ.0 .OR.
      &       NSUBSET_COL_EFF .EQ. 0)THEN
-            NBPROCFILS(STEP(IROOT)) = NBPROCFILS(STEP(IROOT))-1
-#if ! defined(NO_XXNBPR)
             KEEP(121) = KEEP(121) - 1
-            CALL CHECK_EQUAL(NBPROCFILS(STEP(IROOT)),KEEP(121))
             IF ( KEEP(121) .eq. 0 ) THEN
-#else
-            IF ( NBPROCFILS( STEP(IROOT) ) .eq. 0 ) THEN
-#endif
               IF (KEEP(201).EQ.1) THEN 
                  CALL SMUMPS_OOC_FORCE_WRT_BUF_PANEL(IERR)
               ELSEIF (KEEP(201).EQ.2) THEN 
@@ -132,10 +126,7 @@ C
      &       NSUBSET_ROW - NSUPROW .OR.
      &        NSUBSET_ROW - NSUPROW.EQ.0 .OR.
      &        NSUBSET_COL_EFF .EQ. 0)THEN
-             NBPROCFILS(STEP( IROOT ) ) = -1
-#if ! defined(NO_XXNBPR)
              KEEP(121)=-1
-#endif
            ENDIF
            CALL SMUMPS_ROOT_ALLOC_STATIC( root, IROOT, N,
      &                IW, LIW, A, LA,

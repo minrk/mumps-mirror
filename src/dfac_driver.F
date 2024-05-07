@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -28,6 +28,7 @@ C
 #if ! defined(NO_FDM_MAPROW)
       USE MUMPS_FAC_MAPROW_DATA_M
 #endif
+!$    USE OMP_LIB
 C     Derived datatype to pass pointers with implicit interfaces
       USE DMUMPS_FAC_S_IS_POINTERS_M, ONLY : S_IS_POINTERS_T
       IMPLICIT NONE
@@ -121,6 +122,7 @@ C     For S argument to arrowhead routines:
       INTEGER(8) :: MAXS_ARG
       DOUBLE PRECISION, TARGET :: S_DUMMY_ARG(1)
       DOUBLE PRECISION, POINTER, DIMENSION(:) :: S_PTR_ARG
+      INTEGER NPIV_CRITICAL_PATH
       DOUBLE PRECISION TIME, TIMEET
       DOUBLE PRECISION ZERO, ONE, MONE
       PARAMETER( ZERO = 0.0D0, ONE = 1.0D0, MONE = -1.0D0)
@@ -136,12 +138,13 @@ C     I_AM_SLAVE: used to determine if proc has the role of a slave
 C     WK_USER_PROVIDED is set to true when WK_USER is provided by user
       LOGICAL I_AM_SLAVE, PERLU_ON, WK_USER_PROVIDED, EARLYT3ROOTINS
       LOGICAL PRINT_MAXAVG
-      DOUBLE PRECISION :: ANORMINF, SEUIL, SEUIL_LDLT_NIV2
+      DOUBLE PRECISION :: ANORMINF, SEUIL, SEUIL_LDLT_NIV2, Thresh_Seuil
       DOUBLE PRECISION :: CNTL1, CNTL3, CNTL5, CNTL6, EPS
       INTEGER N, LPN_LIST,POSBUF
       INTEGER, DIMENSION (:), ALLOCATABLE :: ITMP2
       INTEGER I,K
       INTEGER(8) :: ITEMP8
+      INTEGER    :: PARPIV_T1
       INTEGER FRONTWISE
 C temporary variables for collecting stats from all processors
       DOUBLE PRECISION :: TMP_MRY_LU_FR
@@ -182,7 +185,8 @@ C temporary variables for collecting stats from all processors
       DOUBLE PRECISION :: TMP_TIME_FAC_I
       DOUBLE PRECISION :: TMP_TIME_FAC_MQ
       DOUBLE PRECISION :: TMP_TIME_FAC_SQ
-      DOUBLE PRECISION :: TMP_TIME_TRSM
+      DOUBLE PRECISION :: TMP_TIME_LRTRSM
+      DOUBLE PRECISION :: TMP_TIME_FRTRSM
       DOUBLE PRECISION :: TMP_TIME_FRFRONTS
       DOUBLE PRECISION :: TMP_TIME_LR_MODULE
       DOUBLE PRECISION :: TMP_TIME_DIAGCOPY
@@ -397,15 +401,6 @@ C
       PROKG   = (PROKG.AND.(id%ICNTL(4).GE.2))
       IF ( PROK ) WRITE( MP, 130 )
       IF ( PROKG ) WRITE( MPG, 130 )
-      IF ( PROKG .and. KEEP(53).GT.0 ) THEN
-        WRITE(MPG,'(/A,I3)') ' Null space option :', KEEP(19)
-        IF ( KEEP(21) .ne. N ) THEN 
-          WRITE( MPG, '(A,I10)') ' Max deficiency    : ', KEEP(21)
-        END IF
-        IF ( KEEP(22) .ne. 0 ) THEN 
-          WRITE( MPG, '(A,I10)') ' Min deficiency    : ', KEEP(22)
-        END IF
-      END IF
 C     -------------------------------------
 C     Depending on the type of parallelism,
 C     the master can now (soon) potentially
@@ -456,14 +451,15 @@ C       KEEP(50) /= 0 : matrix is symmetric
 C       KEEP(50) = 1 : Ask L L^T on the root. Matrix is PSD.
 C       KEEP(50) = 2 : Ask for L U on the root
 C       KEEP(50) = 3 ... L D L^T ??
-C
+C     
+        CNTL1 = id%CNTL(1)
 C       ---------------------------------------
 C       For symmetric (non general) matrices 
-C       set (directly) CNTL(1) = 0.0
+C       set (directly) CNTL1 = 0.0
 C       ---------------------------------------
-        CNTL1 = id%CNTL(1)
+        KEEP(17)=0
         IF ( KEEP(50) .eq. 1 ) THEN
-          IF (id%CNTL(1) .ne. ZERO ) THEN
+          IF (CNTL1 .ne. ZERO ) THEN
             IF ( PROKG ) THEN
               WRITE(MPG,'(A)')
      & '** Warning : SPD solver called, resetting CNTL(1) to 0.0D0'
@@ -471,9 +467,40 @@ C       ---------------------------------------
           END IF
           CNTL1 = ZERO
         END IF
+C       CNTL1 threshold value must be between 
+C       0.0 and 1.0 (for SYM=0) and 0.5 (for SYM=1,2)
+        IF (CNTL1.GT.ONE)   CNTL1=ONE
+        IF (CNTL1.LT.ZERO)  CNTL1=ZERO
+        IF (KEEP(50).NE.0.AND.CNTL1.GT.0.5D0) THEN
+          CNTL1 = 0.5D0
+        ENDIF
+        PARPIV_T1 = id%KEEP(268)
+        IF (PARPIV_T1.EQ.77) THEN
+         PARPIV_T1 = 0 
+        ENDIF
+        IF (PARPIV_T1.EQ.-3) THEN
+          PARPIV_T1 = 0
+        ENDIF
+        IF ((PARPIV_T1.LT.-3).OR.(PARPIV_T1.GT.1)) THEN
+C        out of range values
+         PARPIV_T1 =0
+        ENDIF
+C       note that KEEP(50).EQ.1 => CNTL1=0.0
+        IF (CNTL1.EQ.0.0.OR.(KEEP(50).eq.1)) PARPIV_T1 = 0 
+C
+        IF (PARPIV_T1.EQ.-2) THEN
+         IF (KEEP(19).NE.0) THEN
+C         switch off PARPIV_T1 if RR activated
+C         but do NOT switch off PARPIV_1 with null pivot detection
+          PARPIV_T1 = 0
+         ENDIF
+        ENDIF
+        id%KEEP(269) = PARPIV_T1
       ENDIF
       CALL MPI_BCAST(CNTL1, 1, MPI_DOUBLE_PRECISION,
      &             MASTER, id%COMM, IERR)
+        CALL MPI_BCAST( KEEP(269), 1, MPI_INTEGER,
+     &                  MASTER, id%COMM, IERR )
         IF (id%MYID.EQ.MASTER) THEN
 C         -----------------------------------------------------
 C         Decoding of ICNTL(35) for factorization: same as
@@ -516,8 +543,12 @@ C          Out of range values treated as 0
           ENDIF
           KEEP465COPY=0
           IF (id%ICNTL(36).EQ.1.OR.id%ICNTL(36).EQ.3) THEN
-            IF (CNTL1.EQ.ZERO) THEN
+            IF (CNTL1.EQ.ZERO .OR. KEEP(468).LE.1) THEN
               KEEP(475) = 3
+            ELSE IF (KEEP(269).GT.0) THEN
+              KEEP(475) = 2
+            ELSE IF (KEEP(468).EQ.2) THEN
+              KEEP(475) = 2
             ELSE
               KEEP(475) = 1
             ENDIF
@@ -683,9 +714,11 @@ c     by resetting ITMP to zero on each proc where WK_USER is provided
           WRITE( MPG, 172 ) NWORKING, id%ICNTL(22), KEEP(486),
      &    KEEP(12), 
      &    id%KEEP8(111), KEEP(126), KEEP(127), KEEP(28),
-     &    id%KEEP8(4)/1000000_8, LWK_USER_SUM8, id%CNTL(1)
+     &    id%KEEP8(4)/1000000_8, LWK_USER_SUM8, CNTL1
           IF (KEEP(252).GT.0) 
      &    WRITE(MPG,173) KEEP(253)
+          IF (KEEP(269).NE.0) 
+     &    WRITE(MPG,174) KEEP(269)
       ENDIF
       IF (KEEP(201).LE.0) THEN
 C       In-core version or no factors
@@ -800,7 +833,7 @@ C         ------------------------------
 C        --- Propagate enventual error
          CALL MUMPS_PROPINFO( ICNTL(1), id%INFO(1),
      &        id%COMM, id%MYID )
-         IF (id%INFO(1).LT.0) GOTO 530
+         IF (id%INFO(1).LT.0) GOTO 517
 C        -- estimation of memory and construction of partvecs
          BUJOB = 1
 C        -- LWK not used
@@ -814,7 +847,7 @@ C        -- LWK not used
 C        --- Propagate enventual error
          CALL MUMPS_PROPINFO( ICNTL(1), id%INFO(1),
      &        id%COMM, id%MYID )
-         IF (id%INFO(1).LT.0) GOTO 530
+         IF (id%INFO(1).LT.0) GOTO 517
          CALL DMUMPS_SIMSCALEABS(
      &        MYIRN_loc(1), MYJCN_loc(1), MYA_loc(1),
      &        id%KEEP8(29),
@@ -847,7 +880,7 @@ C        --- Propagate enventual error
 C        --- Propagate enventual error
          CALL MUMPS_PROPINFO( ICNTL(1), id%INFO(1),
      &        id%COMM, id%MYID )
-         IF (id%INFO(1).LT.0) GOTO 530
+         IF (id%INFO(1).LT.0) GOTO 517
 C        -- estimation of memory and construction of partvecs
          BUJOB = 2
          CALL DMUMPS_SIMSCALEABS(
@@ -955,7 +988,7 @@ C               freed on the master process
               ENDIF
               CALL MUMPS_PROPINFO(ICNTL(1), id%INFO(1),
      &             id%COMM, id%MYID)
-              IF (id%INFO(1).LT.0) GOTO 530
+              IF (id%INFO(1).LT.0) GOTO 517
           ELSE IF (id%MYID.EQ.MASTER) THEN
 C           ----------------------------------
 C           Centralized scaling, options 1 to 6
@@ -1080,7 +1113,7 @@ C     to make it available on all processors.
                id%INFO(1)=-13
                id%INFO(2)=id%KEEP(255)
                IF (LPOK)
-     &         WRITE(LP,*) 'ERREUR while allocating RHS on a slave'
+     &         WRITE(LP,*) 'ERROR while allocating RHS on a slave'
                NULLIFY(RHS_MUMPS)
             ENDIF
             RHS_MUMPS_ALLOCATED = .TRUE.
@@ -1117,7 +1150,7 @@ C             transpose).
       ENDIF
       CALL MUMPS_PROPINFO( ICNTL(1), id%INFO(1),
      &                    id%COMM, id%MYID )
-      IF ( id%INFO(1).lt.0 ) GOTO 530
+      IF ( id%INFO(1).lt.0 ) GOTO 517
       IF (KEEP(252) .EQ. 1) THEN
 C
 C         Broadcast the columns of the right-hand side
@@ -1154,7 +1187,6 @@ C               ( A row is considered as null if ||row|| < DKEEP(1) )
 C         CNTL(5) is then used to define if a large 
 C                 value is set on the diagonal or if a 1 is set
 C                 and other values in the row are reset to zeros.
-C         CNTL(6) is used to set SEUIL and SEUIL_LDLT_NIV2
 C         SEUIL* corresponds to the minimum required 
 C                absolute value of pivot.
 C         SEUIL_LDLT_NIV2 is used only in the 
@@ -1180,6 +1212,11 @@ C                we have only a partial view of the fully summed rows.
         COMPUTE_ANORMINF = .TRUE.
       ENDIF
       IF (KEEP(19).NE.0) THEN
+C       Rank revealing factorisation
+        COMPUTE_ANORMINF = .TRUE.
+      ENDIF
+      IF (KEEP(110).NE.0) THEN
+C       Null pivot detection       
         COMPUTE_ANORMINF = .TRUE.
       ENDIF
 C     -------------------------------------------------------
@@ -1196,80 +1233,98 @@ C     Set BLR threshold
       IF (id%DKEEP(8).LT.ZERO) THEN
         id%DKEEP(8) = abs(id%DKEEP(8))*ANORMINF
       ENDIF
-      IF (KEEP(19).EQ.0) THEN 
+       IF ((KEEP(19).NE.0).OR.(KEEP(110).NE.0)) THEN 
+         IF (PROKG) THEN 
+           WRITE(MPG,'(A,1PD16.4)')
+     &    ' Effective value of CNTL(3)                 =',CNTL3      
+         ENDIF
+       ENDIF
+       IF (KEEP(19).EQ.0) THEN 
 C        -- RR is off
          SEUIL = ZERO
          id%DKEEP(9) = ZERO
-      ELSE
+       ELSE
 C        -- RR is on
-C      July 2012
-C      CNTL(3) is the threshold used in the following 
-C        to compute the SEUIL used for postponing pivots to root
-C      SEUIL*CNTL(6) is then the treshold for null pivot detection 
-C      (with 0< CNTL(6) <= 1)
+C
+C      CNTL(3) is the threshold used in the following to compute  
+C      DKEEP(9) the threshold under which the sing val. are considered
+C      as null and from which we start to look for a gap between two
+C      sing val.
          IF (CNTL3 .LT. ZERO) THEN
-           SEUIL = abs(CNTL(3))
+           id%DKEEP(9) = abs(CNTL(3))
          ELSE IF  (CNTL3 .GT. ZERO) THEN
-           SEUIL = CNTL3*ANORMINF
+           id%DKEEP(9) = CNTL3*ANORMINF
          ELSE  !  (CNTL(3) .EQ. ZERO) THEN
-           SEUIL = N*EPS*ANORMINF  ! standard articles
          ENDIF
-         IF (PROKG) WRITE(MPG,*)
-     &   ' ABSOLUTE PIVOT THRESHOLD for rank revealing =',SEUIL
-      ENDIF
-C     After QR with pivoting of root or SVD, diagonal entries 
-C     need be analysed to determine null space vectors.
-C     Two strategies are provided :
-      id%DKEEP(9) = SEUIL 
-      IF (id%DKEEP(10).LT.MONE) THEN
-         id%DKEEP(10)=MONE
-      ELSEIF((id%DKEEP(10).LE.ONE).AND.(id%DKEEP(10).GE.ZERO)) THEN
-         id%DKEEP(10)=1000.0D0
-      ENDIF
-      SEUIL_LDLT_NIV2 = SEUIL
+         IF (PROKG) THEN 
+           WRITE(MPG, '(A,I10)')
+     &    'ICNTL(56) rank revealing effective value   =',KEEP(19)   
+           WRITE(MPG,'(A,1PD10.3)')
+     &    ' ...Threshold for singularities on the root =',id%DKEEP(9)
+         ENDIF
+C        RR postponing considers that pivot rows with norm smaller 
+C        than SEUIL should be postponed. 
+C        SEUIL should be bigger than DKEEP(9), this means that 
+C        DKEEP(13) should be bigger than 1. 
+         Thresh_Seuil = id%DKEEP(13)
+         IF (id%DKEEP(13).LT.1)  Thresh_Seuil = 10
+         SEUIL = id%DKEEP(9)*Thresh_Seuil
+         IF (PROKG) WRITE(MPG,'(A,1PD10.3)')
+     &   ' ...Threshold for postponing                =',SEUIL
+       ENDIF !end KEEP(19)
+       SEUIL_LDLT_NIV2 = SEUIL
 C     -------------------------------
 C     -- Null pivot row detection
 C     -------------------------------
-      IF (KEEP(110).EQ.0) THEN 
+       IF (KEEP(110).EQ.0) THEN 
+C        -- Null pivot is off
 C        Initialize DKEEP(1) to a negative value
 C        in order to avoid detection of null pivots
 C        (test max(AMAX,RMAX,abs(PIVOT)).LE.PIVNUL
 C        in DMUMPS_FAC_I, where PIVNUL=DKEEP(1))
          id%DKEEP(1) = -1.0D0
          id%DKEEP(2) = ZERO
-      ELSE
-         IF (ANORMINF.EQ.ZERO) 
-     &       CALL DMUMPS_ANORMINF(  id , ANORMINF, LSCAL )
-         IF (KEEP(19).NE.0) THEN
-C     RR postponing considers that pivot rows of norm smaller that SEUIL 
-C     should be postponed. 
-C     Pivot rows smaller than DKEEP(1) are directly added to null space
-C     and thus considered as null pivot rows. Thus we define id%DKEEP(1) 
-C     relatively to SEUIL (which is based on CNTL(3))
-          IF (CNTL(6).GT.0.AND.CNTL(6).LT.1) THEN
-C           we want DKEEP(1) < SEUIL
-            id%DKEEP(1) = SEUIL*CNTL(6)
-          ELSE 
-            id%DKEEP(1) = SEUIL* 0.01D0 
-          ENDIF
+       ELSE
+C        -- Null pivot is on
+        IF (KEEP(19).NE.0) THEN
+C        -- RR is on
+C      RR postponing considers that pivot rows of norm smaller that SEUIL 
+C      should be postponed, but pivot rows smaller than DKEEP(1) are 
+C      directly added to null space and thus considered as null pivot rows. 
+         IF ((id%DKEEP(10).LE.0).OR.(id%DKEEP(10).GT.1)) THEN
+C           DKEEP(10) is out of range, set to the default value 10-1
+           id%DKEEP(1) = id%DKEEP(9)*1D-1
          ELSE
+           id%DKEEP(1) = id%DKEEP(9)*id%DKEEP(10) 
+         ENDIF    
+        ELSE
+C        -- RR is off
+C        -- only Null pivot detection
 C         We keep strategy currently used in MUMPS 4.10.0
           IF (CNTL3 .LT. ZERO) THEN
            id%DKEEP(1)  = abs(CNTL(3))
           ELSE IF  (CNTL3 .GT. ZERO) THEN
-           id%DKEEP(1)  = CNTL3*ANORMINF
+            id%DKEEP(1)  = CNTL3*ANORMINF
           ELSE !  (CNTL(3) .EQ. ZERO) THEN
-           id%DKEEP(1)  = 1.0D-5*EPS*ANORMINF
+c          id%DKEEP(1)  = NPIV_CRITICAL_PATH*EPS*ANORMINF
+           CALL MUMPS_NPIV_CRITICAL_PATH(
+     &         N, KEEP(28), id%STEP(1), id%FRERE_STEPS(1), id%FILS(1),
+     &         id%NA(1), id%LNA, id%NE_STEPS(1), NPIV_CRITICAL_PATH )
+           id%DKEEP(1)  = sqrt(dble(NPIV_CRITICAL_PATH))*EPS*ANORMINF
           ENDIF
-         ENDIF
-         IF (PROKG) WRITE(MPG,*)
-     &    ' ZERO PIVOT DETECTION ON, THRESHOLD          =',id%DKEEP(1)
-         IF (CNTL5.GT.ZERO) THEN
+        ENDIF ! fin rank revealing        
+        IF ((KEEP(110).NE.0).AND.(PROKG)) THEN
+           WRITE(MPG, '(A,I16)')
+     &    ' ICNTL(24) null pivot rows detection        =',KEEP(110)   
+           WRITE(MPG,'(A,1PD16.4)')
+     &    ' ...Zero pivot detection threshold          =',id%DKEEP(1)
+        ENDIF 
+        IF (CNTL5.GT.ZERO) THEN
             id%DKEEP(2) = CNTL5 * ANORMINF
-            IF (PROKG) WRITE(MPG,*) 
-     &    ' FIXATION FOR NULL PIVOTS                    =',id%DKEEP(2)
+            IF (PROKG) WRITE(MPG,'(A,1PD10.3)')
+     &    ' ...Fixation for null pivots               =',id%DKEEP(2)
          ELSE
-            IF (PROKG) WRITE(MPG,*) 'INFINITE FIXATION '
+            IF (PROKG) WRITE(MPG,*) '...Infinite fixation '
             IF (id%KEEP(50).EQ.0) THEN
 C             Unsym
             ! the user let us choose a fixation. set in NEGATIVE
@@ -1281,7 +1336,7 @@ C             Sym
             id%DKEEP(2) = ZERO
             ENDIF
          ENDIF
-      ENDIF
+       ENDIF ! fin null pivot detection.
 C     Find id of root node if RR is on 
       IF (KEEP(53).NE.0) THEN
         ID_ROOT =MUMPS_PROCNODE(id%PROCNODE_STEPS(id%STEP(KEEP(20))),
@@ -1311,7 +1366,7 @@ C Allocate PIVNUL_LIST in case of null pivot detection
 C end set parameter for null pivot detection
       CALL MUMPS_PROPINFO( ICNTL(1), id%INFO(1),
      &                    id%COMM, id%MYID )
-      IF ( id%INFO(1).lt.0 ) GOTO 530
+      IF ( id%INFO(1).lt.0 ) GOTO 517
 C   --------------------------------------------------------------
 C   STATIC PIVOTING
 C     -- Static pivoting only when RR and Null pivot detection OFF
@@ -1372,7 +1427,7 @@ C       -- Set MAXS to size of WK_USER_
       CALL MUMPS_PROPINFO( ICNTL(1), id%INFO(1),
      &                    id%COMM, id%MYID )
       IF (id%INFO(1) .LT. 0) THEN
-        GOTO 530
+        GOTO 517
       ENDIF
 C
       id%KEEP8(75) = huge(id%KEEP8(75))
@@ -1394,12 +1449,15 @@ C        Set MAXS given BLR_STRAT, KEEP(201) and MAXS_BASE_RELAXED8
      &           )
         ENDIF ! MEM_ALLOWED
 C
-      ENDIF ! I_AM_SLAVE
+      ENDIF ! (.NOT.WK_USER_PROVIDED).AND.(I_AM_SLAVE)) THEN
+C
+      IF (I_AM_SLAVE) THEN
+      ENDIF ! I_AM_SLAVE)
 C
       CALL MUMPS_PROPINFO( ICNTL(1), id%INFO(1),
      &                    id%COMM, id%MYID )
       IF (id%INFO(1) .LT. 0) THEN
-        GOTO 530
+        GOTO 517
       ENDIF
       CALL MUMPS_SETI8TOI4(MAXS, id%INFO(39))
       CALL DMUMPS_AVGMAX_STAT8(PROKG, MPG, MAXS, id%NSLAVES,
@@ -1583,13 +1641,21 @@ C
         CALL MUMPS_FDM_INIT('A',NB_ACTIVE_FRONTS_ESTIM, id%INFO)
 C
         IF ( (KEEP(486).EQ.2) 
-     &     .OR. (KEEP(489).NE.0)
+     &     .OR. ((KEEP(489).NE.0).AND.(KEEP(400).GT.1))
      &    ) THEN
-C         In case of LRSOLVE, initialize nb of handlers to nb of BLR
+C         In case of LRSOLVE or CompressCB, 
+C         initialize nb of handlers to nb of BLR
 C         nodes estimated at analysis
           NB_FRONTS_F_ESTIM = KEEP(470)
         ELSE
-          NB_FRONTS_F_ESTIM = NB_ACTIVE_FRONTS_ESTIM
+          IF (KEEP(489).NE.0) THEN
+C          Compress CB and no L0 OMP (or 1 thread under L0): 
+C          NB_ACTIVE_FRONTS_ESTIM is too small, 
+C          to limit nb of reallocations make it twice larger
+           NB_FRONTS_F_ESTIM = 2*NB_ACTIVE_FRONTS_ESTIM
+          ELSE
+           NB_FRONTS_F_ESTIM = NB_ACTIVE_FRONTS_ESTIM
+          ENDIF
         ENDIF
         CALL MUMPS_FDM_INIT('F',NB_FRONTS_F_ESTIM, id%INFO )
         IF (id%INFO(1) .LT. 0 ) GOTO 114
@@ -2303,7 +2369,7 @@ C       in routine DMUMPS_FAC_B
 C       -----------------------------
         PTRIST = 1
         PTRWB  = PTRIST + id%KEEP(28)
-        ITLOC  = PTRWB  + 3 * id%KEEP(28)
+        ITLOC  = PTRWB  + 2 * id%KEEP(28)
 C Fwd in facto: ITLOC of size id%N + id%KEEP(253)
         IPOOL  = ITLOC  + id%N + id%KEEP(253)
 C
@@ -2558,11 +2624,9 @@ C     ---------------------------------------------
      &     , .FALSE.   ! UNDER_L0_OMP
      &     )
        IF (id%KEEP8(24).NE.0) THEN
-C         INFO(22) includes MAXS which is part of WK_USER
-C         However WK_USER is not part of memory allocated by MUMPS:
-          id%INFO(16) = int( ( TOTAL_BYTES
-     &                  - id%KEEP(35)*id%KEEP8(23) )  / 1000000_8
-     &                  )
+C         WK_USER is not part of memory allocated by MUMPS
+C         and is not counted, id%KEEP8(23) should be zero
+          id%INFO(16) = TOTAL_MBYTES
        ELSE
 C         Note that even for the case of ICNTL(23)>0 
 C         we report here the memory effectively allocated
@@ -2571,9 +2635,9 @@ C         that can be smaller than ICNTL(23) !
        ENDIF
 C       ----------------------------------------------------
 C       Centralize memory statistics on the host
-C       id%INFOG(18) = size of mem in bytes for facto,
+C       id%INFOG(18) = size of mem in Mbytes for facto,
 C                   for the processor using largest memory
-C       id%INFOG(19) = size of mem in bytes for facto,
+C       id%INFOG(19) = size of mem in Mbytes for facto,
 C                   sum over all processors
 C       ----------------------------------------------------
         CALL MUMPS_MEM_CENTRALIZE( id%MYID, id%COMM,
@@ -2588,7 +2652,7 @@ C FIXME Check if WK_USER used and indicate, total space to WK_USER
      & ' ** Eff. min. Space MBYTES for facto             (INFO(16)):',
      &                TOTAL_MBYTES
       ENDIF
-C     ========================(INFO(16) RELATED)===========================
+C     ========================(INFO(16) RELATED)======================
 C     ---------------------------------------
 C     COMPUTE EFFECTIVE MEMORY USED INFO(22)
 C     ---------------------------------------
@@ -2693,8 +2757,12 @@ C      In MegaBytes
      &                     MASTER, id%COMM )
       CALL MUMPS_SETI8TOI4(id%KEEP8(148), INFOG(9))
 C
-      CALL MPI_REDUCE( id%INFO(10), INFOG(10), 1, MPI_INTEGER,
+      CALL MPI_REDUCE( int(id%INFO(10),8), id%KEEP8(128),
+     &                 1, MPI_INTEGER8,
      &                 MPI_SUM, MASTER, id%COMM, IERR)
+      IF (id%MYID.EQ.MASTER) THEN
+        CALL MUMPS_SETI8TOI4(id%KEEP8(128), id%INFOG(10))
+      ENDIF
 C     Use MPI_MAX for this one to get largest front size
       CALL MPI_ALLREDUCE( id%INFO(11), INFOG(11), 1, MPI_INTEGER,
      &                 MPI_MAX, id%COMM, IERR)
@@ -2896,7 +2964,10 @@ C
             CALL MPI_REDUCE( TIME_FAC_SQ, TMP_TIME_FAC_SQ
      &                      , 1, MPI_DOUBLE_PRECISION,
      &                       MPI_SUM, MASTER, id%COMM, IERR)
-            CALL MPI_REDUCE( TIME_TRSM, TMP_TIME_TRSM
+            CALL MPI_REDUCE( TIME_LRTRSM, TMP_TIME_LRTRSM
+     &                      , 1, MPI_DOUBLE_PRECISION,
+     &                       MPI_SUM, MASTER, id%COMM, IERR)
+            CALL MPI_REDUCE( TIME_FRTRSM, TMP_TIME_FRTRSM
      &                      , 1, MPI_DOUBLE_PRECISION,
      &                       MPI_SUM, MASTER, id%COMM, IERR)
             CALL MPI_REDUCE( TIME_FRFRONTS, TMP_TIME_FRFRONTS
@@ -2948,7 +3019,8 @@ C number of procs
             TIME_FAC_I           = TMP_TIME_FAC_I          /id%NPROCS
             TIME_FAC_MQ          = TMP_TIME_FAC_MQ         /id%NPROCS
             TIME_FAC_SQ          = TMP_TIME_FAC_SQ         /id%NPROCS
-            TIME_TRSM            = TMP_TIME_TRSM           /id%NPROCS
+            TIME_LRTRSM          = TMP_TIME_LRTRSM         /id%NPROCS
+            TIME_FRTRSM          = TMP_TIME_FRTRSM         /id%NPROCS
             TIME_FRFRONTS        = TMP_TIME_FRFRONTS       /id%NPROCS
             TIME_LR_MODULE       = TMP_TIME_LR_MODULE      /id%NPROCS
             TIME_DECOMP          = TMP_TIME_DECOMP         /id%NPROCS
@@ -3008,9 +3080,10 @@ C        -- with ICNTL(24) = 1.
          KEEP(109) = 0
          KEEP(112) = 0
       ENDIF
-C     INFOG(28) deficiency resulting from ICNTL(24) and ICNTL(56).
-C     Note that KEEP(17) already has the same value on all procs
-      INFOG(28)=KEEP(112)+KEEP(17)
+      IF (id%MYID.EQ.MASTER) THEN
+C      INFOG(28) deficiency resulting from ICNTL(24) and ICNTL(56).
+       INFOG(28)=KEEP(112)+KEEP(17)
+      ENDIF
 C     ========================================
 C     We now provide to the host the part of
 C     PIVNUL_LIST resulting from the processing
@@ -3184,12 +3257,12 @@ C           from MUMPS (see DMUMPS_DRIVER)
       ENDIF
  490  IF (allocated(ITMP2)) DEALLOCATE(ITMP2)
       IF ( PROKG ) THEN
-C     ---------------------------------------
+C     -----------------------------
 C     PRINT STATISTICS  (on master)
 C     -----------------------------
           WRITE(MPG,99984) RINFOG(2),RINFOG(3),KEEP(52), 
      &                    id%KEEP8(148),
-     &                    INFOG(10), INFOG(11), id%KEEP8(110)
+     &                    id%KEEP8(128), INFOG(11), id%KEEP8(110)
           IF (id%KEEP(50) == 1 .OR. id%KEEP(50) == 2) THEN
             ! negative pivots
             WRITE(MPG, 99987) INFOG(12)
@@ -3217,10 +3290,12 @@ C     -----------------------------
               WRITE(MPG, 99991) KEEP(112)
           ENDIF
           !Deficiency on root
-          IF ( KEEP(17) .ne. 0 )
+          IF ( KEEP(19) .ne. 0 )
+c         IF ( KEEP(17) .ne. 0 )
      &    WRITE(MPG, 99983) KEEP(17)
           !Total deficiency
-          IF (KEEP(110).NE.0.OR.KEEP(17).NE.0)
+          IF (KEEP(110).NE.0.OR.KEEP(19).NE.0)
+c          IF (KEEP(110).NE.0.OR.KEEP(17).NE.0)
      &    WRITE(MPG, 99992) KEEP(17)+KEEP(112)
           ! Memory compress
           WRITE(MPG, 99981) INFOG(14)
@@ -3231,7 +3306,7 @@ C     -----------------------------
           ENDIF
           IF  ((KEEP(60).NE.0) .AND. INFOG(25).GT.0) THEN
           !  Schur on and tiny pivots set in last level 
-          ! before the SChur
+          ! before the Schur if KEEP(114)=0
            WRITE(MPG, '(A)') 
      & " ** Warning Static pivoting was necessary"
            WRITE(MPG, '(A)') 
@@ -3370,8 +3445,13 @@ C     called but not OOC_INIT_FACTO.
       CALL MUMPS_PROPINFO( ICNTL(1), id%INFO(1),
      &     id%COMM, id%MYID )
 C
+C     Goto 517 is done when an error occurs when GPU initialization
+C     has been performed but not LOAD_INIT or OOC_INIT_FACTO
+C
+ 517  CONTINUE
+C
 C     Goto 530 is done when an error occurs before
-C     the calls to LOAD_INIT and OOC_INIT_FACTO
+C     the calls to GPU_INIT, LOAD_INIT and OOC_INIT_FACTO
  530  CONTINUE
 C  Fwd in facto: free RHS_MUMPS in case
 C  it was allocated.
@@ -3408,8 +3488,9 @@ C
      &        ' Number of nodes in the tree                =',I16/
      &        ' Memory allowed (MB -- 0: N/A )             =',I16/
      &        ' Memory provided by user, sum of LWK_USER   =',I16/
-     &        ' Relative threshold for pivoting, CNTL(1)   =',D16.4)
+     &        ' Effective threshold for pivoting, CNTL(1)  =',D16.4)
  173  FORMAT( ' Perform forward during facto, NRHS         =',I16)
+ 174  FORMAT( ' KEEP(268) Relaxed pivoting effective value =',I16)
  180  FORMAT(/' Elapsed time for factorization             =',F12.4)
  185  FORMAT(/' Elapsed time for (failed) factorization    =',F12.4)
 99977 FORMAT( ' INFOG(34)  Determinant (base 2 exponent)   =',I16)
@@ -3417,7 +3498,7 @@ C
 99980 FORMAT( ' Extra copies due to In-Place stacking      =',I16)
 99981 FORMAT( ' INFOG(14)  Number of memory compress       =',I16)
 99982 FORMAT( ' INFOG(13)  Number of delayed pivots        =',I16)
-99983 FORMAT( ' Nb of null pivots detected by ICNTL(56)    =',I16)
+99983 FORMAT( ' Nb of singularities detected by ICNTL(56)  =',I16)
 99991 FORMAT( ' Nb of null pivots detected by ICNTL(24)    =',I16)
 99992 FORMAT( ' INFOG(28)  Estimated deficiency            =',I16)
 99984 FORMAT(/'Leaving factorization with ...'/

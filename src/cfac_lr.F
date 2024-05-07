@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -214,12 +214,13 @@ C
       COMPLEX :: ONE, MONE, ZERO
       PARAMETER (ONE=(1.0E0,0.0E0), MONE=(-1.0E0,0.0E0))
       PARAMETER (ZERO=(0.0E0,0.0E0))
-#if defined(BLR_MT) 
-!$OMP MASTER
-#endif
       IF (NELIM.NE.0) THEN 
         LPOS = POSELT + int(NFRONT,8)*int(NPIV,8) + int(IBEG_BLR-1,8)
-        DO IP = FIRST_BLOCK, NB_BLR
+#if defined(BLR_MT) 
+!$OMP DO PRIVATE(LRB, UPOS)
+#endif
+        DO IP = FIRST_BLOCK, NB_BLR 
+          IF (IFLAG.LT.0) CYCLE
           LRB => BLR_U(IP-CURRENT_BLR)
           UPOS = POSELT + int(NFRONT,8)*int(NPIV,8) 
      &                  + int(BEGS_BLR(IP)-1,8)
@@ -229,9 +230,6 @@ C
                IF (allocok .GT. 0) THEN
                  IFLAG  = -13
                  IERROR = NELIM * LRB%K
-                 write(*,*) 'Allocation problem in BLR routine 
-     &         CMUMPS_BLR_UPD_NELIM_VAR_U: ',
-     &         'not enough memory? memory requested = ', IERROR
                  GOTO 100
                ENDIF
                CALL cgemm('N', 'N', LRB%K, NELIM, LRB%N, ONE,
@@ -247,12 +245,12 @@ C
      &              LRB%Q(1,1), LRB%M, A(LPOS), NFRONT,
      &              ONE, A(UPOS), NFRONT) 
           ENDIF
+ 100    CONTINUE
         ENDDO
-      ENDIF
- 100  CONTINUE
 #if defined(BLR_MT) 
-!$OMP END MASTER
+!$OMP ENDDO
 #endif
+      ENDIF
       END SUBROUTINE CMUMPS_BLR_UPD_NELIM_VAR_U
       SUBROUTINE CMUMPS_BLR_UPD_NELIM_VAR_L(
      &        A_U, LA_U, UPOS, A_L, LA_L, LPOS, IFLAG, IERROR, LDU, LDL,
@@ -276,11 +274,12 @@ C
       PARAMETER (ONE=(1.0E0,0.0E0), MONE=(-1.0E0,0.0E0))
       PARAMETER (ZERO=(0.0E0,0.0E0))
       NB_BLOCKS_PANEL_L = NB_BLR_L-CURRENT_BLR
-#if defined(BLR_MT) 
-!$OMP MASTER
-#endif
       IF (NELIM.NE.0) THEN 
+#if defined(BLR_MT) 
+!$OMP DO PRIVATE(KL, ML, NL, IPOS)
+#endif
         DO I = FIRST_BLOCK-CURRENT_BLR, NB_BLOCKS_PANEL_L
+          IF (IFLAG.LT.0) CYCLE
           KL = BLR_L(I)%K 
           ML = BLR_L(I)%M 
           NL = BLR_L(I)%N 
@@ -310,12 +309,12 @@ C
      &              A_U(UPOS) , LDU , BLR_L(I)%Q(1,1) , ML ,
      &              ONE , A_L(IPOS) , LDL) 
           ENDIF
+ 100      CONTINUE
         ENDDO
-      ENDIF
- 100  CONTINUE
 #if defined(BLR_MT) 
-!$OMP END MASTER
+!$OMP ENDDO
 #endif
+      ENDIF
       END SUBROUTINE CMUMPS_BLR_UPD_NELIM_VAR_L
       SUBROUTINE CMUMPS_BLR_UPDATE_TRAILING(
      &        A, LA, POSELT, IFLAG, IERROR, NFRONT,
@@ -373,9 +372,6 @@ C
                IF (allocok .GT. 0) THEN
                  IFLAG  = -13
                  IERROR = NELIM * KL
-                 write(*,*) 'Allocation problem in BLR routine 
-     &           CMUMPS_BLR_UPDATE_TRAILING: ',
-     &           'not enough memory? memory requested = ', IERROR
                  GOTO 100
                ENDIF
                POSELT_TOP  = POSELT 
@@ -730,10 +726,6 @@ C
                IF (allocok .GT. 0) THEN
                   IFLAG  = -13
                   IERROR = CURRENT_BLR-NB_DEC
-                  write(*,*) 'Allocation problem in BLR routine ',
-     &                 'CMUMPS_BLR_UPD_PANEL_LEFT_LDLT: ',
-     &                 'not enough memory? memory requested = ',
-     &                 IERROR
                   GOTO 100
                ENDIF
               POS_LIST(1) = 1
@@ -1104,10 +1096,6 @@ C
               IF (allocok .GT. 0) THEN
                  IFLAG  = -13
                  IERROR = CURRENT_BLR-NB_DEC
-                 write(*,*) 'Allocation problem in BLR routine ',
-     &                'CMUMPS_BLR_UPD_PANEL_LEFT: ',
-     &                'not enough memory? memory requested = ',
-     &                IERROR
                  GOTO 100
               ENDIF
               POS_LIST(1) = 1
@@ -1405,10 +1393,6 @@ C
               IF (allocok .GT. 0) THEN
                  IFLAG  = -13
                  IERROR = NB_INASM-NB_DEC
-                 write(*,*) 'Allocation problem in BLR routine ',
-     &                'CMUMPS_BLR_UPD_CB_LEFT_LDLT: ',
-     &                'not enough memory? memory requested = ',
-     &                IERROR
                  GOTO 100
               ENDIF
               POS_LIST(1) = 1
@@ -1645,10 +1629,6 @@ C
                     IF (allocok .GT. 0) THEN
                        IFLAG  = -13
                        IERROR = NB_INASM-NB_DEC
-                       write(*,*) 'Allocation problem in BLR routine ',
-     &                      'CMUMPS_BLR_UPD_CB_LEFT: ',
-     &                      'not enough memory? memory requested = ',
-     &                      IERROR
                        GOTO 100
                     ENDIF
                     POS_LIST(1) = 1
@@ -1666,10 +1646,6 @@ C
                     IF (allocok .GT. 0) THEN
                        IFLAG  = -13
                        IERROR = NB_INASM+1
-                       write(*,*) 'Allocation problem in BLR routine ',
-     &                      'CMUMPS_BLR_UPD_CB_LEFT: ',
-     &                      'not enough memory? memory requested = ',
-     &                      IERROR
                        GOTO 100
                     ENDIF
                     POS_LIST(1) = 1
@@ -1681,10 +1657,6 @@ C
                     IF (allocok .GT. 0) THEN
                        IFLAG  = -13
                        IERROR = NB_INASM+1
-                       write(*,*) 'Allocation problem in BLR routine ',
-     &                      'CMUMPS_BLR_UPD_CB_LEFT: ',
-     &                      'not enough memory? memory requested = ',
-     &                      IERROR
                        GOTO 100
                     ENDIF
                     RANK_LIST(1) = FR_RANK
@@ -1742,10 +1714,6 @@ C
               IF (allocok .GT. 0) THEN
                  IFLAG  = -13
                  IERROR = NB_INASM-NB_DEC
-                 write(*,*) 'Allocation problem in BLR routine ',
-     &                'CMUMPS_BLR_UPD_CB_LEFT: ',
-     &                'not enough memory? memory requested = ',
-     &                IERROR
                  GOTO 100
               ENDIF
               POS_LIST(1) = 1
@@ -1787,7 +1755,7 @@ C
       SUBROUTINE CMUMPS_DECOMPRESS_PANEL(A, LA, POSELT, LDA11,
      &        LDA21, COPY_DENSE_BLOCKS,
      &        BEGS_BLR_DIAG, BEGS_BLR_FIRST_OFFDIAG,
-     &        NB_BLR, BLR_PANEL, CURRENT_BLR, DIR,
+     &        NB_BLR, BLR_PANEL, CURRENT_BLR, DIR, DECOMP_TIMER,
      &        BEG_I_IN, END_I_IN, ONLY_NELIM_IN, CBASM_TOFIX_IN)
 !$    USE OMP_LIB 
       INTEGER(8), intent(in)       :: LA
@@ -1800,6 +1768,7 @@ C
       TYPE(LRB_TYPE), intent(inout) :: BLR_PANEL(:)
       CHARACTER(len=1) :: DIR
       INTEGER, intent(in) :: LDA11, LDA21
+      INTEGER, intent(in) :: DECOMP_TIMER
       INTEGER,OPTIONAL,intent(in) :: BEG_I_IN, END_I_IN, ONLY_NELIM_IN
       LOGICAL,OPTIONAL,intent(in) :: CBASM_TOFIX_IN
       INTEGER :: IP, M, N, BIP, BEG_I, END_I, ONLY_NELIM
@@ -1835,6 +1804,17 @@ C
       ENDIF
       LD_BLK_IN_FRONT = int(LDA11,8)
       BIP             = BEGS_BLR_FIRST_OFFDIAG
+#if !defined(BLR_MT)
+      IF (BEG_I .NE. CURRENT_BLR+1) THEN
+        DO I = 1, BEG_I - CURRENT_BLR - 1
+          IF (CBASM_TOFIX) THEN
+            BIP  = BIP +  BLR_PANEL(I)%N
+          ELSE
+            BIP  = BIP +  BLR_PANEL(I)%M
+          ENDIF
+        ENDDO
+      ENDIF
+#endif
 #if defined(BLR_MT)
       LAST_IP = CURRENT_BLR+1
       CHUNK = 1
@@ -1958,7 +1938,6 @@ C
         ENDIF
 #endif
       ENDDO
- ! end loop on all the blr block of current panel
 #if defined(BLR_MT)
 !$OMP END DO
 #endif
@@ -1970,7 +1949,7 @@ C
      &        TOLEPS, TOL_OPT, KPERCENT, K489, CB_LRB,
      &        WORK, TAU, JPVT, LWORK, RWORK, BLOCK,
      &        MAXI_CLUSTER, KEEP8, 
-     &        NFS4FATHER, NPIV, KEEP,  
+     &        NFS4FATHER, NPIV, NVSCHUR_K253, KEEP,
      &        M_ARRAY,
      &        NELIM, 
      &        NBROWSinF
@@ -1992,7 +1971,7 @@ C
       INTEGER, TARGET, DIMENSION(:) :: JPVT
       INTEGER(8) :: KEEP8(150)
       REAL,intent(in) :: TOLEPS
-      INTEGER, INTENT(in) :: NFS4FATHER, NPIV, KEEP(500)
+      INTEGER, INTENT(in) :: NFS4FATHER, NPIV, NVSCHUR_K253, KEEP(500)
       REAL, OPTIONAL :: M_ARRAY(max(NFS4FATHER,1))
       INTEGER, intent(in), OPTIONAL :: NELIM
       INTEGER, intent(in), OPTIONAL :: NBROWSinF
@@ -2024,7 +2003,7 @@ C
        ELSE
         NROWS_CM  = NROWS  - NBROWSinF
        ENDIF
-       IF (NROWS_CM.GT.0) THEN
+       IF (NROWS_CM-NVSCHUR_K253.GT.0)  THEN
          IF (NIV.EQ.1) THEN
           POSA     = POSELT
      &             + int(LDA,8)*int(NPIV+NFS4FATHER,8)
@@ -2041,8 +2020,10 @@ C
      &             - int(NPIV,8)
          ENDIF
          CALL CMUMPS_COMPUTE_MAXPERCOL (
-     &      A(POSA), ASIZE, LDA, NROWS_CM,
-     &      M_ARRAY(1), NFS4FATHER, .FALSE., -9999)
+     &      A(POSA), ASIZE, LDA, 
+     &      NROWS_CM-NVSCHUR_K253,
+     &      M_ARRAY(1), NFS4FATHER, .FALSE., 
+     &      -9999)
        ELSE 
           DO I=1, NFS4FATHER
             M_ARRAY(I) = ZERO
@@ -2158,21 +2139,6 @@ C
         IF (IFLAG.LT.0) CYCLE
         IF (ISLR) THEN 
            IF (RANK .GT. 0) THEN 
-               LRB%Q = ZERO
-               DO II=1,RANK
-                 LRB%Q(II,II) = ONE
-               END DO
-               CALL cunmqr 
-     &           ('L', 'N', M, RANK, RANK,
-     &           BLOCK_THR(1,1), 
-     &           MAXI_CLUSTER, TAU_THR(1), 
-     &           LRB%Q(1,1),
-     &           M, WORK_THR(1), LWORK, INFO )
-               IF (INFO < 0) THEN
-                 WRITE(*,*) " PROBLEM IN ARGUMENT NUMBER ",INFO,
-     &                     " OF CUNMQR WHILE COMPRESSING A CB BLOCK"
-                 CALL MUMPS_ABORT()
-               END IF
                DO JJ=1,N
                   DO II=1,MIN(RANK,JJ)
                      LRB%R(II,JPVT_THR(JJ)) = BLOCK_THR(II,JJ)
@@ -2180,6 +2146,21 @@ C
                   IF(JJ.LT.RANK) LRB%R(MIN(RANK,JJ)+1:RANK,JPVT_THR(JJ))
      &                 = ZERO
                ENDDO
+               CALL cungqr 
+     &           (M, RANK, RANK,
+     &           BLOCK_THR(1,1), 
+     &           MAXI_CLUSTER, TAU_THR(1), 
+     &           WORK_THR(1), LWORK, INFO )
+               DO II=1,RANK
+                 DO JJ= 1, M
+                  LRB%Q(JJ,II) = BLOCK_THR(JJ,II)
+                 ENDDO
+               END DO
+               IF (INFO < 0) THEN
+                 WRITE(*,*) " PROBLEM IN ARGUMENT NUMBER ",INFO,
+     &                     " OF CUNGQR WHILE COMPRESSING A CB BLOCK"
+                 CALL MUMPS_ABORT()
+               END IF
                IF (K489.NE.3) THEN
                  CALL UPD_FLOP_COMPRESS(LRB, CB_COMPRESS=.TRUE.)
                ENDIF
@@ -2394,21 +2375,6 @@ C
         IF (ISLR) THEN 
            IF (RANK .EQ. 0) THEN 
            ELSE 
-               BLR_PANEL(IP-CURRENT_BLR)%Q = ZERO
-               DO I=1,RANK
-                 BLR_PANEL(IP-CURRENT_BLR)%Q(I,I) = ONE
-               END DO
-               CALL cunmqr 
-     &           ('L', 'N', M, RANK, RANK,
-     &           BLOCK_THR(1,1), 
-     &           MAXI_CLUSTER, TAU_THR(1), 
-     &           BLR_PANEL(IP-CURRENT_BLR)%Q(1,1),
-     &           M, WORK_THR(1), LWORK, INFO )
-               IF (INFO < 0) THEN
-                 WRITE(*,*) " PROBLEM IN ARGUMENT NUMBER ",INFO,
-     &                     " OF CUNMQR WHILE COMPRESSING A BLOCK "
-                 CALL MUMPS_ABORT()
-               END IF
                DO J=1,N
                  BLR_PANEL(IP-CURRENT_BLR)%R(1:MIN(RANK,J),
      &               JPVT_THR(J)) =
@@ -2416,6 +2382,19 @@ C
                  IF(J.LT.RANK) BLR_PANEL(IP-CURRENT_BLR)%
      &               R(MIN(RANK,J)+1:RANK,JPVT_THR(J))= ZERO
                ENDDO
+               CALL cungqr 
+     &           (M, RANK, RANK,
+     &           BLOCK_THR(1,1), 
+     &           MAXI_CLUSTER, TAU_THR(1), 
+     &           WORK_THR(1), LWORK, INFO )
+               DO I=1,RANK
+                 BLR_PANEL(IP-CURRENT_BLR)%Q(1:M,I) = BLOCK_THR(1:M,I)
+               END DO
+               IF (INFO < 0) THEN
+                 WRITE(*,*) " PROBLEM IN ARGUMENT NUMBER ",INFO,
+     &                     " OF CUNGQR WHILE COMPRESSING A BLOCK "
+                 CALL MUMPS_ABORT()
+               END IF
                IF (present(FRSWAP)) THEN
                  CALL UPD_FLOP_COMPRESS(
      &               BLR_PANEL(IP-CURRENT_BLR), FRSWAP=FRSWAP)
@@ -2455,101 +2434,6 @@ C
 !$OMP END DO NOWAIT
 #endif
       END SUBROUTINE CMUMPS_COMPRESS_PANEL
-      SUBROUTINE CMUMPS_LRTRSM_NELIM_VAR(
-     &                A,
-     &                LA, POSELT, NFRONT,
-     &                IBEG_BLOCK, IEND_BLOCK, NB_BLR,
-     &                NELIM, NIV, SYM,PIVOT_OPTION, 
-     &                IW, OFFSET_IW, NASS) 
-!$    USE OMP_LIB
-      INTEGER(8), intent(in)  :: LA
-      INTEGER, intent(in)     :: NFRONT, NELIM, NB_BLR,
-     &                           NIV, SYM, PIVOT_OPTION
-      INTEGER(8), intent(in)  :: POSELT 
-      INTEGER, intent(in)     :: IBEG_BLOCK, IEND_BLOCK
-      INTEGER, OPTIONAL, intent(in)     :: NASS
-      COMPLEX, intent(inout)  :: A(LA)
-      INTEGER, OPTIONAL :: OFFSET_IW
-      INTEGER, OPTIONAL :: IW(*)
-      INTEGER(8) :: LPOS, POSELT_LOCAL, DPOS, POSPV1, POSPV2,
-     &              OFFDAG, LDA8, UPOS
-      INTEGER    :: I, J, NPIV, LKJIW, LDA
-      COMPLEX :: ONE, MONE, ZERO
-      COMPLEX :: MULT1, MULT2, A11, DETPIV, A22, A12
-      PARAMETER (ONE=(1.0E0,0.0E0), MONE=(-1.0E0,0.0E0))
-      PARAMETER (ZERO=(0.0E0,0.0E0))
-      LDA = NFRONT
-      LDA8 = int(LDA,8)
-      IF (SYM.NE.0.AND.NIV.EQ.2) THEN
-        IF (present(NASS)) THEN
-          LDA = NASS
-       ELSE
-          write(*,*) 'Internal error in CMUMPS_LRTRSM_NELIM_VAR'
-          CALL MUMPS_ABORT()
-        ENDIF
-      ENDIF
-      POSELT_LOCAL = POSELT + 
-     &      int(IBEG_BLOCK-1,8)*LDA8 + int(IBEG_BLOCK - 1,8)
-#if defined(BLR_MT) 
-!$OMP SINGLE
-#endif  
-      NPIV   = IEND_BLOCK - NELIM
-      LKJIW  = NPIV - IBEG_BLOCK + 1
-      LPOS = POSELT_LOCAL + int(NPIV,8)*int(LDA,8)
-      UPOS = POSELT_LOCAL + int(NPIV,8)
-      IF (NELIM.GT.0.AND.PIVOT_OPTION.LT.2) THEN
-        IF (SYM.EQ.0) THEN
-          CALL ctrsm('L', 'L', 'N', 'N', LKJIW, NELIM, ONE,
-     &               A(POSELT_LOCAL), NFRONT,
-     &               A(LPOS), NFRONT)
-        ELSE
-          CALL ctrsm('L', 'U', 'T', 'U', LKJIW, NELIM, ONE,
-     &               A(POSELT_LOCAL), NFRONT,
-     &               A(LPOS), NFRONT)
-          DPOS = POSELT_LOCAL
-          I = 1
-          DO
-          IF(I .GT. LKJIW) EXIT
-          IF(IW(OFFSET_IW+I-1) .GT. 0) THEN
-            A11 = ONE/A(DPOS)
-            CALL ccopy(NELIM, A(LPOS+int(I-1,8)), LDA,
-     &                        A(UPOS+int(I-1,8)*LDA8), 1)
-            CALL cscal(NELIM, A11, A(LPOS+int(I-1,8)), LDA)
-            DPOS = DPOS + int(LDA+1,8)
-            I = I+1
-          ELSE
-            CALL ccopy(NELIM, A(LPOS+int(I-1,8)), LDA,
-     &                        A(UPOS+int(I-1,8)*LDA8), 1)
-            CALL ccopy(NELIM, A(LPOS+int(I,8)), LDA,
-     &                        A(UPOS+int(I,8)*LDA8), 1)
-            POSPV1 = DPOS
-            POSPV2 = DPOS + int(LDA+1,8)
-            OFFDAG = POSPV1+1_8
-            A11 = A(POSPV1)
-            A22 = A(POSPV2)
-            A12 = A(OFFDAG)
-            DETPIV = A11*A22 - A12**2
-            A22 = A11/DETPIV
-            A11 = A(POSPV2)/DETPIV
-            A12 = -A12/DETPIV
-            DO J = 1,NELIM
-              MULT1 = A11*A(LPOS+int(J-1,8)*LDA8+int(I-1,8)) 
-     &              + A12*A(LPOS+int(J-1,8)*LDA8+int(I,8))
-              MULT2 = A12*A(LPOS+int(J-1,8)*LDA8+int(I-1,8)) 
-     &              + A22*A(LPOS+int(J-1,8)*LDA8+int(I,8))
-              A(LPOS+int(J-1,8)*LDA8+int(I-1,8)) = MULT1
-              A(LPOS+int(J-1,8)*LDA8+int(I,8))   = MULT2
-            ENDDO
-            DPOS = POSPV2 + int(LDA+1,8)
-            I = I+2
-          ENDIF
-          ENDDO
-        ENDIF
-      ENDIF
-#if defined(BLR_MT) 
-!$OMP END SINGLE
-#endif  
-      END SUBROUTINE CMUMPS_LRTRSM_NELIM_VAR
       SUBROUTINE CMUMPS_BLR_PANEL_LRTRSM(
      &                A,
      &                LA, POSELT, NFRONT,

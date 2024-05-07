@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -23,6 +23,7 @@ C
       USE SMUMPS_LR_STATS
       USE MUMPS_LR_COMMON
       USE SMUMPS_ANA_AUX_M
+      USE MUMPS_ANA_BLK_M, ONLY: COMPACT_GRAPH_T, LMATRIX_T
       IMPLICIT NONE
 C     
       INCLUDE 'mpif.h'
@@ -129,6 +130,38 @@ C     Element matrix entry
       INTEGER, DIMENSION (:), ALLOCATABLE :: SBTR_ID
       REAL, DIMENSION (:), ALLOCATABLE :: COST_TRAV_TMP
       INTEGER(8) :: TOTAL_BYTES, ITMP8
+      INTEGER          :: SIZE_PAR2_NODESPTR
+      INTEGER          :: LSIZEOFBLOCKS_PTR
+      LOGICAL          :: READY_FOR_ANA_F
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: MAPCOL
+      LOGICAL :: BLKPTR_ALLOCATED, BLKVAR_ALLOCATED
+      INTEGER :: IB, BLKSIZE
+      INTEGER :: IBcurrent, IPOS, IPOSB, II
+C      Internal work arrays:
+C      DOF2BLOCK(idof)=inode, idof∈[1,N], inode∈[1,NBLK]
+C      SIZEBLOCK(1:NBLK) (for node valuation) 
+      INTEGER, TARGET, DIMENSION(:), allocatable:: SIZEOFBLOCKS
+      INTEGER, DIMENSION(:), allocatable:: DOF2BLOCK
+      INTEGER    :: NBRECORDS
+      INTEGER(8) :: NSEND8, NLOCAL8
+C     LMAT_BLOCK: in case of centralized matrix, 
+C                 to store on MASTER the cleaned Lmatrix
+C                 used to compute GCOMP
+C                 LMAT_BLOCK might also be saved to 
+C                 be used during grouping
+C     LUMAT     : in case of distributed matrix
+C                 to store distributed the cleaned LU matrix
+C                 LUMAT might also be saved to 
+C                 be used for MPI based grouping
+C     LUMAT_REMAP : in case of distributed matrix
+C                 it is used to remap LUMAT
+C 
+C     GCOMP     : Graph "ready" to be called by orderings
+C
+      TYPE(LMATRIX_T)         :: LMAT_BLOCK, LUMAT, LUMAT_REMAP
+      LOGICAL                 :: GCOMP_PROVIDED
+      TYPE(COMPACT_GRAPH_T)   :: GCOMP
+      TYPE(COMPACT_GRAPH_T)   :: GCOMP_DIST
       INTEGER, POINTER, DIMENSION(:) ::  
      &     NFSIZPTR,
      &     FILSPTR,
@@ -195,6 +228,9 @@ C
 C     Set default value that witl be reset in
 C     case of blocked format matrices
       NBLK = id%N
+      GCOMP_PROVIDED   = .FALSE.
+      BLKPTR_ALLOCATED = .FALSE.
+      BLKVAR_ALLOCATED = .FALSE.
 C     -------------------------------------
 C     Depending on the type of parallelism,
 C     the master can now (soon) potentially
@@ -327,6 +363,11 @@ C     Broadcast KEEP(60) since we need to broadcast
 C     related information
 C     ------------------------------------------
       CALL MPI_BCAST( KEEP(60), 1, MPI_INTEGER, MASTER, id%COMM, IERR )
+C        broadcast also size of schur
+      IF (id%KEEP(60) .NE. 0 ) THEN
+       CALL MPI_BCAST( KEEP(116), 1, MPI_INTEGER, MASTER, 
+     &                   id%COMM, IERR )
+      ENDIF
       IF (id%KEEP(60) .EQ. 2 .or. id%KEEP(60). EQ. 3) THEN
          CALL MPI_BCAST( id%NPROW, 1,
      &        MPI_INTEGER, MASTER, id%COMM, IERR )
@@ -423,6 +464,276 @@ C     Write problem to a file,
 C     if requested by the user
 C     ========================
       CALL SMUMPS_DUMP_PROBLEM(id)
+C     =================
+C     ANALYSIS BY BLOCK 
+C     =================
+      IF ( id%MYID .EQ. MASTER ) THEN
+       IF (KEEP(13).NE.0) THEN
+C      Analysis by block with block data provided by user
+C
+C       Check if block structure is centralized or distributed
+        IF (.NOT.associated(id%BLKVAR)) THEN
+C        BLKVAR is identity and implicitly centralized
+         KEEP(14) = 0
+        ELSE
+         IF (size(id%BLKVAR).EQ.id%N) THEN
+C         Centralized block stucture
+          KEEP(14) = 0
+         ELSE
+C         Distributed block stucture
+          KEEP(14) = 1
+          IF ( LPOK ) THEN
+             WRITE(LP,'(A,A,I8)') 
+     &       " ERROR with centralized matrix. Size of id%BLKVAR ", 
+     &       "should be equal to id%N instead of ", 
+     &       size(id%BLKVAR)
+          ENDIF
+          id%INFO(1) = -57
+          id%INFO(2) = 3
+         ENDIF
+        ENDIF
+        IF (KEEP(13).GE.1) THEN
+C        BLKPTR provided by user
+C        check input data
+         IF ( .NOT.associated(id%BLKPTR)) THEN
+          IF ( LPOK ) THEN
+             WRITE(LP,'(A,I8)') 
+     &       " id%BLKPTR should be provided by user on host "
+          ENDIF
+          id%INFO(1) = -57
+          id%INFO(2) = 2
+         ENDIF 
+         IF ( (id%NBLK.LE.0).OR.(id%NBLK.GT.id%N)
+     &       .OR. (id%NBLK+1.NE.size(id%BLKPTR))
+     &      ) THEN
+          IF ( LPOK ) THEN
+             WRITE(LP,'(A,I8)') 
+     &       " ERROR incorrect value of id%NBLK:", id%NBLK
+          ENDIF
+          id%INFO(1) = -57
+          id%INFO(2) = 1
+         ENDIF 
+         NBLK=id%NBLK
+         IF (id%BLKPTR(id%NBLK+1)-1.NE.id%N) THEN
+           IF ( LPOK ) THEN
+             WRITE(LP,'(A,A,I8)') 
+     &       " ERROR id%BLKPTR(id%NBLK+1)-1 ", 
+     &       "should be equal to id%N instead of ", 
+     &       id%BLKPTR(id%NBLK+1)-1
+           ENDIF
+           id%INFO(1) = -57
+           id%INFO(2) = 2
+         ENDIF
+         IF (id%BLKPTR(1).NE.1) THEN
+           IF ( LPOK ) THEN
+             WRITE(LP,'(A,A,I8)') 
+     &       " ERROR id%BLKPTR(1)", 
+     &       "should be equal to 1 instead of ", 
+     &       id%BLKPTR(1)
+           ENDIF
+           id%INFO(1) = -57
+           id%INFO(2) = 2
+         ENDIF
+        ELSE IF (KEEP(13).LT.0) THEN
+C        regular blocks in BLKVAR of size -KEEP(13)
+C        mod(id%N,-KEEP(13)) has already been checked
+         NBLK = id%N/(-KEEP(13))
+        ENDIF
+C      end of KEEP(13).NE.0
+       ENDIF 
+C      end of  id%MYID .EQ. MASTER 
+      ENDIF 
+      CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1),
+     &     id%COMM, id%MYID )
+      IF ( id%INFO(1) .LT. 0 ) GOTO 500
+C
+C     Broadcast KEEP(13-14), NBLK
+      CALL MPI_BCAST( KEEP(13), 2, MPI_INTEGER, MASTER, id%COMM, IERR )
+      CALL MPI_BCAST( NBLK, 1, MPI_INTEGER, MASTER, id%COMM, IERR )
+C
+C     ===========================
+      IF (KEEP(13).NE.0) THEN
+C     { BEGIN preparation ANA_BLK
+C     ===========================
+       IF ( ( (KEEP(54).NE.3).AND.(id%MYID.EQ.MASTER) ) 
+     &    .OR.  (KEEP(54).EQ.3) ) THEN
+C         ----------------------------------------
+C         Allocate SIZEOFBLOCKS, DOF2BLOCK
+C         ----------------------------------------
+          IF (allocated(SIZEOFBLOCKS)) DEALLOCATE(SIZEOFBLOCKS)
+          IF (allocated(DOF2BLOCK)) DEALLOCATE(DOF2BLOCK)
+          allocate(SIZEOFBLOCKS(NBLK), DOF2BLOCK(id%N), 
+     &                  STAT=allocok)
+C
+          IF (allocok.NE.0) THEN
+           id%INFO( 1 ) = -7
+           id%INFO( 2 ) = id%N+NBLK
+           IF ( LPOK ) WRITE(LP, 150) ' SIZEOFBLOCKS, DOF2BLOCK'
+          ENDIF
+C
+          IF (id%MYID.EQ.MASTER.AND.allocok.EQ.0) THEN
+C          BLKPTR and BLKVAR needed for SMUMPS_EXPAND_TREE
+C          allocate then if not associated
+           IF (.NOT.associated(id%BLKPTR)) THEN
+            BLKPTR_ALLOCATED = .TRUE.
+            allocate(id%BLKPTR(NBLK+1), STAT=allocok)
+            IF (allocok.NE.0) THEN
+             BLKPTR_ALLOCATED = .TRUE.
+             id%INFO( 1 ) = -7
+             id%INFO( 2 ) = NBLK+1
+             IF ( LPOK ) WRITE(LP, 150) ' id%BLKPTR '
+            ENDIF
+           ENDIF
+           IF (.NOT.associated(id%BLKVAR).AND.allocok.EQ.0) THEN
+            allocate(id%BLKVAR(id%N), STAT=allocok)
+            BLKVAR_ALLOCATED = .TRUE.
+            IF (allocok.NE.0) THEN
+             BLKVAR_ALLOCATED = .FALSE.
+             id%INFO( 1 ) = -7
+             id%INFO( 2 ) = id%N
+             IF ( LPOK ) WRITE(LP, 150) ' id%BLKVAR '
+            ENDIF
+           ENDIF
+          ENDIF
+       ENDIF
+       CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
+     &     id%COMM, id%MYID )
+       IF (INFO(1).LT.0) GOTO 500
+       IF ( id%MYID .EQ. MASTER ) THEN
+C      -----------------------------------------
+C      Compute SIZEOFBLOCKS, DOF2BLOCK on MASTER
+C      based on id%BLKPTR and id%BLKVAR 
+C      and compute id%BLKPTR and id%BLKVAR if not 
+C      provided by user
+C      -----------------------------------------
+           IF (BLKVAR_ALLOCATED) THEN
+C           implicitly id%BLKVAR(I)=I
+            DO I=1, id%N
+             id%BLKVAR(I)=I
+            ENDDO
+           ENDIF
+           IF (BLKPTR_ALLOCATED) THEN
+            IB=0
+            BLKSIZE=-KEEP(13)
+            DO I=1, id%N, BLKSIZE
+              IB=IB+1
+              id%BLKPTR(IB) = I
+            ENDDO
+            id%BLKPTR(NBLK+1) = id%N+1
+           ENDIF
+C
+           CALL MUMPS_AB_COMPUTE_SIZEOFBLOCK (
+     &          NBLK, id%N, id%BLKPTR(1), id%BLKVAR(1),
+     &          SIZEOFBLOCKS, DOF2BLOCK)
+       ENDIF
+C      =======================
+       IF (KEEP(54).NE.3) THEN
+C      =======================
+C      ---------------------
+C      Matrix structure available on host
+C      ---------------------
+        KEEP(14) = 0 
+        IF (id%MYID.EQ.MASTER) THEN
+C         Store input matrix (IRN/JCN) as a cleaned blocked Lmatrix 
+C         of nodes (indices \in [1,NBLK])
+          IF (id%KEEP8(28) .EQ. 0_8) THEN
+            IRN_PTR => IDUMMY_ARRAY
+            JCN_PTR => IDUMMY_ARRAY
+          ELSE
+            IRN_PTR => id%IRN
+            JCN_PTR => id%JCN
+          ENDIF
+          CALL MUMPS_AB_COORD_TO_LMAT ( id%MYID,
+     &          NBLK, id%N, id%KEEP8(28), IRN_PTR(1), JCN_PTR(1),
+     &          DOF2BLOCK, 
+     &          INFO(1), INFO(2), LP, LPOK, 
+     &          LMAT_BLOCK )
+        ENDIF
+        CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
+     &     id%COMM, id%MYID )
+        IF ( INFO(1) .LT. 0 ) GOTO 500
+C
+        IF (id%MYID.EQ.MASTER) THEN
+C         From LMAT_BLOCK build GCOMP format wich requires
+C         symmetrizing the Lmatrix
+          CALL MUMPS_AB_LMAT_TO_CLEAN_G ( id%MYID, .TRUE.,
+     &         .TRUE., ! not relevant because unfold is true
+     &         LMAT_BLOCK, GCOMP, 
+     &         INFO(1), ICNTL(1))
+          GCOMP_PROVIDED = .TRUE.
+          IF (KEEP(494).EQ.0) THEN
+            CALL MUMPS_AB_FREE_LMAT(LMAT_BLOCK)
+          ENDIF
+        ENDIF
+        CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
+     &     id%COMM, id%MYID )
+        IF ( INFO(1) .LT. 0 ) GOTO 500
+C      ====
+       ELSE
+C      ====
+C      -------------------------------
+C      Matrix structure is distributed
+C      and since KEEP(13).NE.0 then
+C      ordering is centralized since
+C      -------------------------------
+C 
+         IF (.NOT. I_AM_SLAVE .OR. ! non-working master
+     &       id%KEEP8(29) .EQ. 0_8) THEN ! NNZ_loc or NZ_loc
+C          Master non-working
+           IRN_loc_PTR => IDUMMY_ARRAY
+           JCN_loc_PTR => IDUMMY_ARRAY
+           id%KEEP8(29) = 0_8
+         ELSE
+           IRN_loc_PTR => id%IRN_loc
+           JCN_loc_PTR => id%JCN_loc
+         ENDIF
+C
+C        Given distributed matrix  IRN_loc_PTR, JCN_loc_PTR
+C        build distributed cleaned graph GCOMP and
+C        save  distributed LUMAT in case of grouping
+C
+         IF (id%NPROCS.EQ.1) THEN
+C          Centralized cleaned graph is ready
+C          call directly with GCOMP
+           READY_FOR_ANA_F = .TRUE.
+           CALL MUMPS_AB_DCOORD_TO_DCOMPG ( 
+     &          id%MYID, id%NPROCS, id%COMM, 
+     &          NBLK, id%N,
+     &          id%KEEP8(29),  ! => NNZ_loc or NZ_loc
+     &          IRN_loc_PTR(1), JCN_loc_PTR(1), 
+     &          DOF2BLOCK(1), 
+     &          id%ICNTL(1), id%INFO(1), id%KEEP(1),
+     &          LUMAT, GCOMP, READY_FOR_ANA_F)
+           GCOMP_PROVIDED = .TRUE.
+         ELSE
+           READY_FOR_ANA_F = .FALSE.
+           CALL MUMPS_AB_DCOORD_TO_DCOMPG ( 
+     &          id%MYID, id%NPROCS, id%COMM, 
+     &          NBLK, id%N,
+     &          id%KEEP8(29),  ! => NNZ_loc or NZ_loc
+     &          IRN_loc_PTR(1), JCN_loc_PTR(1), 
+     &          DOF2BLOCK(1), 
+     &          id%ICNTL(1), id%INFO(1), id%KEEP(1),
+     &          LUMAT, GCOMP_DIST, READY_FOR_ANA_F)
+         ENDIF
+C
+C
+         CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
+     &     id%COMM, id%MYID )
+          IF ( INFO(1) .LT. 0 ) GOTO 500
+C      =====
+       ENDIF
+C      =====
+       IF (allocated(DOF2BLOCK)) THEN
+C        DOF2BLOCK reused on master if pivot order given by user
+         IF ( (id%MYID.EQ.MASTER).AND. (KEEP(256) .NE. 1)) THEN
+           DEALLOCATE(DOF2BLOCK)
+         ENDIF
+       ENDIF
+C     ========================
+      ENDIF
+C     } END preparation ANA_BLK
+C     =========================
 C     ====================================================
 C     TEST FOR SEQUENTIAL OR PARALLEL ANALYSIS (KEEP(244))
 C     ====================================================
@@ -433,9 +744,21 @@ C     Collect on the host -- if matrix is distributed
 C     at analysis -- all integer information needed
 C     to perform ordering
 C     -----------------------------------------------
+          IF (KEEP(13).NE.0) THEN
+           IF (id%NPROCS.NE.1) THEN
+             CALL MUMPS_AB_GATHER_GRAPH(
+     &       id%ICNTL(1), KEEP(1), id%COMM, id%MYID, id%NPROCS,
+     &       id%INFO(1), 
+     &       GCOMP_DIST, GCOMP)
+             GCOMP_PROVIDED = .TRUE.
+C
+             CALL MUMPS_AB_FREE_GCOMP(GCOMP_DIST)
+           ENDIF
+          ELSE
             CALL SMUMPS_GATHER_MATRIX(id)
             CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
      &            id%COMM, id%MYID )
+          ENDIF
           IF ( INFO(1) .LT. 0 ) GOTO 500
       ENDIF
  1234 CONTINUE
@@ -600,6 +923,10 @@ C                ==>   LIW8 = 0
 C              In this case 
 C                size(LCOMP%ADJ)>= 2_8*NZ8+int(NBLK,8)+1_8 
 C                should hold
+               IF (KEEP(13).NE.0) THEN
+C                Compact graph is provided on entry to SMUMPS_ANA_F
+                 NZ8=0_8 ! GCOMP is provided on entry
+               ENDIF
                IF (NZ8.EQ.0_8) THEN 
                  LIW8 = 0_8
                ELSE
@@ -664,9 +991,48 @@ C                 Store entry in inverse permutation
                   IKEEP2(id%PERM_IN( I )) = I
                 ENDIF
              ENDDO
+             IF ((KEEP(55) .EQ. 0).AND.(KEEP(13).NE.0)
+     &           .AND.(KEEP(13).NE.-1)
+     &         ) THEN
+C             Build blocked permutation:
+C              IKEEPALLOC(IB)= IBPos where IB, IBPos \in [1:NBLK]
+C             IKEEP2 holds inverse permutation
+              IPOSB = 0
+              IPOS  = 1
+              DO WHILE (IPOS.LE.id%N)
+                IPOSB     = IPOSB+1
+                I         = IKEEP2(IPOS)
+                IBcurrent = DOF2BLOCK(I)
+                BLKSIZE   = SIZEOFBLOCKS(IBcurrent)
+                IKEEPALLOC(IBcurrent) = IPOSB
+                IF (BLKSIZE.GT.1) THEN
+                 DO II = 1, BLKSIZE-1
+                  IPOS    = IPOS+1
+                  I       = IKEEP2(IPOS)
+                  IB      = DOF2BLOCK(I)
+                  IF (IB.NE.IBcurrent) THEN
+                   INFO(1)= -4
+                   INFO(2)= I
+                   GOTO 10
+                  ENDIF
+                 ENDDO
+                ENDIF
+                IPOS = IPOS+1
+              ENDDO
+C             IF PERM_IN is correct then
+C             on exit last position should be NBLK
+              IF (IPOSB.NE.NBLK) THEN
+                   INFO(1)= -4
+C                  N+1 to indicate "global" error
+                   INFO(2)= id%N+1
+                   GOTO 10
+              ENDIF
+             ELSE
                DO I = 1, id%N
                   IKEEPALLOC( I ) = id%PERM_IN( I )
                END DO
+             ENDIF
+             IF (allocated(DOF2BLOCK)) DEALLOCATE(DOF2BLOCK)
             END IF
             INFOG(1) = 0
             INFOG(2) = 0
@@ -713,7 +1079,9 @@ C              array rather than a possibly null pointer:
 #if defined(metis) || defined(parmetis) || defined(metis4) || defined(parmetis3)         
      &              , id%METIS_OPTIONS(1)
 #endif               
+     &              , id%N, SIZEOFBLOCKS, GCOMP_PROVIDED, GCOMP
      &          )              
+                IF (GCOMP_PROVIDED) CALL MUMPS_AB_FREE_GCOMP(GCOMP)
 C
                ENDIF
                INFOG(7)     = KEEP(256)
@@ -907,8 +1275,10 @@ C
 C     If Schur is on (keep(60).ne.0)
 C     or if RR is on (keep (53) > 0 
 C     then we keep root numbers
-               id%KEEP(20)=0
-               id%KEEP(38)=0
+C              root node number in seq  
+               id%KEEP(20)=0    
+C              root node number in paral  
+               id%KEEP(38)=0   
             ENDIF
 C     No type 2 nodes:
             id%KEEP(56)=0
@@ -946,6 +1316,14 @@ C     to its final state by the SORT_PERM subroutine below.
 C     ======================================================
 C     Map nodes and assign candidates for dynamic scheduling
 C     ======================================================
+      IF ((KEEP(13).NE.0).AND.(NBLK.NE.id%N)) THEN
+       SIZEOFBLOCKS_PTR => SIZEOFBLOCKS(1:NBLK)
+       LSIZEOFBLOCKS_PTR = NBLK
+      ELSE
+       SIZEOFBLOCKS_PTR => IDUMMY_ARRAY
+       LSIZEOFBLOCKS_PTR = 1
+       IDUMMY_ARRAY(1) = -1
+      ENDIF
             CALL SMUMPS_DIST_AVOID_COPIES(
      &           NBLK,id%NSLAVES,ICNTL(1),
      &           INFOG(1),
@@ -955,6 +1333,7 @@ C     ======================================================
      &           FILSPTR(1),
      &           KEEP(1),KEEP8(1),PROCNODE(1),
      &           SSARBR(1),id%NBSA,PEAK,IERR
+     &           , SIZEOFBLOCKS_PTR(1), LSIZEOFBLOCKS_PTR 
      &           )
             NULLIFY(SSARBR)
             if(IERR.eq.-999) then 
@@ -1140,6 +1519,10 @@ C
 C     We now allocate and compute arrays in NSTEPS
 C     on the master, as this makes more sense.
 C     
+C     Broadcast KEEP8(101) to be used in MUMPS_ANA_L0_OMP
+      CALL MPI_BCAST( id%KEEP8(101), 1, MPI_INTEGER8, MASTER,
+     &     id%COMM, IERR )
+C
 C     ==============================
 C     PREPARE DATA FOR FACTORIZATION
 C     ==============================
@@ -1147,8 +1530,8 @@ C     ------------------
       CALL MPI_BCAST( id%KEEP(1), 110, MPI_INTEGER, MASTER,
      &     id%COMM, IERR )
 C     We also need to broadcast KEEP8(21) 
-      CALL MUMPS_BCAST_I8( id%KEEP8(21), MASTER,
-     &                     id%MYID, id%COMM, IERR)
+      CALL MPI_BCAST( id%KEEP8(21), 1, MPI_INTEGER8, MASTER,
+     &     id%COMM, IERR )
 C     --------------------------------------------------
 C     Broadcast KEEP(205) which is outside the first 110
 C     KEEP entries but is needed for factorization.
@@ -1415,22 +1798,193 @@ C     Grouping may be performed on a distributed matrix
 C     =======================================================
 C     
 C     I/ Prepare data before call to grouping
-        IF ((KEEP(54).EQ.3) .AND. (KEEP(244).EQ.2)
+        IF ((KEEP(54).EQ.3).AND.(KEEP(13).NE.0)) THEN
+C         Matrix is distributed on entry and compression computed
+          IF (KEEP(487).NE.1) CALL MUMPS_ABORT()
+          ALLOCATE(MAPCOL(id%KEEP(28)), stat=allocok)
+          IF (allocok .ne.0) then
+           INFO(1)= -7
+           INFO(2)= id%KEEP(28)
+          ENDIF
+C         Broadcast errors
+          CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
+     &      id%COMM, id%MYID )
+          IF ( INFO(1).LT.0 ) GOTO 500
+C
+          CALL MUMPS_INIALIZE_REDIST_LUMAT ( 
+     &     id%INFO, id%ICNTL, id%KEEP, id%COMM, id%MYID, NBLK,
+     &     LUMAT, id%PROCNODE_STEPS(1), id%KEEP(28), MAPCOL, 
+     &     LUMAT_REMAP, NBRECORDS, id%STEP(1))
+C         INFO(1) has been broadcasted already in routine
+          IF ( id%INFO(1).LT.0 ) GOTO 500
+C
+C         -- Redistribute LUMAT into LU_REMAP relying on procnode
+          CALL MUMPS_AB_DIST_LMAT_TO_LUMAT ( 
+     &      .FALSE., ! do not UNFOLD
+     &      .TRUE.,  ! MAPCOL in NSTEPS=> STEP array needed 
+     &      id%INFO, id%ICNTL, id%COMM, id%MYID, NBLK, id%NPROCS,
+     &      LUMAT, MAPCOL, id%KEEP(28), id%STEP(1), NBLK,
+     &      LUMAT_REMAP, NBRECORDS, NSEND8, NLOCAL8
+     &     )
+          CALL MUMPS_AB_FREE_LMAT(LUMAT)
+C         Distribute SIZEOFBLOCKS that was defined only on master
+          CALL MPI_BCAST( SIZEOFBLOCKS, NBLK, MPI_INTEGER, MASTER, 
+     &     id%COMM, IERR )
+C
+        ELSE IF ((KEEP(54).NE.3).AND.(KEEP(13).NE.0)
+     &         .AND. (KEEP(487).EQ.1) ) THEN
+C         Centralized matrix and LMAT_BLOCK available
+C         ---> build LUMAT_REMAP on MASTER
+          IF (id%MYID.EQ.MASTER) THEN
+           CALL MUMPS_AB_LMAT_TO_LUMAT ( 
+     &              LMAT_BLOCK, LUMAT_REMAP,
+     &              INFO(1), ICNTL(1))
+C            --- LMAT_BLOCK not needed anymore
+           CALL MUMPS_AB_FREE_LMAT(LMAT_BLOCK)
+          ENDIF
+C         Broadcast errors
+          CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
+     &      id%COMM, id%MYID )
+          IF ( INFO(1).LT.0 ) GOTO 500
+C
+        ELSE IF ((KEEP(54).EQ.3).AND.(KEEP(13).EQ.0)
+     &           .AND. KEEP(487).EQ.1) THEN
+C        Matrix is distributed on entry and compression not requested
+C        (this will be the case when ICNTL(15).EQ.0 and 
+C         // analysis, or Schur, etc...)
+C        note that with distributed matrix and centralized ordering
+C        compression is forced to limit memory peak)
+C        Free centralized matrix before grouping to 
+C        limit memory peak
+         IF (associated(id%IRN)) THEN
+                  DEALLOCATE(id%IRN)
+                  NULLIFY(id%IRN)
+         ENDIF
+         IF (associated(id%JCN)) THEN
+                  DEALLOCATE(id%JCN)
+                  NULLIFY(id%JCN)
+         ENDIF
+         IF (.NOT. I_AM_SLAVE .OR. ! non-working master
+     &       id%KEEP8(29) .EQ. 0_8) THEN ! NNZ_loc or NZ_loc
+C          Master non-working
+           IRN_loc_PTR => IDUMMY_ARRAY
+           JCN_loc_PTR => IDUMMY_ARRAY
+         ELSE
+           IRN_loc_PTR => id%IRN_loc
+           JCN_loc_PTR => id%JCN_loc
+         ENDIF
+         ALLOCATE(MAPCOL(id%KEEP(28)), stat=allocok)
+         IF (allocok .ne.0) then
+           INFO(1)= -7
+           INFO(2)= id%KEEP(28)
+         ENDIF
+C        Broadcast errors
+         CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
+     &      id%COMM, id%MYID )
+         IF ( INFO(1).LT.0 ) GOTO 500
+C
+C        Build MAPCOL and LUMAT_REMAP mapped according 
+C        to MAPCOL (outputs available on all MPI procs).
+         CALL MUMPS_AB_DCOORD_TO_DTREE_LUMAT ( 
+     &          id%MYID, id%NPROCS, id%COMM, 
+     &          NBLK, id%N,
+     &          id%KEEP8(29),  ! => NNZ_loc or NZ_loc
+     &          IRN_loc_PTR(1), JCN_loc_PTR(1), 
+     &          id%PROCNODE_STEPS(1), id%KEEP(28), id%STEP(1),
+     &          id%ICNTL(1), id%INFO(1), id%KEEP(1),
+     &          MAPCOL, LUMAT_REMAP )
+         IF (INFO(1).GE.0) THEN
+C         SIZEOFBLOCKS needed on all procs during MPI grouping
+          ALLOCATE(SIZEOFBLOCKS(NBLK), stat=allocok)
+          IF (allocok .ne.0) then
+           INFO(1)= -7
+           INFO(2)= NBLK
+          ENDIF
+          DO I=1, NBLK
+            SIZEOFBLOCKS(I) = 1
+          ENDDO
+         ENDIF
+C        Broadcast errors
+         CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
+     &      id%COMM, id%MYID )
+         IF ( INFO(1).LT.0 ) GOTO 500
+        ELSE IF ((KEEP(54).EQ.3) .AND. (KEEP(244).EQ.2)
+     &       .AND.  (KEEP(487).NE.1) 
      &     ) THEN
 C        Grouping preparation on slaves:
 C        If the input matrix is distributed and the parallel analysis is
-C        chosen, the graph has to be centralized in order to compute the
+C        chosen, the graph used to be centralized in order to compute the
 C        clustering. 
 C
             CALL SMUMPS_GATHER_MATRIX(id)
         ENDIF
 C     ============
+C     ============
 C     II/ GROUPING
 C     ============
-        IF (id%MYID.EQ.MASTER) THEN
-C        grouping based on centralized matrix
-         IF (KEEP(469).EQ.0) THEN
-              CALL SMUMPS_LR_GROUPING(id%N, id%KEEP8(28), id%KEEP(28),
+        IF ((KEEP(54).EQ.3).AND.(KEEP(487).EQ.1)) THEN
+C         Matrix is distributed on entry and halo of size 1
+C         Distributed memory based grouping is used
+          IF (id%MYID.NE.MASTER) THEN
+            ALLOCATE(FILSPTR(NBLK), stat=IERR)
+            IF (IERR.GT.0) THEN
+             INFO(1)=-7
+             INFO(2)=NBLK
+            ENDIF
+          ENDIF
+C         Broadcast errors
+          CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
+     &      id%COMM, id%MYID )
+          IF ( INFO(1).LT.0 ) GOTO 500
+C         Distribute SIZEOFBLOCKS that was defined only on master
+C          CALL MPI_BCAST( SIZEOFBLOCKS, NBLK, MPI_INTEGER, MASTER, 
+C     &     id%COMM, IERR )
+          CALL SMUMPS_AB_LR_MPI_GROUPING(NBLK, 
+     &           MAPCOL, id%KEEP(28), 
+     &           id%KEEP(28), LUMAT_REMAP, FILSPTR, 
+     &           id%FRERE_STEPS,
+     &           id%DAD_STEPS, id%STEP, id%NA,
+     &           id%LNA, id%LRGROUPS, SIZEOFBLOCKS(1), id%KEEP(50),
+     &           id%ICNTL(1), id%KEEP(487), id%KEEP(488),
+     &           id%KEEP(490), id%KEEP(38), id%KEEP(20), id%KEEP(60), 
+     &           id%INFO(1), id%INFO(2),
+     &           id%KEEP(264), id%KEEP(265), id%KEEP(482), id%KEEP(472),
+     &           id%KEEP(127), id%KEEP(469), id%KEEP(10), 
+     &           id%KEEP(54), LPOK, LP, id%COMM, id%MYID, id%NPROCS)
+          IF (allocated(MAPCOL)) DEALLOCATE(MAPCOL)
+          IF (id%MYID.NE.MASTER) THEN
+            DEALLOCATE(FILSPTR)
+            NULLIFY(FILSPTR)
+          ENDIF
+C
+        ELSE IF (id%MYID.EQ.MASTER) THEN
+            IF ((KEEP(54).NE.3).AND.(KEEP(13).NE.0)
+     &         .AND. (KEEP(487).EQ.1) ) THEN
+C            Centralized matrix and LMAT_BLOCK available
+C            --- build LUMAT
+C            -- LR grouping exploiting LUMAT
+C            -- centralized => MAPCOL not needed
+C            FIXME 5.4: call to SMUMPS_AB_LR_GROUPING "ready" to be 
+C                   replaced by call to SMUMPS_AB_LR_MPI_GROUPING 
+C
+             IDUMMY_ARRAY(1) = -1
+             CALL SMUMPS_AB_LR_GROUPING(NBLK, 
+     &           IDUMMY_ARRAY, 1,
+     &           id%KEEP(28), LUMAT_REMAP, FILSPTR, 
+     &           id%FRERE_STEPS,
+     &           id%DAD_STEPS, id%STEP, id%NA,
+     &           id%LNA, id%LRGROUPS, SIZEOFBLOCKS(1), id%KEEP(50),
+     &           id%ICNTL(1), id%KEEP(487), id%KEEP(488),
+     &           id%KEEP(490), id%KEEP(38), id%KEEP(20), id%KEEP(60), 
+     &           id%INFO(1), id%INFO(2),
+     &           id%KEEP(264), id%KEEP(265), id%KEEP(482), id%KEEP(472),
+     &           id%KEEP(127), id%KEEP(469), id%KEEP(10), 
+     &           id%KEEP(54),
+     &           LPOK, LP, id%MYID, id%COMM)
+            ELSE
+C            grouping based on centralized matrix
+             IF (KEEP(469).EQ.0) THEN
+               CALL SMUMPS_LR_GROUPING(id%N, id%KEEP8(28), id%KEEP(28),
      &           id%IRN,
      &           id%JCN, FILSPTR, id%FRERE_STEPS,
      &           id%DAD_STEPS, id%NE_STEPS, id%STEP, id%NA,
@@ -1443,8 +1997,8 @@ C        grouping based on centralized matrix
      &           id%KEEP(127), id%KEEP(10), 
      &           id%KEEP(54),
      &           LPOK, LP)
-         ELSE
-              CALL SMUMPS_LR_GROUPING_NEW(id%N, id%KEEP8(28), 
+             ELSE
+               CALL SMUMPS_LR_GROUPING_NEW(id%N, id%KEEP8(28), 
      &           id%KEEP(28), id%IRN,
      &           id%JCN, FILSPTR, id%FRERE_STEPS,
      &           id%DAD_STEPS, id%STEP, id%NA,
@@ -1456,12 +2010,18 @@ C        grouping based on centralized matrix
      &           id%KEEP(127), id%KEEP(469), id%KEEP(10), 
      &           id%KEEP(54),
      &           LPOK, LP)
-         ENDIF
+             ENDIF
+            ENDIF
         ENDIF
 C     ============
 C     III/ CLEANUP 
 C     ============
-        IF ( (KEEP(54).EQ.3) .AND. (KEEP(244).EQ.2) ) THEN
+C       Free LUMAT_REMAP is allocated
+        CALL MUMPS_AB_FREE_LMAT(LUMAT_REMAP)
+        IF (allocated(MAPCOL)) DEALLOCATE(MAPCOL)
+        IF (allocated(SIZEOFBLOCKS)) DEALLOCATE(SIZEOFBLOCKS)
+        IF ( (KEEP(54).EQ.3) .AND. (KEEP(244).EQ.2).AND.
+     &       (KEEP(487).NE.1) ) THEN
 C           Cleanup the irn and jcn arrays filled up by the
 C           cmumps_gather_matrix above. It might have been done
 C           during grouping
@@ -1474,13 +2034,11 @@ C           during grouping
                   NULLIFY(id%JCN)
                 ENDIF
         END IF
+        IF (PROKG) THEN
+          CALL MUMPS_SECFIN(TIMEG)
+          WRITE(MPG,145) TIMEG
+        END IF
 C}    Grouping: KEEP(494) .NE. 0
-C#if defined(dev_version)
-                IF (PROKG) THEN
-                 CALL MUMPS_SECFIN(TIMEG)
-                 WRITE(MPG,145) TIMEG
-                END IF
-C#endif
       ENDIF
       IF (id%MYID.NE. MASTER) THEN
         CALL MUMPS_REALLOC(id%FILS, id%N, id%INFO, LP, FORCE=.TRUE.,
@@ -1488,6 +2046,62 @@ C#endif
         IF(INFO(1).LT.0) GOTO 97
       ENDIF
 C
+      IF ((id%MYID.EQ.MASTER) .AND.(KEEP(13).NE.0)) THEN
+C{      ===========
+C       Expand tree  
+C       ===========
+C       Current tree is relative to the analysis by block.
+C       Expand the tree on the master if compression is effective
+C       (in all cases, grouping done or not)
+          IF (NBLK.LT.id%N.OR.(.NOT.BLKVAR_ALLOCATED)) THEN
+C         even if NBLK.EQ.N BLKVAR provided by user might hold
+C         a permutation of the variables and this expand_tree_steps 
+C         should also be called
+C           Expand FILSPTR, id%STEP into id%FILS, STEPPTR
+C           and update arrays of size NSTEPS
+            ALLOCATE(STEPPTR(id%N), LRGROUPSPTR(id%N), stat=IERR)
+            IF (IERR.GT.0) THEN
+             INFO(1)=-7
+             INFO(2)=id%N
+             GOTO 97
+            ENDIF
+            IF (NB_NIV2.EQ.0) THEN
+               IDUMMY_ARRAY(1)   = -9999
+               PAR2_NODESPTR     => IDUMMY_ARRAY(1:1)
+               SIZE_PAR2_NODESPTR=1
+            ELSE
+               PAR2_NODESPTR => PAR2_NODES(1:NB_NIV2)
+               SIZE_PAR2_NODESPTR=NB_NIV2
+            ENDIF
+            CALL MUMPS_REALLOC(id%FILS, id%N, id%INFO, LP, 
+     &           FORCE=.TRUE.,
+     &           STRING='id%FILS (Analysis)', ERRCODE=-7)
+            IF(INFO(1).LT.0) GOTO 97
+            CALL SMUMPS_EXPAND_TREE_STEPS (id%ICNTL,
+     &        id%N, NBLK, id%BLKPTR(1), id%BLKVAR(1), 
+     &        FILSPTR(1), id%FILS(1), id%KEEP(28),
+     &        id%STEP(1), STEPPTR(1),
+     &        PAR2_NODESPTR(1), SIZE_PAR2_NODESPTR,
+     &        id%DAD_STEPS(1), id%FRERE_STEPS(1), 
+     &        id%NA(1), id%LNA, id%LRGROUPS(1), LRGROUPSPTR(1), 
+     &        id%KEEP(20), id%KEEP(38)
+     &           ) 
+            NULLIFY(PAR2_NODESPTR)
+            DEALLOCATE(id%STEP)
+            id%STEP=>STEPPTR
+            NULLIFY(STEPPTR)
+            DEALLOCATE(id%LRGROUPS)
+            id%LRGROUPS=>LRGROUPSPTR
+            NULLIFY(LRGROUPSPTR)
+            DEALLOCATE(FILSPTR)
+            NULLIFY(FILSPTR)
+          ELSE
+           if (associated(id%FILS)) DEALLOCATE(id%FILS)
+           id%FILS=>FILSPTR
+           NULLIFY(FILSPTR)
+          ENDIF
+C}
+      ENDIF
       IF ((id%N.EQ.NBLK).AND.associated(FILSPTR)) THEN
 C          id%FILS has not been initialized
            if (associated(id%FILS)) DEALLOCATE(id%FILS)
@@ -1664,7 +2278,9 @@ C     We reuse the same variable as before
          CALL SMUMPS_SORT_PERM(id%N, id%NA(1), id%LNA,
      &        id%NE_STEPS(1), id%SYM_PERM(1),
      &        id%FILS(1), id%DAD_STEPS(1),
-     &        id%STEP(1), id%KEEP(28), id%INFO(1) )
+     &        id%STEP(1), id%KEEP(28), 
+     &        id%KEEP(60), id%KEEP(20), id%KEEP(38),
+     &        id%INFO(1) )
       ENDIF
 C     Root principal variable
 C     for scalapack (KEEP(38)) might have been updated
@@ -2368,6 +2984,7 @@ C            Initialize IPOOL with leaves of complete tree
              OPSA_UNDER_L0              = 0.0D0
 C
              NE_STEPSPTR => id%NE_STEPS
+           KEEP(139) = MAXFR_UNDER_L0
            CALL SMUMPS_ANA_DISTM( locMYID_NODES, id%N, id%STEP(1),
      & id%FRERE_STEPS(1), id%FILS(1), IPOOL, LIPOOL, NE_STEPSPTR(1),
      & id%DAD_STEPS(1), id%ND_STEPS(1), id%PROCNODE_STEPS(1),
@@ -2501,6 +3118,8 @@ C     ---------------------
          KEEP8(17)= 0_8
          INFO(19) = 0
          KEEP8(11) = 0_8
+         KEEP8(81) = 0_8
+         KEEP8(82) = 0_8
          KEEP(26) = 0
          KEEP(27) = 0
          RINFO(1) = 0.0E0
@@ -2536,14 +3155,19 @@ C     ENTRIES_IN_FACTORS_LOC_MASTERS should lead to the same result
       CALL MPI_ALLREDUCE( KEEP(26), KEEP(126), 1,
      &     MPI_INTEGER, MPI_SUM,
      &     id%COMM, IERR)
-C FIXME multicore and 5.3: check RINFO(5) RINFOG(15) and spec
-        CALL MUMPS_REDUCEI8( KEEP8(11), KEEP8(111), MPI_SUM,
-     &       MASTER, id%COMM )
-        CALL MUMPS_SETI8TOI4( KEEP8(111), INFOG(3) )
-C       in Megabytes
-        RINFO(5) = real(KEEP8(32)*int(KEEP(35),8))/1E6
-        CALL MUMPS_REDUCEI8( KEEP8(32), ITMP8, MPI_SUM,
-     &     MASTER, id%COMM )
+C     NRLADU related: KEEP8(11) holds factors above and under L0
+      CALL MUMPS_REDUCEI8( KEEP8(11),
+     &   KEEP8(111), MPI_SUM,
+     &   MASTER, id%COMM )
+      CALL MUMPS_SETI8TOI4( KEEP8(111), INFOG(3) )
+C     NRLADU_if_LR_LU related: KEEP8(32) holds factors above 
+C                                        and under L0
+C     convert it in Megabytes
+      RINFO(5) = real(KEEP8(32)
+     &               *int(KEEP(35),8))/1E6
+      CALL MUMPS_REDUCEI8( KEEP8(32),
+     &                   ITMP8, MPI_SUM,
+     &                   MASTER, id%COMM )
 C     in Megabytes
       IF (id%MYID.EQ.MASTER) THEN
        RINFOG(15) = real(ITMP8*int(KEEP(35),8))/1E6
@@ -2748,17 +3372,32 @@ C     Deallocate allocated working space
       IF (allocated(XNODEL)) DEALLOCATE(XNODEL)
       IF (allocated(NODEL)) DEALLOCATE(NODEL)
       IF (allocated(IPOOL)) DEALLOCATE(IPOOL)
+      IF (allocated(SIZEOFBLOCKS)) DEALLOCATE(SIZEOFBLOCKS)
+      IF (allocated(DOF2BLOCK)) DEALLOCATE(DOF2BLOCK)
+      CALL MUMPS_AB_FREE_LMAT(LMAT_BLOCK)
+      CALL MUMPS_AB_FREE_LMAT(LUMAT)
+      CALL MUMPS_AB_FREE_LMAT(LUMAT_REMAP)
+      CALL MUMPS_AB_FREE_GCOMP(GCOMP)
+      CALL MUMPS_AB_FREE_GCOMP(GCOMP_DIST)
 C     Standard deallocations (error or not)
       IF (associated(NFSIZPTR)) DEALLOCATE(NFSIZPTR)
       IF (associated(FREREPTR)) DEALLOCATE(FREREPTR)
       IF (associated(FILSPTR)) DEALLOCATE(FILSPTR)
+      IF (associated(id%BLKPTR).AND.BLKPTR_ALLOCATED) THEN
+        DEALLOCATE(id%BLKPTR)
+        nullify(id%BLKPTR)
+      ENDIF
+      IF (associated(id%BLKVAR).AND.BLKVAR_ALLOCATED) THEN
+        DEALLOCATE(id%BLKVAR)
+        nullify(id%BLKVAR)
+      ENDIF
       KEEP8(26)=max(1_8,KEEP8(26))
       KEEP8(27)=max(1_8,KEEP8(27))
       RETURN
  110  FORMAT(/' ****** ANALYSIS STEP ********'/)
  112  FORMAT(/' MEMORY ESTIMATIONS ... '/
      &   ' Estimations with standard Full-Rank (FR) factorization:')
- 145  FORMAT(' ELAPSED TIME SPENT IN BLR CLUSTERING =',F12.4)
+ 145  FORMAT(' ELAPSED TIME SPENT IN BLR CLUSTERING    =',F12.4)
  150  FORMAT(
      & /' ** FAILURE DURING SMUMPS_ANA_DRIVER, DYNAMIC ALLOCATION OF',
      &     A30)
@@ -3440,6 +4079,120 @@ C         KEEP(491)>0
          ENDIF
 C 
       id%KEEP(13) = 0
+C     Analysis by Blocks
+      id%KEEP(13) = id%ICNTL(15)
+      IF (id%KEEP(13).GT.1) THEN
+CV0   out-of range values
+        id%KEEP(13) = 0
+      ENDIF
+      IF (id%KEEP(13).LT.0) THEN
+        IF (mod(id%N,-id%KEEP(13)) .NE.0) THEN
+          IF ( LPOK ) THEN
+             WRITE(LP,'(A,I8)') 
+     &       " ICNTL(15)=", id%ICNTL(15), 
+     &       " is incompatible with N=", id%N
+          ENDIF
+          id%INFO(1) = -57
+          id%INFO(2) = 1
+        ENDIF
+        IF (associated(id%BLKPTR)) THEN
+          IF ( LPOK ) THEN
+             WRITE(LP,'(A,I8)') 
+     &       " ICNTL(15)=", id%ICNTL(15), 
+     &       " is incompatible with BLKPTR provided by user"
+          ENDIF
+          id%INFO(1) = -57
+          id%INFO(2) = 4
+        ENDIF
+      ENDIF
+      IF (  (id%KEEP(13).EQ.0)            .AND.
+     &      (.NOT. associated(id%BLKPTR)) .AND.
+     &      (.NOT. associated(id%BLKVAR))
+     &   )
+     &  THEN
+       IF ((id%KEEP(54).EQ.3).AND.(id%KEEP(244).NE.2)) THEN
+          id%KEEP(13)=-1
+       ENDIF
+      ENDIF
+      IF ( (id%KEEP(13).EQ.0           ) .AND.
+     &      (.NOT. associated(id%BLKPTR)) .AND.
+     &      (.NOT. associated(id%BLKVAR)) .AND.
+     &      (id%KEEP(244).NE.2)
+     &   )
+     &  THEN
+C       unsymmetic assembled matrices with or without BLR,
+C       also in case of centralized matrix (if
+C       matrix is distributed, then KEEP(13) has
+C       been set to -1 in the block above)
+        IF (id%KEEP(50).EQ.0.AND. id%KEEP(55).EQ.0) THEN
+C         Respect decision taken for Maxtrans
+C         since it will be switch off because 
+C         if one activates the analysis by block
+          IF ( (id%KEEP(23).LT.0) .OR. (id%KEEP(23).GT.7)
+     &       ) THEN
+             id%KEEP(13)=-1
+          ENDIF
+        ENDIF
+      ENDIF
+      IF ( (id%KEEP(13).EQ.0)  .AND.
+     &     (id%KEEP(55).NE.0) 
+     &   ) THEN
+         IF (PROKG) WRITE(MPG,'(A,A)')
+     &           " ** Analysis by block is incompatible ",
+     &           "with elemental matrices"
+C           switch off analysis by block
+            id%KEEP(13)= 0
+      ENDIF
+      IF ( (id%KEEP(13).NE.0) .AND.
+     &     (id%KEEP(106).NE.1) 
+     &   ) THEN
+         IF (PROKG) WRITE(MPG,'(A,A,I4)')
+     &           " ** Analysis by block compatible ",
+     &           "ONLY with SYMQAMD based symbolic factorization ", 
+     &           id%KEEP(106)
+C           switch off analysis by block
+            id%KEEP(13)= 0
+      ENDIF
+      IF ( (id%KEEP(13).NE.0) .AND.
+     &     (id%KEEP(244).EQ.2) 
+     &   ) THEN
+         IF (PROKG) WRITE(MPG,'(A,A)')
+     &           " ** Analysis by block is incompatible ",
+     &           "with parallel ordering "
+C           switch off analysis by block
+            id%KEEP(13)= 0
+      ENDIF
+      IF ( (id%KEEP(13).NE.0) .AND.
+     &     (id%KEEP(60).NE.0) 
+     &   ) THEN
+         IF (PROKG) WRITE(MPG,'(A,A)')
+     &           " ** Analysis by block is incompatible ",
+     &           "with Schur "
+C           switch off analysis by block
+            id%KEEP(13)= 0
+      ENDIF
+      IF (id%KEEP(13).NE.0) THEN
+C      Maximum transversal not compatible with analysis by block
+       IF (id%KEEP(23).NE.0) THEN
+C        in case of automatic choice (id%KEEP(27).EQ.7)
+C        do not print message
+         IF (PROKG.AND.id%KEEP(23).NE.7) WRITE(MPG,'(A,A)')
+     &      " ** Maximum transversal (ICNTL(6)) ",
+     &      "not compatible with analysis by block"
+C        switch off max transversal
+         id%KEEP(23)= 0
+       ENDIF
+C      - compression for LDLT
+       IF (id%KEEP(95).NE.1) THEN
+C        in case of automatic choice (id%KEEP(95).EQ.0)
+C        do not print message
+         IF (PROKG.AND.id%KEEP(95).NE.0) WRITE(MPG,'(A,A)')
+     &      " ** ICNTL(12) not compatible with ",
+     &      " analysis by block"
+C        switch off 2x2 preprocessing for symmetric matrices
+         id%KEEP(95) = 1 
+       ENDIF
+      ENDIF
 C
 C     end id%MYID.EQ.MASTER 
       END IF 

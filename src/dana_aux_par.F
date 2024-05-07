@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.3.5, released
-C  on Thu Oct 22 09:29:08 UTC 2020
+C  This file is part of MUMPS 5.4.0, released
+C  on Tue Apr 13 15:26:30 UTC 2021
 C
 C
-C  Copyright 1991-2020 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -68,6 +68,7 @@ C
       INTEGER(8), PARAMETER :: K79REF=12000000_8
       INTEGER, PARAMETER :: LIDUMMY = 1
       INTEGER :: IDUMMY(1) 
+      DOUBLE PRECISION      :: TIMEB
       nullify(IPE, NV, NE, NA, NODE, ND, SUBORD, NAMALG, IPS,
      &     CUMUL, SAVEIRN, SAVEJCN)
       CALL MPI_COMM_RANK (id%COMM, MYID, IERR)
@@ -100,7 +101,13 @@ C
       CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1),
      &     id%COMM, id%MYID )
       IF ( id%INFO(1) .LT. 0 ) RETURN
+      IF (PROKG) CALL MUMPS_SECDEB( TIMEB )
       CALL DMUMPS_DO_PAR_ORD(id, ord, WORK2)
+      IF (PROKG) THEN
+       CALL MUMPS_SECFIN( TIMEB )
+       WRITE(*,'(" ELAPSED time in parallel ordering       =",F12.4)') 
+     &   TIMEB
+      ENDIF
       CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1),
      &     id%COMM, id%MYID )
       IF ( id%INFO(1) .LT. 0 ) RETURN
@@ -148,7 +155,7 @@ C
      &        id%KEEP(250).EQ.1, .FALSE., IDUMMY, LIDUMMY)
          CALL MUMPS_DEALLOC(CUMUL, NV, IPE, MEMCNT=MEMCNT)
          CALL DMUMPS_ANA_M(NE(1), ND(1), id%INFOG(6), id%INFOG(5),
-     &        id%KEEP(2), id%KEEP(50), id%KEEP(101), id%KEEP(108),
+     &        id%KEEP(2), id%KEEP(50), id%KEEP8(101), id%KEEP(108),
      &        id%KEEP(5), id%KEEP(6), id%KEEP(226), id%KEEP(253))
          IF ( id%KEEP(53) .NE. 0 ) THEN
             CALL MUMPS_MAKE1ROOT(id%N, FRERE(1), FILS(1), NFSIZ(1),
@@ -294,13 +301,13 @@ C
          ord%MYID       = id%MYID
          ord%IDO        = (id%MYID .GE. 1) .OR. (id%KEEP(46) .EQ. 1)
          IF(PROKG) WRITE(MPG,
-     &        '("Using PT-SCOTCH for parallel ordering.")')
+     &        '(" Using PT-SCOTCH for parallel ordering")')
          RETURN
 #else
          id%INFOG(1) = -38
          id%INFO(1)  = -38
          IF(id%MYID .EQ.0 ) WRITE(LP,
-     &        '("PT-SCOTCH not available.")')
+     &        '(" PT-SCOTCH not available")')
          RETURN
 #endif
       ELSE IF (id%KEEP(245) .EQ. 2) THEN
@@ -333,13 +340,13 @@ C
          ord%SUBSTRAT = 0
          ord%MYID     = id%MYID
          IF(PROKG) WRITE(MPG,
-     &        '("Using ParMETIS for parallel ordering.")')
+     &        '(" Using ParMETIS for parallel ordering")')
          RETURN
 #else
          id%INFOG(1) = -38
          id%INFO(1)  = -38
          IF(id%MYID .EQ.0 ) WRITE(LP,
-     &        '("ParMETIS not available.")')
+     &        '(" ParMETIS not available.")')
          RETURN
 #endif
       END IF
@@ -1544,7 +1551,7 @@ C
          SYMMETRY = dble(TOTDUPS)/(dble(id%KEEP8(28))-dble(id%N))
          SYMMETRY = min(SYMMETRY,1.0d0)
          IF(id%KEEP(50) .GE. 1) SYMMETRY = 1.d0
-         IF(PROKG) WRITE(MPG,'("Structural symmetry is:",i3,"%")')
+         IF(PROKG) WRITE(MPG,'(" Structural symmetry is:",i3,"%")')
      &        ceiling(SYMMETRY*100.d0)
          id%INFOG(8) = ceiling(SYMMETRY*100.0d0)
       END IF
