@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.2, released
-C  on Fri Jul 15 09:12:54 UTC 2016
+C  This file is part of MUMPS 5.1.1, released
+C  on Tue Mar 21 14:55:59 UTC 2017
 C
 C
-C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -19,9 +19,7 @@ C
      &    PTLUST, PTRFAC,
      &    PTRAST, STEP, PIMASTER, PAMASTER, NSTK_S, COMP,
      &    IFLAG, IERROR, COMM,
-     &    NBPROCFILS,
-     &    IPOOL, LPOOL, LEAF,
-     &    NBFIN, MYID, SLAVEF,
+     &    NBPROCFILS, IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
      &
      &    root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &    FILS, PTRARW, PTRAIW,
@@ -29,6 +27,7 @@ C
      &    LPTRAR, NELT, FRTPTR, FRTELT,
      &
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE
+     &               , LRGROUPS
      &    )
       USE CMUMPS_LOAD
       IMPLICIT NONE
@@ -40,11 +39,12 @@ C
       INTEGER BUFR( LBUFR )
       INTEGER KEEP(500), ICNTL( 40 )
       INTEGER(8) KEEP8(150)
-      REAL    DKEEP(130)
+      REAL    DKEEP(230)
       INTEGER(8) :: POSFAC, IPTRLU, LRLU, LRLUS, LA
       INTEGER IWPOS, IWPOSCB
       INTEGER N, LIW
       INTEGER IW( LIW )
+      INTEGER, intent(in) :: LRGROUPS(N)
       COMPLEX A( LA )
       INTEGER(8) :: PTRFAC(KEEP(28))
       INTEGER(8) :: PTRAST(KEEP(28))
@@ -64,12 +64,12 @@ C
       INTEGER FRTPTR( N+1), FRTELT( NELT )
       INTEGER ITLOC( N+KEEP(253) ), FILS( N )
       COMPLEX :: RHS_MUMPS(KEEP(255))
-      INTEGER PTRARW( LPTRAR ), PTRAIW( LPTRAR )
+      INTEGER(8), INTENT(IN) :: PTRARW( LPTRAR ), PTRAIW( LPTRAR )
       INTEGER ND( KEEP(28) ), FRERE( KEEP(28) )
       INTEGER ISTEP_TO_INIV2(KEEP(71)),
      &        TAB_POS_IN_PERE(SLAVEF+2,max(1,KEEP(56)))
-      INTEGER INTARR( max(1,KEEP(14)) )
-      COMPLEX DBLARR( max(1,KEEP(13)) )
+      INTEGER INTARR( KEEP8(27) )
+      COMPLEX DBLARR( KEEP8(26) )
       INTEGER INIV2, ISHIFT, IBEG
       INTEGER ISHIFT_HDR
       INTEGER MUMPS_PROCNODE, MUMPS_TYPENODE
@@ -182,6 +182,7 @@ C
      &    ICNTL, KEEP,KEEP8,DKEEP, IPOOL, LPOOL, LEAF, ND, FRERE,
      &    LPTRAR, NELT, FRTPTR, FRTELT,
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE  
+     &               , LRGROUPS
      &     )
       ELSEIF ( MSGTAG .EQ. BLOC_FACTO_SYM_SLAVE    ) THEN
         CALL CMUMPS_PROCESS_BLFAC_SLAVE( COMM_LOAD, ASS_IRECV,
@@ -197,6 +198,7 @@ C
      &    ICNTL, KEEP,KEEP8,DKEEP, IPOOL, LPOOL, LEAF, ND, FRERE,
      &    LPTRAR, NELT, FRTPTR, FRTELT,
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE  
+     &               , LRGROUPS
      &     )
       ELSEIF ( MSGTAG .EQ. BLOC_FACTO_SYM    ) THEN
         CALL CMUMPS_PROCESS_SYM_BLOCFACTO( COMM_LOAD, ASS_IRECV,
@@ -212,6 +214,7 @@ C
      &    ICNTL,KEEP,KEEP8,DKEEP,IPOOL, LPOOL, LEAF, ND, FRERE,
      &    LPTRAR, NELT, FRTPTR, FRTELT,
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE
+     &        , LRGROUPS
      & )
       ELSEIF ( MSGTAG .EQ. CONTRIB_TYPE2    ) THEN
         CALL CMUMPS_PROCESS_CONTRIB_TYPE2( COMM_LOAD, ASS_IRECV,
@@ -226,6 +229,7 @@ C
      &       ICNTL,KEEP,KEEP8,DKEEP,IFLAG, IERROR, IPOOL, LPOOL, LEAF,
      &       ND, FRERE, LPTRAR, NELT, FRTPTR, FRTELT,
      &       ISTEP_TO_INIV2, TAB_POS_IN_PERE
+     &               , LRGROUPS
      &       )
         IF ( IFLAG .LT. 0 ) GO TO 100
       ELSEIF ( MSGTAG .EQ. MAPLIG            ) THEN
@@ -264,6 +268,7 @@ C
      &    ND, FRERE, LPTRAR, NELT, FRTPTR, FRTELT,
      &
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE
+     &               , LRGROUPS
      &    )
          IF ( IFLAG .LT. 0 ) GO TO 100
       ELSE IF ( MSGTAG .EQ. ROOT_CONT_STATIC ) THEN
@@ -330,15 +335,14 @@ C
      &    PTLUST, PTRFAC,
      &    PTRAST, STEP, PIMASTER, PAMASTER, NSTK_S, COMP,
      &    IFLAG, IERROR, COMM,
-     &    NBPROCFILS,
-     &    IPOOL, LPOOL, LEAF,
-     &    NBFIN, MYID, SLAVEF,
+     &    NBPROCFILS, IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
      &
      &    OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &    FILS, PTRARW, PTRAIW,
      &    INTARR,DBLARR,ICNTL,KEEP,KEEP8,DKEEP,ND, FRERE,
      &    LPTRAR, NELT, FRTPTR, FRTELT,
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE 
+     &               , LRGROUPS
      &     )
           IF ( IFLAG .LT. 0 ) GO TO 100
          IF (MYID.NE.MUMPS_PROCNODE(PROCNODE_STEPS(STEP(ISON)), 
@@ -355,7 +359,7 @@ C
           ELSE
              CALL CMUMPS_FREE_BAND( N, ISON, PTRIST, PTRAST,
      &       IW, LIW, A, LA, LRLU, LRLUS, IWPOSCB,
-     &       IPTRLU, STEP, MYID, KEEP,
+     &       IPTRLU, STEP, MYID, KEEP, KEEP8,
      &       MUMPS_TYPENODE(PROCNODE_STEPS(STEP(ISON)),SLAVEF)
      &       )
           ENDIF
@@ -438,9 +442,7 @@ C
      &    PTLUST, PTRFAC,
      &    PTRAST, STEP, PIMASTER, PAMASTER, NSTK_S, COMP,
      &    IFLAG, IERROR, COMM,
-     &    NBPROCFILS,
-     &    IPOOL, LPOOL, LEAF,
-     &    NBFIN, MYID, SLAVEF,
+     &    NBPROCFILS, IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
      &
      &    root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &    FILS, PTRARW, PTRAIW,
@@ -448,6 +450,7 @@ C
      &    LPTRAR, NELT, FRTPTR, FRTELT ,
      &
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE
+     &               , LRGROUPS
      &    )
       IMPLICIT NONE
       INCLUDE 'cmumps_root.h'
@@ -457,7 +460,7 @@ C
       INTEGER :: STATUS(MPI_STATUS_SIZE)
       INTEGER KEEP(500), ICNTL(40)
       INTEGER(8) KEEP8(150)
-      REAL       DKEEP(130)
+      REAL       DKEEP(230)
       INTEGER COMM_LOAD, ASS_IRECV
       INTEGER LBUFR, LBUFR_BYTES
       INTEGER BUFR( LBUFR )
@@ -466,6 +469,7 @@ C
       INTEGER N, LIW
       INTEGER IW( LIW )
       COMPLEX A( LA )
+      INTEGER, intent(in) :: LRGROUPS(N)
       INTEGER(8) :: PTRFAC(KEEP(28))
       INTEGER(8) :: PTRAST(KEEP(28))
       INTEGER(8) :: PAMASTER(KEEP(28))
@@ -484,12 +488,12 @@ C
       INTEGER FRTPTR( N+1 ), FRTELT( NELT )
       INTEGER ITLOC( N+KEEP(253) ), FILS( N )
       COMPLEX :: RHS_MUMPS(KEEP(255))
-      INTEGER PTRARW( LPTRAR ), PTRAIW( LPTRAR )
+      INTEGER(8), INTENT(IN) :: PTRARW( LPTRAR ), PTRAIW( LPTRAR )
       INTEGER ND( KEEP(28) ), FRERE( KEEP(28) )
       INTEGER ISTEP_TO_INIV2(KEEP(71)),
      &        TAB_POS_IN_PERE(SLAVEF+2,max(1,KEEP(56)))
-      INTEGER INTARR( max(1,KEEP(14)) )
-      COMPLEX DBLARR( max(1,KEEP(13)) )
+      INTEGER INTARR( KEEP8(27) )
+      COMPLEX DBLARR( KEEP8(26) )
       INTEGER MSGSOU, MSGTAG, MSGLEN, IERR
       MSGSOU = STATUS( MPI_SOURCE )
       MSGTAG = STATUS( MPI_TAG )
@@ -516,8 +520,7 @@ C
      &      PTLUST, PTRFAC,
      &      PTRAST, STEP, PIMASTER, PAMASTER, NSTK_S, COMP, IFLAG,
      &      IERROR, COMM,
-     &      NBPROCFILS,
-     &      IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
+     &      NBPROCFILS, IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
      &
      &      root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &      FILS, PTRARW, PTRAIW,
@@ -525,6 +528,7 @@ C
      &      LPTRAR, NELT, FRTPTR, FRTELT,
      &
      &      ISTEP_TO_INIV2, TAB_POS_IN_PERE
+     &               , LRGROUPS
      &      )
       RETURN
       END SUBROUTINE CMUMPS_RECV_AND_TREAT
@@ -546,8 +550,7 @@ C
      &    LPTRAR, NELT, FRTPTR, FRTELT,
      &
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE,
-     &    STACK_RIGHT_AUTHORIZED
-     & )
+     &    STACK_RIGHT_AUTHORIZED, LRGROUPS )
       USE CMUMPS_LOAD
       IMPLICIT NONE
       INCLUDE 'cmumps_root.h'
@@ -561,7 +564,7 @@ C
       INTEGER, INTENT (IN) :: MSGSOU, MSGTAG
       INTEGER KEEP(500), ICNTL(40)
       INTEGER(8) KEEP8(150)
-      REAL       DKEEP(130)
+      REAL       DKEEP(230)
       INTEGER LBUFR, LBUFR_BYTES
       INTEGER COMM_LOAD, ASS_IRECV
       INTEGER BUFR( LBUFR )
@@ -570,6 +573,7 @@ C
       INTEGER N, LIW
       INTEGER IW( LIW )
       COMPLEX A( LA )
+      INTEGER, intent(in) :: LRGROUPS(N)
       INTEGER(8) :: PTRAST(KEEP(28))
       INTEGER(8) :: PTRFAC(KEEP(28))
       INTEGER(8) :: PAMASTER(KEEP(28))
@@ -589,12 +593,12 @@ C
       INTEGER FRTPTR( N+1 ), FRTELT( NELT )
       INTEGER ITLOC( N + KEEP(253) ), FILS( N )
       COMPLEX :: RHS_MUMPS(KEEP(255))
-      INTEGER PTRARW( LPTRAR ), PTRAIW( LPTRAR )
+      INTEGER(8), INTENT(IN) :: PTRARW( LPTRAR ), PTRAIW( LPTRAR )
       INTEGER ND( KEEP(28) ), FRERE( KEEP(28) )
       INTEGER ISTEP_TO_INIV2(KEEP(71)),
      &        TAB_POS_IN_PERE(SLAVEF+2,max(1,KEEP(56)))
-      INTEGER INTARR( max(1,KEEP(14)) )
-      COMPLEX DBLARR( max(1,KEEP(13)) )
+      INTEGER INTARR( KEEP8(27) )
+      COMPLEX DBLARR( KEEP8(26) )
       LOGICAL, intent(in) :: STACK_RIGHT_AUTHORIZED
        LOGICAL FLAG, RIGHT_MESS, FLAGbis
        INTEGER LP, MSGSOU_LOC, MSGTAG_LOC, MSGLEN_LOC
@@ -665,14 +669,14 @@ C
      &      PTRIST, PTLUST, PTRFAC,
      &      PTRAST, STEP, PIMASTER, PAMASTER, NSTK_S, COMP, IFLAG,
      &      IERROR, COMM,
-     &      NBPROCFILS,
-     &      IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
+     &      NBPROCFILS, IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
      &
      &      root, OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS,
      &      PTRARW, PTRAIW,
      &      INTARR, DBLARR, ICNTL, KEEP,KEEP8,DKEEP, ND, FRERE,
      &      LPTRAR, NELT, FRTPTR, FRTELT,
      &      ISTEP_TO_INIV2, TAB_POS_IN_PERE
+     &               , LRGROUPS
      &      )
           IF (.NOT.RIGHT_MESS) RECURS = RECURS - 10
           IF ( IFLAG .LT. 0 ) RETURN
@@ -695,9 +699,7 @@ C
      &            PTRAST, STEP, PIMASTER, PAMASTER,
      &            NSTK_S, COMP, IFLAG,
      &            IERROR, COMM,
-     &            NBPROCFILS,
-     &            IPOOL, LPOOL, LEAF,
-     &            NBFIN, MYID, SLAVEF,
+     &            NBPROCFILS, IPOOL, LPOOL,LEAF,NBFIN,MYID,SLAVEF,
      &
      &            root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &            FILS, PTRARW, PTRAIW,
@@ -705,6 +707,7 @@ C
      &            KEEP,KEEP8, DKEEP,ND, FRERE,
      &            LPTRAR, NELT, FRTPTR, FRTELT,
      &            ISTEP_TO_INIV2, TAB_POS_IN_PERE
+     &               , LRGROUPS
      &            )
                   IF ( IFLAG .LT. 0 ) RETURN
             ENDIF
@@ -732,14 +735,14 @@ C
      &      PTRIST, PTLUST, PTRFAC,
      &      PTRAST, STEP, PIMASTER, PAMASTER, NSTK_S, COMP, IFLAG,
      &      IERROR, COMM,
-     &      NBPROCFILS,
-     &      IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
+     &      NBPROCFILS, IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
      &
      &      root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &      FILS, PTRARW, PTRAIW,
      &      INTARR, DBLARR, ICNTL, KEEP,KEEP8,DKEEP, ND, FRERE,
      &      LPTRAR, NELT, FRTPTR, FRTELT,
      &      ISTEP_TO_INIV2, TAB_POS_IN_PERE
+     &               , LRGROUPS
      &   )
           IF ( IFLAG .LT. 0 ) RETURN
         ENDIF
@@ -763,7 +766,7 @@ C
      &    BUFR, LBUFR, LBUFR_BYTES,
      &    COMM,
      &    MYID, SLAVEF)
-      USE CMUMPS_COMM_BUFFER
+      USE CMUMPS_BUF
       IMPLICIT NONE
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'
@@ -807,7 +810,7 @@ C
      &    INFO1, KEEP, BUFR, LBUFR, LBUFR_BYTES,
      &    COMM_NODES, COMM_LOAD, SLAVEF,
      &    CLEAN_COMM_NODES, CLEAN_COMM_LOAD )
-      USE CMUMPS_COMM_BUFFER
+      USE CMUMPS_BUF
       IMPLICIT NONE
       INTEGER, INTENT(IN)    :: LBUFR, LBUFR_BYTES
       INTEGER, INTENT(OUT)   :: BUFR( LBUFR )

@@ -1,19 +1,21 @@
 C
-C  This file is part of MUMPS 5.0.2, released
-C  on Fri Jul 15 09:12:54 UTC 2016
+C  This file is part of MUMPS 5.1.1, released
+C  on Tue Mar 21 14:55:59 UTC 2017
 C
 C
-C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
 C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
-      SUBROUTINE SMUMPS_COMPACT_FACTORS(A, LDA, NPIV, NBROW, K50 )
+      SUBROUTINE SMUMPS_COMPACT_FACTORS(A, LDA, NPIV, NBROW, K50,
+     &           SIZEA )
       IMPLICIT NONE
       INTEGER LDA, NPIV, NBROW, K50
-      REAL A(int(LDA,8)*int(NBROW+NPIV,8))
+      INTEGER(8), INTENT(IN) :: SIZEA
+      REAL A(SIZEA)
       INTEGER(8) :: IOLD, INEW, J8
       INTEGER I , ILAST
       INTEGER NBROW_L_RECTANGLE_TO_MOVE
@@ -53,10 +55,12 @@ C
       ENDDO
  500  RETURN
       END SUBROUTINE SMUMPS_COMPACT_FACTORS
-      SUBROUTINE SMUMPS_COMPACT_FACTORS_UNSYM(A, LDA, NPIV, NCONTIG )
+      SUBROUTINE SMUMPS_COMPACT_FACTORS_UNSYM(A, LDA, NPIV, NCONTIG,
+     &                                        SIZEA )
       IMPLICIT NONE
-      INTEGER NCONTIG, NPIV, LDA
-      REAL A(NCONTIG*LDA)
+      INTEGER,    INTENT(IN)     :: NCONTIG, NPIV, LDA
+      INTEGER(8), INTENT(IN)     :: SIZEA
+      REAL,    INTENT(INOUT)  :: A(SIZEA)
       INTEGER I, J
       INTEGER(8) :: INEW, IOLD
       INEW = int(NPIV+1,8)
@@ -88,7 +92,7 @@ C
       INTEGER NBROW
       INTEGER(8) :: J
       INTEGER I, KEEP(500)
-#if ! defined(ALLOW_NON_INIT)
+#if defined(ZERO_TRIANGLE)
       REAL ZERO
         PARAMETER( ZERO = 0.0E0 )
 #endif
@@ -122,7 +126,7 @@ C
      &                                  LAST_ALLOWED ) THEN
                 EXIT
               ENDIF
-#if ! defined(ALLOW_NON_INIT)
+#if defined(ZERO_TRIANGLE)
               DO J = 1_8, int(NBCOL_STACK - I,8)
                 A(NPOS - J + 1_8) = ZERO
               END DO
@@ -160,7 +164,7 @@ C
       INTEGER(8) :: APOS, NPOS, APOS_ini, NPOS_ini
       INTEGER I, KEEP(500)
       INTEGER(8) :: J, LDA8
-#if ! defined(ALLOW_NON_INIT)
+#if defined(ZERO_TRIANGLE)
       REAL ZERO
         PARAMETER( ZERO = 0.0E0 )
 #endif
@@ -184,7 +188,7 @@ C
           DO J  = 1_8, int(I + NBROW_SEND,8)
             A(NPOS+J-1_8)=A(APOS+J-1_8)
           ENDDO
-#if ! defined(ALLOW_NON_INIT)
+#if defined(ZERO_TRIANGLE)
           IF (.NOT. COMPRESSCB) THEN
             A(NPOS+int(I+NBROW_SEND,8):
      &        NPOS+int(NBCOL_STACK-1,8))=ZERO

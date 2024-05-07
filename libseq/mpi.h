@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.0.2, released
- *  on Fri Jul 15 09:12:54 UTC 2016
+ *  This file is part of MUMPS 5.1.1, released
+ *  on Tue Mar 21 14:55:59 UTC 2017
  *
  *
- *  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -18,6 +18,20 @@
 #else
 #define LIBSEQ_INT int
 #endif
+
+#if ! defined(LIBSEQ_CALL)
+#if defined(_WIN32) && ! defined(__MINGW32__)
+/* Choose between next lines or modify according
+ * to your Windows calling conventions:
+   #define LIBSEQ_CALL
+   #define LIBSEQ_CALL __declspec(dllexport)
+   #define LIBSEQ_CALL __declspec(dllexport) */
+#define LIBSEQ_CALL
+#else
+#define LIBSEQ_CALL
+#endif
+#endif
+
 
 #ifndef MUMPS_MPI_H
 #define MUMPS_MPI_H
@@ -37,9 +51,9 @@ extern "C" {
 typedef LIBSEQ_INT MPI_Comm; /* Simple type for MPI communicator */
 static MPI_Comm MPI_COMM_WORLD=(MPI_Comm)0;
 
-LIBSEQ_INT MPI_Init(LIBSEQ_INT *pargc, char ***pargv);
-LIBSEQ_INT MPI_Comm_rank(LIBSEQ_INT  comm, LIBSEQ_INT  *rank);
-LIBSEQ_INT MPI_Finalize(void);
+LIBSEQ_INT LIBSEQ_CALL MPI_Init(LIBSEQ_INT *pargc, char ***pargv);
+LIBSEQ_INT LIBSEQ_CALL MPI_Comm_rank(LIBSEQ_INT  comm, LIBSEQ_INT  *rank);
+LIBSEQ_INT LIBSEQ_CALL MPI_Finalize(void);
 
 #ifdef __cplusplus
 }

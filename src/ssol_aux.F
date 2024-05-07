@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.2, released
-C  on Fri Jul 15 09:12:54 UTC 2016
+C  This file is part of MUMPS 5.1.1, released
+C  on Tue Mar 21 14:55:59 UTC 2017
 C
 C
-C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -14,8 +14,11 @@ C
      &       W, LWC,
      &       POSWCB,IWPOSCB,PTRICB,PTRACB)
       IMPLICIT NONE
-      INTEGER N,LIWW,LWC,POSWCB,IWPOSCB, KEEP28
-      INTEGER IWCB(LIWW),PTRICB(KEEP28),PTRACB(KEEP28)
+      INTEGER(8), INTENT(IN) :: LWC
+      INTEGER(8), INTENT(INOUT) :: POSWCB
+      INTEGER N,LIWW,IWPOSCB, KEEP28
+      INTEGER IWCB(LIWW),PTRICB(KEEP28)
+      INTEGER(8) :: PTRACB(KEEP28)
       REAL W(LWC)
       INTEGER SIZFI, SIZFR
       IF ( IWPOSCB .eq. LIWW ) RETURN
@@ -31,26 +34,30 @@ C
       SUBROUTINE SMUMPS_COMPSO(N,KEEP28,IWCB,LIWW,W,LWC,
      &       POSWCB,IWPOSCB,PTRICB,PTRACB)
       IMPLICIT NONE
-      INTEGER N,LIWW,LWC,POSWCB,IWPOSCB,KEEP28
-      INTEGER IWCB(LIWW),PTRICB(KEEP28),PTRACB(KEEP28)
+      INTEGER(8), INTENT(IN)    :: LWC
+      INTEGER(8), INTENT(INOUT) :: POSWCB
+      INTEGER N,LIWW,IWPOSCB,KEEP28
+      INTEGER IWCB(LIWW),PTRICB(KEEP28)
+      INTEGER(8) :: PTRACB(KEEP28)
       REAL W(LWC)
-      INTEGER IPTIW,IPTA,SIZFI,SIZFR,LONGI,LONGR
-      INTEGER I
+      INTEGER IPTIW,SIZFI,LONGI
+      INTEGER(8) :: IPTA, LONGR, SIZFR, I8
+      INTEGER    :: I
       IPTIW = IWPOSCB
       IPTA  = POSWCB
       LONGI = 0
-      LONGR = 0
+      LONGR = 0_8
       IF ( IPTIW .EQ. LIWW ) RETURN
 10    CONTINUE
        IF (IWCB(IPTIW+2).EQ.0) THEN
-        SIZFR  = IWCB(IPTIW+1)
+        SIZFR  = int(IWCB(IPTIW+1),8)
         SIZFI =  2  
         IF (LONGI.NE.0) THEN
           DO 20 I=0,LONGI-1
-            IWCB(IPTIW + SIZFI - I) = IWCB (IPTIW - I )
+            IWCB(IPTIW + SIZFI - I) = IWCB (IPTIW - I)
  20       CONTINUE 
-          DO 30 I=0,LONGR-1
-            W(IPTA + SIZFR - I)   = W(IPTA - I )
+          DO 30 I8=0,LONGR-1
+            W(IPTA + SIZFR - I8)   = W(IPTA - I8)
  30       CONTINUE
         ENDIF
         DO 40 I=1,KEEP28
@@ -65,7 +72,7 @@ C
         POSWCB = POSWCB + SIZFR
         IPTA   = IPTA + SIZFR     
        ELSE
-        SIZFR  = IWCB(IPTIW+1)
+        SIZFR  = int(IWCB(IPTIW+1),8)
         SIZFI  = 2
         IPTIW = IPTIW + SIZFI
         LONGI = LONGI + SIZFI
@@ -75,20 +82,22 @@ C
        IF (IPTIW.NE.LIWW) GOTO 10
        RETURN
        END SUBROUTINE SMUMPS_COMPSO
-      SUBROUTINE SMUMPS_SOL_X(A, NZ, N, IRN, ICN, Z, KEEP,KEEP8)
-      INTEGER NZ, N, I, J, K, KEEP(500)
+      SUBROUTINE SMUMPS_SOL_X(A, NZ8, N, IRN, ICN, Z, KEEP,KEEP8)
+      INTEGER N, I, J, KEEP(500)
+      INTEGER(8), INTENT(IN) :: NZ8
       INTEGER(8) KEEP8(150)
-      INTEGER IRN(NZ), ICN(NZ)
-      REAL A(NZ)
+      INTEGER IRN(NZ8), ICN(NZ8)
+      REAL A(NZ8)
       REAL Z(N)
       REAL, PARAMETER :: ZERO = 0.0E0
+      INTEGER(8) :: K
       INTRINSIC     abs
       DO 10 I = 1, N
         Z(I) = ZERO
    10 CONTINUE
       IF (KEEP(264).EQ.0) THEN
        IF (KEEP(50) .EQ.0) THEN
-         DO K = 1, NZ
+         DO K = 1_8, NZ8
           I = IRN(K)
           J = ICN(K)
           IF ((I .LT. 1) .OR. (I .GT. N)) CYCLE
@@ -96,7 +105,7 @@ C
           Z(I) = Z(I) + abs(A(K))
          ENDDO
         ELSE
-         DO K = 1, NZ
+         DO K = 1_8, NZ8
           I = IRN(K)
           J = ICN(K)
           IF ((I .LT. 1) .OR. (I .GT. N)) CYCLE
@@ -109,13 +118,13 @@ C
         ENDIF
       ELSE
        IF (KEEP(50) .EQ.0) THEN
-         DO K = 1, NZ
+         DO K = 1_8, NZ8
           I = IRN(K)
           J = ICN(K)
           Z(I) = Z(I) + abs(A(K))
          ENDDO
         ELSE
-         DO K = 1, NZ
+         DO K = 1_8, NZ8
           I = IRN(K)
           J = ICN(K)
           Z(I) = Z(I) + abs(A(K))
@@ -127,21 +136,23 @@ C
       ENDIF
       RETURN
       END SUBROUTINE SMUMPS_SOL_X
-      SUBROUTINE SMUMPS_SCAL_X(A, NZ, N, IRN, ICN, Z,
+      SUBROUTINE SMUMPS_SCAL_X(A, NZ8, N, IRN, ICN, Z,
      &            KEEP, KEEP8, COLSCA)
-      INTEGER,   intent(in)  :: NZ, N, KEEP(500)
-      INTEGER(8), intent(in)  :: KEEP8(150)
-      INTEGER,   intent(in)  :: IRN(NZ), ICN(NZ)
-      REAL,   intent(in)  :: A(NZ)
-      REAL,      intent(in)  :: COLSCA(N)
-      REAL,      intent(out) :: Z(N)
+      INTEGER,    INTENT(IN)  :: N, KEEP(500)
+      INTEGER(8), INTENT(IN)  :: NZ8
+      INTEGER(8), INTENT(IN)  :: KEEP8(150)
+      INTEGER,    INTENT(IN)  :: IRN(NZ8), ICN(NZ8)
+      REAL,    INTENT(IN)  :: A(NZ8)
+      REAL,       INTENT(IN)  :: COLSCA(N)
+      REAL,       INTENT(OUT) :: Z(N)
       REAL, PARAMETER :: ZERO = 0.0E0
-      INTEGER I, J, K
+      INTEGER         :: I, J
+      INTEGER(8)      :: K
       DO 10 I = 1, N
         Z(I) = ZERO
    10 CONTINUE
       IF (KEEP(50) .EQ.0) THEN
-       DO K = 1, NZ
+       DO K = 1_8, NZ8
         I = IRN(K)
         J = ICN(K)
         IF ((I .LT. 1) .OR. (I .GT. N)) CYCLE
@@ -149,7 +160,7 @@ C
         Z(I) = Z(I) + abs(A(K)*COLSCA(J))
        ENDDO
       ELSE
-       DO K = 1, NZ
+       DO K = 1, NZ8
         I = IRN(K)
         J = ICN(K)
         IF ((I .LT. 1) .OR. (I .GT. N)) CYCLE
@@ -162,16 +173,18 @@ C
       ENDIF
       RETURN
       END SUBROUTINE SMUMPS_SCAL_X
-      SUBROUTINE SMUMPS_SOL_Y(A, NZ, N, IRN, ICN, RHS, X, R, W,
+      SUBROUTINE SMUMPS_SOL_Y(A, NZ8, N, IRN, ICN, RHS, X, R, W,
      &           KEEP,KEEP8)
       IMPLICIT NONE
-      INTEGER,   intent(in)   :: NZ, N, KEEP(500)
-      INTEGER(8), intent(in)   ::  KEEP8(150)
-      INTEGER,   intent(in)   :: IRN(NZ), ICN(NZ)
-      REAL,   intent(in)   :: A(NZ), RHS(N), X(N)
-      REAL,      intent(out)  :: W(N)
-      REAL,   intent(out)  :: R(N)
-      INTEGER I, K, J
+      INTEGER,    INTENT(IN)   :: N, KEEP(500)
+      INTEGER(8), INTENT(IN)   :: NZ8
+      INTEGER(8), INTENT(IN)   :: KEEP8(150)
+      INTEGER,    INTENT(IN)   :: IRN(NZ8), ICN(NZ8)
+      REAL,    INTENT(IN)   :: A(NZ8), RHS(N), X(N)
+      REAL,       INTENT(OUT)  :: W(N)
+      REAL,    INTENT(OUT)  :: R(N)
+      INTEGER I, J
+      INTEGER(8) :: K8
       REAL, PARAMETER :: ZERO = 0.0E0
       REAL D
       DO I = 1, N
@@ -180,26 +193,26 @@ C
       ENDDO
       IF (KEEP(264).EQ.0) THEN
        IF (KEEP(50) .EQ.0) THEN
-          DO K = 1, NZ
-            I = IRN(K)
-            J = ICN(K)
+          DO K8 = 1_8, NZ8
+            I = IRN(K8)
+            J = ICN(K8)
             IF ((I .GT. N) .OR. (J .GT. N) .OR. (I .LT. 1) .OR. 
      &       (J .LT. 1)) CYCLE
-            D = A(K) * X(J)
+            D = A(K8) * X(J)
             R(I) = R(I) - D
             W(I) = W(I) + abs(D)
           ENDDO
        ELSE
-          DO K = 1, NZ
-            I = IRN(K)
-            J = ICN(K)
+          DO K8 = 1_8, NZ8
+            I = IRN(K8)
+            J = ICN(K8)
             IF ((I .GT. N) .OR. (J .GT. N) .OR. (I .LT. 1) .OR. 
      &       (J .LT. 1)) CYCLE
-            D = A(K) * X(J)
+            D = A(K8) * X(J)
             R(I) = R(I) - D
             W(I) = W(I) + abs(D)
             IF (I.NE.J) THEN
-              D = A(K) * X(I)
+              D = A(K8) * X(I)
               R(J) = R(J) - D
               W(J) = W(J) + abs(D)
             ENDIF
@@ -207,22 +220,22 @@ C
        ENDIF
       ELSE
        IF (KEEP(50) .EQ.0) THEN
-          DO K = 1, NZ
-            I = IRN(K)
-            J = ICN(K)
-            D = A(K) * X(J)
+          DO K8 = 1_8, NZ8
+            I = IRN(K8)
+            J = ICN(K8)
+            D = A(K8) * X(J)
             R(I) = R(I) - D
             W(I) = W(I) + abs(D)
           ENDDO
        ELSE
-          DO K = 1, NZ
-            I = IRN(K)
-            J = ICN(K)
-            D = A(K) * X(J)
+          DO K8 = 1_8, NZ8
+            I = IRN(K8)
+            J = ICN(K8)
+            D = A(K8) * X(J)
             R(I) = R(I) - D
             W(I) = W(I) + abs(D)
             IF (I.NE.J) THEN
-              D = A(K) * X(I)
+              D = A(K8) * X(I)
               R(J) = R(J) - D
               W(J) = W(J) + abs(D)
             ENDIF
@@ -357,126 +370,130 @@ C
   190 KASE = 0
       RETURN
       END SUBROUTINE SMUMPS_SOL_B
-      SUBROUTINE SMUMPS_QD2( MTYPE, N, NZ, ASPK, IRN, ICN,
+      SUBROUTINE SMUMPS_QD2( MTYPE, N, NZ8, ASPK, IRN, ICN,
      &    LHS, WRHS, W, RHS, KEEP,KEEP8)
       IMPLICIT NONE
-      INTEGER MTYPE, N, NZ
-      INTEGER IRN( NZ ), ICN( NZ )
+      INTEGER MTYPE, N
+      INTEGER(8), INTENT(IN) :: NZ8
+      INTEGER, INTENT(IN) :: IRN( NZ8 ), ICN( NZ8 )
       INTEGER KEEP(500)
       INTEGER(8) KEEP8(150)
-      REAL, intent(in) :: ASPK( NZ )
-      REAL, intent(in) :: LHS( N ), WRHS( N )
-      REAL, intent(out):: RHS( N )
-      REAL,    intent(out):: W( N )
-      INTEGER K, I, J
-      REAL DZERO
-      PARAMETER(DZERO = 0.0E0)
-      DO 10 K = 1, N
-        W(K) = DZERO
-        RHS(K) = WRHS(K)
-   10 CONTINUE
+      REAL, INTENT(IN) :: ASPK( NZ8 )
+      REAL, INTENT(IN) :: LHS( N ), WRHS( N )
+      REAL, INTENT(OUT):: RHS( N )
+      REAL,    INTENT(OUT):: W( N )
+      INTEGER I, J
+      INTEGER(8) :: K8
+      REAL, PARAMETER :: DZERO = 0.0E0
+      DO I = 1, N
+        W(I) = DZERO
+        RHS(I) = WRHS(I)
+      ENDDO
       IF ( KEEP(50) .EQ. 0 ) THEN
        IF (MTYPE .EQ. 1) THEN
         IF (KEEP(264).EQ.0) THEN
-          DO K = 1, NZ
-            I = IRN(K)
-            J = ICN(K)
+          DO K8 = 1_8, NZ8
+            I = IRN(K8)
+            J = ICN(K8)
             IF ((I .LE. 0) .OR. (I .GT. N) .OR. (J .LE. 0) .OR. 
      &        (J .GT. N)) CYCLE
-            RHS(I) = RHS(I) - ASPK(K) * LHS(J)
-            W(I) = W(I) + abs(ASPK(K))
+            RHS(I) = RHS(I) - ASPK(K8) * LHS(J)
+            W(I) = W(I) + abs(ASPK(K8))
           ENDDO
         ELSE
-          DO K = 1, NZ
-            I = IRN(K)
-            J = ICN(K)
-            RHS(I) = RHS(I) - ASPK(K) * LHS(J)
-            W(I) = W(I) + abs(ASPK(K))
+          DO K8 = 1_8, NZ8
+            I = IRN(K8)
+            J = ICN(K8)
+            RHS(I) = RHS(I) - ASPK(K8) * LHS(J)
+            W(I) = W(I) + abs(ASPK(K8))
           ENDDO
         ENDIF
        ELSE
         IF (KEEP(264).EQ.0) THEN
-          DO K = 1, NZ
-            I = IRN(K)
-            J = ICN(K)
+          DO K8 = 1_8, NZ8
+            I = IRN(K8)
+            J = ICN(K8)
             IF ((I .LE. 0) .OR. (I .GT. N) .OR. (J .LE. 0) .OR. 
      &        (J .GT. N)) CYCLE
-            RHS(J) = RHS(J) - ASPK(K) * LHS(I)
-            W(J) = W(J) + abs(ASPK(K))
+            RHS(J) = RHS(J) - ASPK(K8) * LHS(I)
+            W(J) = W(J) + abs(ASPK(K8))
           ENDDO
         ELSE
-          DO K = 1, NZ
-            I = IRN(K)
-            J = ICN(K)
-            RHS(J) = RHS(J) - ASPK(K) * LHS(I)
-            W(J) = W(J) + abs(ASPK(K))
+          DO K8 = 1_8, NZ8
+            I = IRN(K8)
+            J = ICN(K8)
+            RHS(J) = RHS(J) - ASPK(K8) * LHS(I)
+            W(J) = W(J) + abs(ASPK(K8))
           ENDDO
         ENDIF
        ENDIF
       ELSE
         IF (KEEP(264).EQ.0) THEN
-          DO K = 1, NZ
-            I = IRN(K)
-            J = ICN(K)
+          DO K8 = 1_8, NZ8
+            I = IRN(K8)
+            J = ICN(K8)
             IF ((I .LE. 0) .OR. (I .GT. N) .OR. (J .LE. 0) .OR. 
      &        (J .GT. N)) CYCLE
-            RHS(I) = RHS(I) - ASPK(K) * LHS(J)
-            W(I) = W(I) + abs(ASPK(K))
+            RHS(I) = RHS(I) - ASPK(K8) * LHS(J)
+            W(I) = W(I) + abs(ASPK(K8))
             IF (J.NE.I) THEN
-                RHS(J) = RHS(J) - ASPK(K) * LHS(I)
-                W(J) = W(J) + abs(ASPK(K))
+                RHS(J) = RHS(J) - ASPK(K8) * LHS(I)
+                W(J) = W(J) + abs(ASPK(K8))
             ENDIF
           ENDDO
         ELSE
-          DO K = 1, NZ
-            I = IRN(K)
-            J = ICN(K)
-            RHS(I) = RHS(I) - ASPK(K) * LHS(J)
-            W(I) = W(I) + abs(ASPK(K))
+          DO K8 = 1_8, NZ8
+            I = IRN(K8)
+            J = ICN(K8)
+            RHS(I) = RHS(I) - ASPK(K8) * LHS(J)
+            W(I) = W(I) + abs(ASPK(K8))
             IF (J.NE.I) THEN
-                RHS(J) = RHS(J) - ASPK(K) * LHS(I)
-                W(J) = W(J) + abs(ASPK(K))
+                RHS(J) = RHS(J) - ASPK(K8) * LHS(I)
+                W(J) = W(J) + abs(ASPK(K8))
             ENDIF
           ENDDO
         ENDIF
       ENDIF
       RETURN
       END SUBROUTINE SMUMPS_QD2
-      SUBROUTINE SMUMPS_ELTQD2( MTYPE, N, 
-     &    NELT, ELTPTR, LELTVAR, ELTVAR, NA_ELT, A_ELT,
-     &    LHS, WRHS, W, RHS, KEEP,KEEP8)
+      SUBROUTINE SMUMPS_ELTQD2( MTYPE, N,
+     &    NELT, ELTPTR, LELTVAR, ELTVAR, NA_ELT8, A_ELT,
+     &    LHS, WRHS, W, RHS, KEEP,KEEP8 )
       IMPLICIT NONE
-      INTEGER MTYPE, N, NELT, LELTVAR, NA_ELT
+      INTEGER MTYPE, N, NELT, LELTVAR
+      INTEGER(8), INTENT(IN) :: NA_ELT8
       INTEGER ELTPTR(NELT+1), ELTVAR(LELTVAR)
       INTEGER KEEP(500)
       INTEGER(8) KEEP8(150)
-      REAL A_ELT(NA_ELT)
+      REAL A_ELT(NA_ELT8)
       REAL LHS( N ), WRHS( N ), RHS( N )
       REAL W(N)
       CALL SMUMPS_MV_ELT(N, NELT, ELTPTR, ELTVAR, A_ELT,
      &                         LHS, RHS, KEEP(50), MTYPE )
       RHS = WRHS - RHS
       CALL SMUMPS_SOL_X_ELT( MTYPE, N, 
-     &    NELT, ELTPTR, LELTVAR, ELTVAR, NA_ELT, A_ELT,
+     &    NELT, ELTPTR, LELTVAR, ELTVAR, NA_ELT8, A_ELT,
      &    W, KEEP,KEEP8 )
       RETURN
       END SUBROUTINE SMUMPS_ELTQD2
       SUBROUTINE SMUMPS_SOL_X_ELT( MTYPE, N, 
-     &    NELT, ELTPTR, LELTVAR, ELTVAR, NA_ELT, A_ELT,
+     &    NELT, ELTPTR, LELTVAR, ELTVAR, NA_ELT8, A_ELT,
      &    W, KEEP,KEEP8 )
       IMPLICIT NONE
-      INTEGER MTYPE, N, NELT, LELTVAR, NA_ELT
+      INTEGER MTYPE, N, NELT, LELTVAR
+      INTEGER(8), INTENT(IN) :: NA_ELT8
       INTEGER ELTPTR(NELT+1), ELTVAR(LELTVAR)
       INTEGER KEEP(500)
       INTEGER(8) KEEP8(150)
-      REAL A_ELT(NA_ELT)
+      REAL A_ELT(NA_ELT8)
       REAL TEMP
       REAL W(N)
-      INTEGER K, I, J, IEL, SIZEI, IELPTR
+      INTEGER I, J, IEL, SIZEI, IELPTR
+      INTEGER(8) :: K8
       REAL DZERO
       PARAMETER(DZERO = 0.0E0)
       W = DZERO
-      K = 1
+      K8 = 1_8
       DO IEL = 1, NELT
         SIZEI  = ELTPTR( IEL + 1 ) - ELTPTR( IEL )
         IELPTR = ELTPTR( IEL ) - 1
@@ -486,16 +503,16 @@ C
               DO I = 1, SIZEI
                W( ELTVAR( IELPTR + I) ) = 
      &           W( ELTVAR( IELPTR + I) )
-     &           + abs(A_ELT( K ))
-               K = K + 1
+     &           + abs(A_ELT( K8 ))
+               K8 = K8 + 1_8
               END DO
             END DO
          ELSE
            DO J = 1, SIZEI
               TEMP = W( ELTVAR( IELPTR + J ) )
               DO I = 1, SIZEI
-               TEMP = TEMP + abs( A_ELT(K))
-               K = K + 1
+               TEMP = TEMP + abs( A_ELT(K8))
+               K8 = K8 + 1_8
               END DO
               W(ELTVAR( IELPTR + J )) = 
      &          W(ELTVAR( IELPTR + J )) + TEMP
@@ -504,14 +521,14 @@ C
         ELSE
          DO J = 1, SIZEI
           W(ELTVAR( IELPTR + J )) = 
-     &        W(ELTVAR( IELPTR + J )) + abs(A_ELT( K ))
-          K = K + 1
+     &        W(ELTVAR( IELPTR + J )) + abs(A_ELT( K8 ))
+          K8 = K8 + 1_8
           DO I = J+1, SIZEI
               W(ELTVAR( IELPTR + J )) = 
-     &           W(ELTVAR( IELPTR + J )) + abs(A_ELT( K ))
+     &           W(ELTVAR( IELPTR + J )) + abs(A_ELT( K8 ))
               W(ELTVAR( IELPTR + I ) ) = 
-     &           W(ELTVAR( IELPTR + I )) + abs(A_ELT( K ))
-              K = K + 1
+     &           W(ELTVAR( IELPTR + I )) + abs(A_ELT( K8 ))
+              K8 = K8 + 1_8
           END DO
          ENDDO
         ENDIF
@@ -519,22 +536,24 @@ C
       RETURN
       END SUBROUTINE SMUMPS_SOL_X_ELT
       SUBROUTINE SMUMPS_SOL_SCALX_ELT(MTYPE, N, 
-     &    NELT, ELTPTR, LELTVAR, ELTVAR, NA_ELT, A_ELT,
+     &    NELT, ELTPTR, LELTVAR, ELTVAR, NA_ELT8, A_ELT,
      &    W, KEEP,KEEP8, COLSCA )
       IMPLICIT NONE
-      INTEGER MTYPE, N, NELT, LELTVAR, NA_ELT
+      INTEGER MTYPE, N, NELT, LELTVAR
+      INTEGER(8), INTENT(IN) :: NA_ELT8
       INTEGER ELTPTR(NELT+1), ELTVAR(LELTVAR)
       INTEGER KEEP(500)
       INTEGER(8) KEEP8(150)
       REAL COLSCA(N)
-      REAL A_ELT(NA_ELT)
+      REAL A_ELT(NA_ELT8)
       REAL W(N)
       REAL TEMP, TEMP2
-      INTEGER K, I, J, IEL, SIZEI, IELPTR
+      INTEGER I, J, IEL, SIZEI, IELPTR
+      INTEGER(8) :: K8
       REAL DZERO
       PARAMETER(DZERO = 0.0E0)
       W = DZERO
-      K = 1
+      K8 = 1_8
       DO IEL = 1, NELT
         SIZEI  = ELTPTR( IEL + 1 ) - ELTPTR( IEL )
         IELPTR = ELTPTR( IEL ) - 1
@@ -545,8 +564,8 @@ C
               DO I = 1, SIZEI
                W( ELTVAR( IELPTR + I) ) =
      &           W( ELTVAR( IELPTR + I) )
-     &           + abs(A_ELT( K )) * TEMP2
-               K = K + 1
+     &           + abs(A_ELT( K8 )) * TEMP2
+               K8 = K8 + 1_8
               END DO
             END DO
          ELSE
@@ -554,8 +573,8 @@ C
               TEMP = W( ELTVAR( IELPTR + J ) )
               TEMP2= abs(COLSCA(ELTVAR( IELPTR + J) ))
               DO I = 1, SIZEI
-               TEMP = TEMP + abs(A_ELT( K )) * TEMP2
-               K = K + 1
+               TEMP = TEMP + abs(A_ELT( K8 )) * TEMP2
+               K8 = K8 + 1_8
               END DO
               W(ELTVAR( IELPTR + J )) =
      &          W(ELTVAR( IELPTR + J )) + TEMP
@@ -565,16 +584,16 @@ C
          DO J = 1, SIZEI
           W(ELTVAR( IELPTR + J )) =
      &        W(ELTVAR( IELPTR + J )) + 
-     &        abs( A_ELT( K )*COLSCA(ELTVAR( IELPTR + J)) )
-          K = K + 1
+     &        abs( A_ELT( K8 )*COLSCA(ELTVAR( IELPTR + J)) )
+          K8 = K8 + 1_8
           DO I = J+1, SIZEI
               W(ELTVAR( IELPTR + J )) =
      &           W(ELTVAR( IELPTR + J )) + 
-     &           abs(A_ELT( K )*COLSCA(ELTVAR( IELPTR + J)))
+     &           abs(A_ELT( K8 )*COLSCA(ELTVAR( IELPTR + J)))
               W(ELTVAR( IELPTR + I ) ) =
      &           W(ELTVAR( IELPTR + I )) + 
-     &           abs(A_ELT( K )*COLSCA(ELTVAR( IELPTR + I)))
-              K = K + 1
+     &           abs(A_ELT( K8 )*COLSCA(ELTVAR( IELPTR + I)))
+              K8 = K8 + 1_8
           END DO
          ENDDO
         ENDIF
@@ -582,12 +601,13 @@ C
       RETURN
       END SUBROUTINE SMUMPS_SOL_SCALX_ELT
       SUBROUTINE SMUMPS_ELTYD( MTYPE, N, NELT, ELTPTR, 
-     &                     LELTVAR, ELTVAR, NA_ELT, A_ELT,
+     &                     LELTVAR, ELTVAR, NA_ELT8, A_ELT,
      &                     SAVERHS, X, Y, W, K50 )
       IMPLICIT NONE
-      INTEGER N, NELT, K50, MTYPE, LELTVAR, NA_ELT
+      INTEGER N, NELT, K50, MTYPE, LELTVAR
+      INTEGER(8) :: NA_ELT8
       INTEGER ELTPTR( NELT + 1 ), ELTVAR( LELTVAR )
-      REAL A_ELT( NA_ELT ), X( N ), Y( N ), 
+      REAL A_ELT( NA_ELT8 ), X( N ), Y( N ), 
      &                 SAVERHS(N)
       REAL W(N)
       INTEGER IEL, I , J, K, SIZEI, IELPTR
@@ -967,11 +987,12 @@ C
       RETURN
       END SUBROUTINE SMUMPS_SOL_LCOND
       SUBROUTINE SMUMPS_SOL_CPY_FS2RHSCOMP( JBDEB, JBFIN, NBROWS,
-     &   RHSCOMP, NRHS, LRHSCOMP, FIRST_ROW_RHSCOMP, W, LD_W,
+     &   KEEP, RHSCOMP, NRHS, LRHSCOMP, FIRST_ROW_RHSCOMP, W, LD_W,
      &   FIRST_ROW_W )
          INTEGER :: JBDEB, JBFIN, NBROWS
          INTEGER :: NRHS, LRHSCOMP
          INTEGER :: FIRST_ROW_RHSCOMP
+         INTEGER, INTENT(IN) :: KEEP(500)
 #        if defined(RHSCOMP_BYROWS)
          REAL, INTENT(INOUT) :: RHSCOMP(NRHS,LRHSCOMP)
 #        else
@@ -981,6 +1002,8 @@ C
          REAL :: W(LD_W*(JBFIN-JBDEB+1))
          INTEGER :: JJ, K, ISHIFT
 #if defined(RHSCOMP_BYROWS)
+!$OMP    PARALLEL DO PRIVATE (ISHIFT, K), IF
+!$OMP&   ((NBROWS) * (JBFIN-JBDEB+1) > KEEP(363))
          DO JJ = 0, NBROWS-1
            ISHIFT = FIRST_ROW_W+JJ
            DO K = JBDEB, JBFIN
@@ -988,13 +1011,18 @@ C
      &       W(ISHIFT+LD_W*(K-JBDEB))
            END DO
          END DO
+!$OMP    END PARALLEL DO
 #else
+!$OMP    PARALLEL DO PRIVATE(ISHIFT, JJ), IF
+!$OMP&   (JBFIN-JBDEB+1 > 2*KEEP(362) .AND.
+!$OMP&   NBROWS * (JBFIN-JBDEB+1) > 2*KEEP(363))
          DO K = JBDEB, JBFIN
            ISHIFT = FIRST_ROW_W + LD_W * (K-JBDEB)
            DO JJ = 0, NBROWS-1
               RHSCOMP(FIRST_ROW_RHSCOMP+JJ,K) = W(ISHIFT+JJ)
            END DO
          END DO
+!$OMP    END PARALLEL DO
 #endif
       RETURN
       END SUBROUTINE SMUMPS_SOL_CPY_FS2RHSCOMP
@@ -1016,6 +1044,8 @@ C
       INTEGER, INTENT(IN) :: POSINRHSCOMP_BWD(N)
       INTEGER :: ISHIFT, JJ, K, IPOSINRHSCOMP
 #if defined(RHSCOMP_BYROWS)
+!$OMP PARALLEL DO PRIVATE(K,ISHIFT,IPOSINRHSCOMP), IF
+!$OMP& ((JBFIN-JBDEB+1)*(J2-KEEP(253)-J1+1)>KEEP(363))
              DO JJ = J1, J2-KEEP(253)   
                ISHIFT = FIRST_ROW_W+JJ-J1
                IPOSINRHSCOMP =  abs(POSINRHSCOMP_BWD(IW(JJ)))
@@ -1023,7 +1053,11 @@ C
                  W(ISHIFT+(K-JBDEB)*LD_W) = RHSCOMP(K,IPOSINRHSCOMP)
                ENDDO
              ENDDO
+!$OMP END PARALLEL DO
 #else
+!$OMP PARALLEL DO PRIVATE(JJ,ISHIFT,IPOSINRHSCOMP), IF
+!$OMP& ((JBFIN-JBDEB+1 > 2*KEEP(362) .AND.
+!$OMP& (JBFIN-JBDEB+1)*(J2-KEEP(253)-J1+1)>2*KEEP(363)))
              DO K=JBDEB, JBFIN
                ISHIFT = FIRST_ROW_W+(K-JBDEB)*LD_W
                DO JJ = J1, J2-KEEP(253)   
@@ -1031,13 +1065,14 @@ C
                  W(ISHIFT+JJ-J1)= RHSCOMP(IPOSINRHSCOMP,K)
                ENDDO
              ENDDO
+!$OMP END PARALLEL DO
 #endif
       RETURN
       END SUBROUTINE SMUMPS_SOL_BWD_GTHR
-      SUBROUTINE SMUMPS_SOL_Q(MTYPE, IFLAG, N, NZ,
+      SUBROUTINE SMUMPS_SOL_Q(MTYPE, IFLAG, N,
      &    LHS, WRHS, W, RES, GIVNORM, ANORM, XNORM, SCLNRM,
      &    MPRINT, ICNTL, KEEP,KEEP8)
-      INTEGER MTYPE,N,NZ,IFLAG,ICNTL(40), KEEP(500)
+      INTEGER MTYPE,N,IFLAG,ICNTL(40), KEEP(500)
       INTEGER(8) KEEP8(150)
       REAL RES(N),LHS(N)
       REAL WRHS(N)

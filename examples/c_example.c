@@ -1,7 +1,7 @@
 /*
  *
- *  This file is part of MUMPS 5.0.2, released
- *  on Fri Jul 15 09:12:54 UTC 2016
+ *  This file is part of MUMPS 5.1.1, released
+ *  on Tue Mar 21 14:55:59 UTC 2017
  *
  */
 /* Example program using the C interface to the 
@@ -42,13 +42,15 @@ int main(int argc, char ** argv)
 #endif
   DMUMPS_STRUC_C id;
   MUMPS_INT n = 2;
-  MUMPS_INT nz = 2;
+  MUMPS_INT8 nnz = 2;
   MUMPS_INT irn[] = {1,2};
   MUMPS_INT jcn[] = {1,2};
   double a[2];
   double rhs[2];
 
   MUMPS_INT myid, ierr;
+
+  int error = 0;
 #if defined(MAIN_COMP)
   argv = &name;
 #endif
@@ -59,22 +61,38 @@ int main(int argc, char ** argv)
   a[0]=1.0;a[1]=2.0;
 
   /* Initialize a MUMPS instance. Use MPI_COMM_WORLD */
-  id.job=JOB_INIT; id.par=1; id.sym=0;id.comm_fortran=USE_COMM_WORLD;
+  id.comm_fortran=USE_COMM_WORLD;
+  id.par=1; id.sym=0;
+  id.job=JOB_INIT;
   dmumps_c(&id);
+
   /* Define the problem on the host */
   if (myid == 0) {
-    id.n = n; id.nz =nz; id.irn=irn; id.jcn=jcn;
+    id.n = n; id.nnz =nnz; id.irn=irn; id.jcn=jcn;
     id.a = a; id.rhs = rhs;
   }
 #define ICNTL(I) icntl[(I)-1] /* macro s.t. indices match documentation */
-/* No outputs */
+  /* No outputs */
   id.ICNTL(1)=-1; id.ICNTL(2)=-1; id.ICNTL(3)=-1; id.ICNTL(4)=0;
-/* Call the MUMPS package. */
+
+  /* Call the MUMPS package (analyse, factorization and solve). */
   id.job=6;
   dmumps_c(&id);
-  id.job=JOB_END; dmumps_c(&id); /* Terminate instance */
+  if (id.infog[0]<0) {
+    printf(" (PROC %d) ERROR RETURN: \tINFOG(1)= %d\n\t\t\t\tINFOG(2)= %d\n",
+        myid, id.infog[0], id.infog[1]);
+    error = 1;
+  }
+
+  /* Terminate instance. */
+  id.job=JOB_END;
+  dmumps_c(&id);
   if (myid == 0) {
-    printf("Solution is : (%8.2f  %8.2f)\n", rhs[0],rhs[1]);
+    if (!error) {
+      printf("Solution is : (%8.2f  %8.2f)\n", rhs[0],rhs[1]);
+    } else {
+      printf("An error has occured, please check error code returned by MUMPS.\n");
+    }
   }
   ierr = MPI_Finalize();
   return 0;

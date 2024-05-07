@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.2, released
-C  on Fri Jul 15 09:12:54 UTC 2016
+C  This file is part of MUMPS 5.1.1, released
+C  on Tue Mar 21 14:55:59 UTC 2017
 C
 C
-C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -33,7 +33,7 @@ C
       TYPE (SMUMPS_ROOT_STRUC) :: root
       INTEGER KEEP(500), ICNTL(40)
       INTEGER(8) KEEP8(150)
-      REAL DKEEP(130)
+      REAL DKEEP(230)
       INTEGER TOT_ROOT_SIZE, TOT_CONT_TO_RECV
       INTEGER LBUFR, LBUFR_BYTES
       INTEGER BUFR( LBUFR )
@@ -54,10 +54,11 @@ C
       INTEGER IPOOL( LPOOL )
       INTEGER MYID, SLAVEF, NBFIN
       DOUBLE PRECISION OPASSW, OPELIW
-      INTEGER ITLOC(N+KEEP(253)), FILS(N), PTRARW(N), PTRAIW(N)
+      INTEGER ITLOC(N+KEEP(253)), FILS(N)
+      INTEGER(8), INTENT(IN) :: PTRARW(N), PTRAIW(N)
       REAL :: RHS_MUMPS(KEEP(255))
-      INTEGER INTARR(max(1,KEEP(14)))
-      REAL DBLARR(max(1,KEEP(13)))
+      INTEGER INTARR(KEEP8(27))
+      REAL DBLARR(KEEP8(26))
       INTEGER ::  allocok
       REAL, DIMENSION(:,:), POINTER :: TMP
       INTEGER NEW_LOCAL_M, NEW_LOCAL_N
@@ -172,8 +173,8 @@ C
       PTLUST(STEP( IROOT )) = IWPOS
       IWPOS           = IWPOS + LREQI
       IF (LREQA.EQ.0_8) THEN
-        PTRAST (STEP(IROOT)) = max(POSFAC-1_8,1_8)
-        PTRFAC (STEP(IROOT)) = max(POSFAC-1_8,1_8)
+        PTRAST (STEP(IROOT)) = POSFAC
+        PTRFAC (STEP(IROOT)) = POSFAC
       ELSE
         PTRAST (STEP(IROOT)) = POSFAC
         PTRFAC (STEP(IROOT)) = POSFAC
@@ -182,6 +183,10 @@ C
       LRLU   = LRLU  - LREQA
       LRLUS  = LRLUS - LREQA
       KEEP8(67) = min(KEEP8(67), LRLUS)
+      KEEP8(70) = KEEP8(70) - LREQA
+      KEEP8(68) = min(KEEP8(70), KEEP8(68))
+      KEEP8(71) = KEEP8(71) - LREQA
+      KEEP8(69) = min(KEEP8(71), KEEP8(69))
       CALL SMUMPS_LOAD_MEM_UPDATE(.FALSE.,.FALSE.,
      &          LA-LRLUS,0_8,LREQA,KEEP,KEEP8,LRLUS)
       POSHEAD = PTLUST( STEP(IROOT))

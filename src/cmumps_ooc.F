@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.2, released
-C  on Fri Jul 15 09:12:54 UTC 2016
+C  This file is part of MUMPS 5.1.1, released
+C  on Tue Mar 21 14:55:59 UTC 2017
 C
 C
-C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -249,7 +249,7 @@ C
       ENDIF
       FILE_FLAG_TAB(1:OOC_NB_FILE_TYPE)=0
       IERR=0
-      TMP=int(id%KEEP8(11)/1000000_8,kind=4)+1
+      TMP=int(id%KEEP8(11)/1000000_8)+1
       IF((id%KEEP(201).EQ.1).AND.(id%KEEP(50).EQ.0)
      &   ) THEN
          TMP=max(1,TMP/2)
@@ -271,7 +271,7 @@ C
       RETURN
       END SUBROUTINE CMUMPS_OOC_INIT_FACTO
       SUBROUTINE CMUMPS_NEW_FACTOR(INODE,PTRFAC,KEEP,KEEP8,
-     &           A,LA,SIZE,IERR)
+     &     A,LA,SIZE,IERR)
       USE CMUMPS_OOC_BUFFER
       IMPLICIT NONE
       INTEGER INODE,KEEP(500)
@@ -520,26 +520,26 @@ C
       CHARACTER(len=1):: TMP_NAME(350)
       IERR=0
       K=1
-      IF(associated(id%OOC_FILE_NAMES).AND.
-     &     associated(id%OOC_FILE_NAME_LENGTH))THEN
-         DO I1=1,id%OOC_NB_FILE_TYPE
-            DO I=1,id%OOC_NB_FILES(I1)
-               DO J=1,id%OOC_FILE_NAME_LENGTH(K)
-                  TMP_NAME(J)=id%OOC_FILE_NAMES(K,J)
-               ENDDO
-               IF(.NOT. id%IF_RESTARTING) THEN
-                  CALL MUMPS_OOC_REMOVE_FILE_C(IERR, TMP_NAME(1))
-               ENDIF
-               IF(IERR.LT.0)THEN
-                  IF (ICNTL1.GT.0)THEN
-                     WRITE(ICNTL1,*)MYID_OOC,': ',
-     &                    ERR_STR_OOC(1:DIM_ERR_STR_OOC)
-                     RETURN
-                  ENDIF
-               ENDIF
-               K=K+1
-            ENDDO
-         ENDDO
+      IF(.NOT. id%ASSOCIATED_OOC_FILES) THEN
+        IF(associated(id%OOC_FILE_NAMES).AND.
+     &       associated(id%OOC_FILE_NAME_LENGTH))THEN
+           DO I1=1,id%OOC_NB_FILE_TYPE
+              DO I=1,id%OOC_NB_FILES(I1)
+                 DO J=1,id%OOC_FILE_NAME_LENGTH(K)
+                    TMP_NAME(J)=id%OOC_FILE_NAMES(K,J)
+                 ENDDO
+                 CALL MUMPS_OOC_REMOVE_FILE_C(IERR, TMP_NAME(1))
+                 IF(IERR.LT.0)THEN
+                    IF (ICNTL1.GT.0)THEN
+                       WRITE(ICNTL1,*)MYID_OOC,': ',
+     &                      ERR_STR_OOC(1:DIM_ERR_STR_OOC)
+                       RETURN
+                    ENDIF
+                 ENDIF
+                 K=K+1
+              ENDDO
+           ENDDO
+        ENDIF
       ENDIF
       IF(associated(id%OOC_FILE_NAMES))THEN
          DEALLOCATE(id%OOC_FILE_NAMES)
@@ -2648,12 +2648,12 @@ C
      &              THEN
                   IF (OOC_STATE_NODE(STEP_OOC(J)).EQ.NOT_IN_MEM) THEN
                      OOC_STATE_NODE(STEP_OOC(J)) = USED
-                     IF((SOLVE_STEP.NE.0).OR.(J.NE.SPECIAL_ROOT_NODE)
-     &                    .OR.(ZONE.NE.NB_Z))THEN
+                     IF((SOLVE_STEP.NE.0).AND.(J.NE.SPECIAL_ROOT_NODE)
+     &                    .AND.(ZONE.NE.NB_Z))THEN
                         CALL CMUMPS_SOLVE_UPD_NODE_INFO(J,PTRFAC,NSTEPS)
                      ENDIF
                      CYCLE
-                  ELSEIF(OOC_STATE_NODE(STEP_OOC(J)).EQ.ALREADY_USED)
+                  ELSEIF(OOC_STATE_NODE(STEP_OOC(J)).EQ.USED)
      &                    THEN
                     COMPRESS_TO_BE_DONE         = .TRUE.
                   ELSE
@@ -2755,24 +2755,30 @@ C
 #endif
      &  ) THEN
         CALL CMUMPS_SOLVE_PREPARE_PREF(PTRFAC,NSTEPS,A,LA)
-        IF (I_WORKED_ON_ROOT) THEN
-          CALL CMUMPS_FREE_FACTORS_FOR_SOLVE ( IROOT,
-     &         PTRFAC, KEEP_OOC(28), A, LA,.FALSE.,IERR)
-          IF (IERR .LT. 0) RETURN
-          CALL CMUMPS_SOLVE_FIND_ZONE(IROOT,
-     &         ZONE,PTRFAC,NSTEPS)
-          IF(IROOT.EQ.NB_Z)THEN
-             DUMMY_SIZE=1_8
-             CALL CMUMPS_FREE_SPACE_FOR_SOLVE(A,LA,
-     &            DUMMY_SIZE,PTRFAC,
-     &            NSTEPS,NB_Z,IERR)
-             IF (IERR .LT. 0) THEN
-                WRITE(*,*)MYID_OOC,': Internal error in
-     &               CMUMPS_FREE_SPACE_FOR_SOLVE', 
-     &               IERR
-                CALL MUMPS_ABORT()
-             ENDIF
-          ENDIF
+        IF (I_WORKED_ON_ROOT.AND.
+     $       ((IROOT.GT.0)))THEN
+           IF(SIZE_OF_BLOCK(STEP_OOC(IROOT),OOC_FCT_TYPE).NE.0) THEN
+              IF (.NOT.(KEEP_OOC(237).NE.0 .OR. KEEP_OOC(235).NE.0)) 
+     &             THEN
+                 CALL CMUMPS_FREE_FACTORS_FOR_SOLVE ( IROOT,
+     &                PTRFAC, KEEP_OOC(28), A, LA,.FALSE.,IERR)
+                 IF (IERR .LT. 0) RETURN
+              ENDIF
+              CALL CMUMPS_SOLVE_FIND_ZONE(IROOT,
+     &             ZONE,PTRFAC,NSTEPS)
+              IF(ZONE.EQ.NB_Z)THEN
+                 DUMMY_SIZE=1_8
+                 CALL CMUMPS_FREE_SPACE_FOR_SOLVE(A,LA,
+     &                DUMMY_SIZE,PTRFAC,
+     &                NSTEPS,NB_Z,IERR)
+                 IF (IERR .LT. 0) THEN
+                    WRITE(*,*)MYID_OOC,': Internal error in
+     &                   CMUMPS_FREE_SPACE_FOR_SOLVE', 
+     &                   IERR
+                    CALL MUMPS_ABORT()
+                 ENDIF
+              ENDIF
+           ENDIF
         ENDIF
         IF (NB_Z.GT.1) THEN
           CALL CMUMPS_SUBMIT_READ_FOR_Z(A,LA,PTRFAC,

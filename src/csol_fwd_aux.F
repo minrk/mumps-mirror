@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.2, released
-C  on Fri Jul 15 09:12:54 UTC 2016
+C  This file is part of MUMPS 5.1.1, released
+C  on Tue Mar 21 14:55:59 UTC 2017
 C
 C
-C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -19,20 +19,22 @@ C
      &     WCB, LWCB, POSWCB,
      &     PLEFTWCB, POSIWCB,
      &     PTRICB,
-     &     INFO, KEEP,KEEP8, STEP, PROCNODE_STEPS, 
+     &     INFO, KEEP, KEEP8, DKEEP, STEP, PROCNODE_STEPS, 
      &     RHSCOMP, LRHSCOMP, POSINRHSCOMP_FWD
-     &     )
+     &     , FROM_PP )
       USE CMUMPS_OOC 
-      USE CMUMPS_COMM_BUFFER 
+      USE CMUMPS_BUF 
       IMPLICIT NONE
       INTEGER LBUFR, LBUFR_BYTES
       INTEGER MSGTAG, MSGSOU, MYID, SLAVEF, COMM
       INTEGER LIW
-      INTEGER(8) :: LA
+      INTEGER(8), INTENT(IN) :: LA, LWCB
       INTEGER N, NRHS, LPOOL, III, LEAF, NBFIN, LRHSCOMP
-      INTEGER LIWCB, LWCB, POSWCB, PLEFTWCB, POSIWCB
+      INTEGER LIWCB, POSIWCB
+      INTEGER(8) :: POSWCB, PLEFTWCB
       INTEGER INFO( 40 ), KEEP( 500)
       INTEGER(8) KEEP8(150)
+      REAL, INTENT(INOUT) :: DKEEP(230)
       INTEGER BUFR( LBUFR )
       INTEGER IPOOL( LPOOL ),  NSTK_S( N )
       INTEGER IWCB( LIWCB )
@@ -48,16 +50,21 @@ C
       COMPLEX RHSCOMP( LRHSCOMP, NRHS )
 #endif
       INTEGER, intent(in) :: POSINRHSCOMP_FWD(N)
+      LOGICAL, intent(in) :: FROM_PP
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'
+      INTEGER(8) :: PTRX, PTRY, IFR8
       INTEGER IERR, K, JJ, JBDEB, JBFIN, NRHS_B
       INTEGER FINODE, FPERE, LONG, NCB, POSITION, NCV, NPIV
-      INTEGER PTRX, PTRY, PDEST, I, IPOSINRHSCOMP
+      INTEGER PDEST, I, IPOSINRHSCOMP
+      INTEGER J1
       INTEGER(8) :: APOS
       LOGICAL DUMMY
       LOGICAL FLAG
+!$    LOGICAL :: OMP_FLAG
       EXTERNAL MUMPS_PROCNODE
       INTEGER  MUMPS_PROCNODE
+      DOUBLE PRECISION :: TIME_TMP
       COMPLEX ALPHA, ONE
       PARAMETER (ONE=(1.0E0,0.0E0), ALPHA=(-1.0E0,0.0E0))
       INCLUDE 'mumps_headers.h'
@@ -65,6 +72,7 @@ C
          NBFIN = NBFIN - 1
          IF ( NBFIN .eq. 0 ) GOTO 270
       ELSE  IF (MSGTAG .EQ. ContVec ) THEN
+         TIME_TMP = MPI_WTIME()
          POSITION = 0
          CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &        FINODE, 1, MPI_INTEGER, COMM, IERR )
@@ -99,9 +107,12 @@ C
                 INFO( 2 ) = LONG
                 GOTO 260
              END IF
-             IF ( POSWCB - PLEFTWCB + 1 .LT. LONG * NRHS_B) THEN
+             IF ( POSWCB - PLEFTWCB + 1_8 .LT.
+     &            int(LONG,8) * int(NRHS_B,8)) THEN
                 INFO( 1 ) = -11
-                INFO( 2 ) = PLEFTWCB - POSWCB - 1 + LONG * NRHS_B
+                CALL MUMPS_SET_IERROR(PLEFTWCB-POSWCB-1_8+
+     &              int(LONG,8) * int(NRHS_B,8),
+     &              INFO(2))
                 GOTO 260
              END IF
              IF (LONG .GT. 0) THEN
@@ -139,7 +150,9 @@ C
                 END IF
              ENDIF
           END IF
+          DKEEP(128)=DKEEP(128)+real(MPI_WTIME()-TIME_TMP)
        ELSEIF ( MSGTAG .EQ. Master2Slave ) THEN
+          TIME_TMP=MPI_WTIME()
           POSITION = 0
           CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &         FINODE, 1, MPI_INTEGER, COMM, IERR )
@@ -155,11 +168,11 @@ C
      &         JBFIN, 1, MPI_INTEGER, COMM, IERR )
           NRHS_B = JBFIN-JBDEB+1
           PTRY = PLEFTWCB
-          PTRX = PLEFTWCB + NCV * NRHS_B
+          PTRX = PLEFTWCB + int(NCV,8) * int(NRHS_B,8)
           PLEFTWCB = PLEFTWCB + (NPIV + NCV) * NRHS_B
           IF ( POSWCB - PLEFTWCB + 1 .LT. 0 ) THEN
              INFO(1) = -11
-             INFO(2) = -POSWCB + PLEFTWCB -1
+             CALL MUMPS_SET_IERROR(-POSWCB+PLEFTWCB-1_8,INFO(2))
              GO TO 260
           END IF
           DO K=1, NRHS_B
@@ -174,6 +187,7 @@ C
      &               MPI_COMPLEX, COMM, IERR )
              END DO
           END IF
+          DKEEP(129)=DKEEP(129)+real(MPI_WTIME()-TIME_TMP)
           IF (KEEP(201).GT.0) THEN
              CALL CMUMPS_SOLVE_GET_OOC_NODE(
      &            FINODE,PTRFAC,KEEP,A,LA,STEP,
@@ -185,6 +199,7 @@ C
              ENDIF
           ENDIF
           APOS = PTRFAC(STEP(FINODE))
+          TIME_TMP=MPI_WTIME()
           IF (KEEP(201).EQ.1) THEN
 #if defined(MUMPS_USE_BLAS2)
              IF ( NRHS_B == 1 ) THEN
@@ -216,6 +231,7 @@ C
              ENDIF
 #endif
           ENDIF
+          DKEEP(130)=DKEEP(130)+real(MPI_WTIME()-TIME_TMP)
           IF (KEEP(201).GT.0) THEN
              CALL CMUMPS_FREE_FACTORS_FOR_SOLVE(FINODE,PTRFAC,
      &            KEEP(28),A,LA,.TRUE.,IERR)
@@ -229,11 +245,13 @@ C
           PDEST = MUMPS_PROCNODE( PROCNODE_STEPS(STEP(FPERE)),
      &                            SLAVEF )
           IF ( PDEST .EQ. MYID ) THEN
+             TIME_TMP=MPI_WTIME()
              IF ( PTRICB(STEP(FINODE)) .EQ. 0 ) THEN
                 NCB = IW( PTRIST(STEP(FINODE)) + 2 + KEEP(IXSZ) )
                 PTRICB(STEP(FINODE)) = NCB + 1
              END IF
-             DO I = 1, NCV
+             IF (KEEP(350).EQ.0) THEN
+              DO I = 1, NCV
                 JJ=IW(PTRIST(STEP(FINODE))+3+I+ KEEP(IXSZ) )
                 IPOSINRHSCOMP= abs(POSINRHSCOMP_FWD(JJ))
                 DO K=1, NRHS_B
@@ -247,7 +265,33 @@ C
      &              WCB(PTRY+I-1+(K-1)*NCV)
 #endif
                 ENDDO
-             END DO
+              END DO
+             ELSE IF (KEEP(350).EQ.1.OR.KEEP(350).EQ.2) THEN
+                J1 = PTRIST(STEP(FINODE))+3+KEEP(IXSZ) 
+!$              OMP_FLAG = ( JBFIN-JBDEB+1.GE.KEEP(362) .AND.
+!$   &                     (NCV*(JBFIN-JBDEB+1) .GE. KEEP(363) ) )
+!$OMP PARALLEL DO PRIVATE(I,JJ,IFR8,IPOSINRHSCOMP) IF(OMP_FLAG)
+                DO K=1, NRHS_B
+                  IFR8 = PTRY+int(K-1,8)*int(NCV,8)
+                  DO I = 1,NCV
+                  JJ = IW(J1+I)
+                  IPOSINRHSCOMP= abs(POSINRHSCOMP_FWD(JJ))
+#if defined(RHSCOMP_BYROWS)
+                  RHSCOMP(JBDEB+K-1,IPOSINRHSCOMP)= 
+     &              RHSCOMP(JBDEB+K-1,IPOSINRHSCOMP)
+#else
+                  RHSCOMP(IPOSINRHSCOMP,JBDEB+K-1)= 
+     &              RHSCOMP(IPOSINRHSCOMP,JBDEB+K-1)
+#endif
+     &              + WCB(IFR8+int(I-1,8))
+                  ENDDO
+                ENDDO
+!$OMP END PARALLEL DO
+              ELSE
+                  WRITE(*,*) "UNKNOWN VERSION OF KEEP(350)"
+                  CALL MUMPS_ABORT()
+              ENDIF
+             DKEEP(131)=DKEEP(131)+real(MPI_WTIME()-TIME_TMP)
              PTRICB(STEP(FINODE)) =
      &            PTRICB(STEP(FINODE)) - NCV
              IF ( PTRICB( STEP( FINODE ) ) == 1 ) THEN
@@ -263,11 +307,18 @@ C
              ENDIF
           ELSE
  210         CONTINUE
+             TIME_TMP=MPI_WTIME()
              CALL CMUMPS_BUF_SEND_VCB( NRHS_B, FINODE, FPERE,
      &            IW(PTRIST(STEP( FINODE )) + 2 + KEEP(IXSZ) ), NCV,NCV,
      &            IW(PTRIST(STEP(FINODE))+4+ KEEP(IXSZ) ),
-     &            WCB( PTRY ), JBDEB, JBFIN, KEEP,
-     &            PDEST, ContVec, COMM, IERR )
+     &            WCB( PTRY ), JBDEB, JBFIN,
+     &            RHSCOMP, 1, 1, -9999, -9999,
+     &            KEEP, PDEST, ContVec, COMM, IERR )
+             IF (IERR.EQ.0) THEN
+               DKEEP(132)=DKEEP(132)+real(MPI_WTIME()-TIME_TMP)
+             ELSE
+               DKEEP(134)=DKEEP(134)+real(MPI_WTIME()-TIME_TMP)
+             ENDIF
              IF ( IERR .EQ. -1 ) THEN
                 CALL CMUMPS_SOLVE_RECV_AND_TREAT( .FALSE., FLAG,
      &               BUFR, LBUFR, LBUFR_BYTES,
@@ -276,10 +327,10 @@ C
      &               NBFIN, NSTK_S, IW, LIW, A, LA, PTRIST, PTRFAC,
      &               IWCB, LIWCB,
      &               WCB, LWCB, POSWCB, PLEFTWCB, POSIWCB,
-     &               PTRICB, INFO, KEEP,KEEP8, STEP,
+     &               PTRICB, INFO, KEEP,KEEP8, DKEEP, STEP,
      &               PROCNODE_STEPS, 
      &               RHSCOMP, LRHSCOMP, POSINRHSCOMP_FWD
-     &               )
+     &               , FROM_PP )
                 IF ( INFO( 1 )  .LT. 0 )  GOTO 270
                 GOTO 210
              ELSE IF ( IERR .EQ. -2 ) THEN
@@ -324,24 +375,26 @@ C
      &     PTRICB, PTRIST, PTRFAC, PROCNODE_STEPS,
      &     FILS, STEP, FRERE, DAD,
      &     MYROOT,
-     &     INFO, KEEP,KEEP8, RHS_ROOT, MTYPE,
+     &     INFO, KEEP,KEEP8, DKEEP, RHS_ROOT, MTYPE,
      &     RHSCOMP, LRHSCOMP, POSINRHSCOMP_FWD,
      &     
      &     ISTEP_TO_INIV2, TAB_POS_IN_PERE
      &    , RHS_BOUNDS, LRHS_BOUNDS, DO_NBSPARSE 
-     &            )
+     &     , FROM_PP )
       USE CMUMPS_OOC
-      USE CMUMPS_COMM_BUFFER
+      USE CMUMPS_BUF
       IMPLICIT NONE
       INTEGER MTYPE
       INTEGER INODE, LBUFR, LBUFR_BYTES
       INTEGER MSGTAG, MSGSOU, MYID, SLAVEF, COMM
-      INTEGER LIWCB, LWCB, LIW, POSWCB, PLEFTWCB, POSIWCB
+      INTEGER LIWCB, LIW, POSIWCB
+      INTEGER(8) :: POSWCB, PLEFTWCB, LWCB
       INTEGER(8) :: LA
       INTEGER N, LPOOL, III, LEAF, NBFIN
       INTEGER MYROOT
       INTEGER INFO( 40 ), KEEP( 500)
       INTEGER(8) KEEP8(150)
+      REAL, INTENT(INOUT) :: DKEEP(230)
       INTEGER BUFR( LBUFR )
       INTEGER IPOOL( LPOOL ), NSTK_S(KEEP(28))
       INTEGER IWCB( LIWCB ), IW( LIW )
@@ -364,30 +417,34 @@ C
       LOGICAL, intent(in) :: DO_NBSPARSE
       INTEGER, intent(in) :: LRHS_BOUNDS
       INTEGER, intent(in) :: RHS_BOUNDS(LRHS_BOUNDS)
-      INTEGER JBDEB, JBFIN, NRHS_B 
+      LOGICAL, intent(in) :: FROM_PP
       EXTERNAL cgemv, ctrsv, cgemm, ctrsm, MUMPS_PROCNODE
       INTEGER MUMPS_PROCNODE
       COMPLEX ALPHA,ONE,ZERO
       PARAMETER (ZERO=(0.0E0,0.0E0),
      &           ONE=(1.0E0,0.0E0),
      &           ALPHA=(-1.0E0,0.0E0))
-      INTEGER(8) :: APOS, APOS1, APOS2, APOSOFF
+      DOUBLE PRECISION TIME_TMP
+      INTEGER JBDEB, JBFIN, NRHS_B 
+      INTEGER(8) :: APOS, APOS1, APOS2, APOSOFF, IFR8, IFR_ini8
       INTEGER I, J, K, IPOS, NSLAVES, J1, J2, J3, FPERE, NPIV, NCB,
-     &     IERR, IFR_ini,
-     &     IFR, LIELL, JJ,
-     &     NELIM, PLEFT, PCB_COURANT, PPIV_COURANT
-      INTEGER IPOSINRHSCOMP
+     &     IERR,
+     &     LIELL, JJ,
+     &     NELIM
+      INTEGER(8) :: PCB_COURANT, PPIV_COURANT, PPIV_PANEL, PCB_PANEL
+      INTEGER IPOSINRHSCOMP, IPOSINRHSCOMP_TMP
       INTEGER Effective_CB_Size, NUPDATE, ISLAVE, PDEST, FirstIndex
-      LOGICAL FLAG, OMP_FLAG
+      LOGICAL FLAG
+!$    LOGICAL :: OMP_FLAG
       INCLUDE 'mumps_headers.h'
-      INTEGER POSWCB1,POSWCB2
+      INTEGER(8) :: POSWCB1, POSWCB2
       INTEGER(8) :: APOSDEB
       INTEGER TempNROW, TempNCOL, PANEL_SIZE, LIWFAC, 
      &     JFIN, NBJ, NUPDATE_PANEL,
-     &     PPIV_PANEL, PCB_PANEL, NBK, TYPEF
+     &     NBK, NBK_ini, TYPEF
       INTEGER LD_WCBPIV         
       INTEGER LD_WCBCB          
-      INTEGER LDAJ, LDAJ_FIRST_PANEL
+      INTEGER LDAJ, LDAJ_ini, LDAJ_FIRST_PANEL
       INTEGER TMP_NBPANELS,
      &     I_PIVRPTR, I_PIVR, IPANEL
       LOGICAL MUST_BE_PERMUTED
@@ -460,21 +517,42 @@ C
       END IF
       NCB = LIELL-NPIV
       IF ( INODE .eq. KEEP( 38 ) .OR. INODE .eq. KEEP(20) ) THEN
-         IFR = 0
-         IPOSINRHSCOMP = POSINRHSCOMP_FWD(IW(J1)) 
+        IFR8 = 0_8
+        IPOSINRHSCOMP_TMP = POSINRHSCOMP_FWD(IW(J1)) 
+        IF (KEEP(350).EQ.0) THEN
          DO JJ = J1, J3
-            IFR = IFR + 1
+            IFR8 = IFR8 + 1_8
             DO K=JBDEB,JBFIN
+               RHS_ROOT(IFR8+int(NPIV,8)*int(K-1,8)) =
 #if defined(RHSCOMP_BYROWS)
-               RHS_ROOT(IFR+NPIV*(K-1)) = RHSCOMP
-     &                                    (K,IPOSINRHSCOMP)
+     &                      RHSCOMP(K,IPOSINRHSCOMP_TMP)
 #else
-               RHS_ROOT(IFR+NPIV*(K-1)) = RHSCOMP
-     &                                    (IPOSINRHSCOMP,K) 
+     &                      RHSCOMP(IPOSINRHSCOMP_TMP,K) 
 #endif
             END DO
-            IPOSINRHSCOMP = IPOSINRHSCOMP + 1
+            IPOSINRHSCOMP_TMP = IPOSINRHSCOMP_TMP + 1
          END DO
+        ELSE IF (KEEP(350).EQ.1.OR.KEEP(350).EQ.2) THEN
+          IFR_ini8 = IFR8
+!$        OMP_FLAG = ( JBFIN-JBDEB+1.GE.KEEP(362) .AND.
+!$   &                     (J3-J1+1)*(JBFIN-JBDEB+1) .GE. KEEP(363) )
+!$OMP PARALLEL DO PRIVATE(IFR8,JJ) IF(OMP_FLAG)
+          DO K=JBDEB,JBFIN
+           IFR8 = IFR_ini8 + int(K-1,8)*int(NPIV,8)
+           DO JJ = J1, J3
+             RHS_ROOT(IFR8+int(JJ-J1+1,8)) = 
+#if defined(RHSCOMP_BYROWS)
+     &               RHSCOMP(K,IPOSINRHSCOMP_TMP+JJ-J1)
+#else
+     &               RHSCOMP(IPOSINRHSCOMP_TMP+JJ-J1,K)
+#endif
+           ENDDO
+          ENDDO
+!$OMP END PARALLEL DO
+        ELSE
+             WRITE(*,*) "UNKNOWN VERSION OF KEEP(350)"
+             CALL MUMPS_ABORT()
+        ENDIF
          IF ( NPIV .LT. LIELL ) THEN
             WRITE(*,*) ' Internal error in SOLVE_NODE for Root node'
             CALL MUMPS_ABORT()
@@ -511,12 +589,11 @@ C
         LIWFAC =  IW(PTRIST(STEP(INODE))+XXI)
         PANEL_SIZE = CMUMPS_OOC_PANEL_SIZE( LDAJ_FIRST_PANEL )
       ENDIF                     
-      PLEFT    = PLEFTWCB
       PPIV_COURANT = PLEFTWCB
-      PLEFTWCB = PLEFTWCB + LIELL * NRHS_B
-      IF ( POSWCB - PLEFTWCB + 1 .LT. 0 ) THEN
+      PLEFTWCB = PLEFTWCB + int(LIELL,8) * int(NRHS_B,8)
+      IF ( POSWCB - PLEFTWCB + 1_8 .LT. 0 ) THEN
          INFO(1) = -11
-         INFO(2) = PLEFTWCB - POSWCB - 1
+         CALL MUMPS_SET_IERROR(PLEFTWCB-POSWCB-1_8, INFO(2))
          GO TO 260
       END IF
       IF (KEEP(201).EQ.1) THEN  
@@ -524,27 +601,27 @@ C
          LD_WCBCB  = LIELL
          PCB_COURANT = PPIV_COURANT + NPIV
          DO K=JBDEB, JBFIN
-            IFR = PPIV_COURANT+(K-JBDEB)*LD_WCBPIV- 1
+            IFR8 = PPIV_COURANT+int(K-JBDEB,8)*int(LD_WCBPIV,8)-1_8
             IPOSINRHSCOMP = POSINRHSCOMP_FWD(IW(J1)) 
             DO JJ = J1, J3
-               IFR = IFR + 1
+               IFR8 = IFR8 + 1_8
 #if defined(RHSCOMP_BYROWS)
-               WCB(IFR) = RHSCOMP(K,IPOSINRHSCOMP) 
+               WCB(IFR8) = RHSCOMP(K,IPOSINRHSCOMP) 
 #else
-               WCB(IFR) = RHSCOMP(IPOSINRHSCOMP,K) 
+               WCB(IFR8) = RHSCOMP(IPOSINRHSCOMP,K) 
 #endif
                IPOSINRHSCOMP = IPOSINRHSCOMP + 1
             ENDDO
             IF (NCB.GT.0) THEN
                DO JJ = J3+1, J2
                   J = IW(JJ)
-                  IFR = IFR + 1
+                  IFR8 = IFR8 + 1_8
                   IPOSINRHSCOMP = abs(POSINRHSCOMP_FWD(J))
 #if defined(RHSCOMP_BYROWS)
-                  WCB(IFR) = RHSCOMP(K,IPOSINRHSCOMP)
+                  WCB(IFR8) = RHSCOMP(K,IPOSINRHSCOMP)
                   RHSCOMP (K,IPOSINRHSCOMP) = ZERO
 #else
-                  WCB(IFR) = RHSCOMP(IPOSINRHSCOMP,K) 
+                  WCB(IFR8) = RHSCOMP(IPOSINRHSCOMP,K) 
                   RHSCOMP (IPOSINRHSCOMP,K) = ZERO
 #endif
                ENDDO
@@ -554,35 +631,64 @@ C
          LD_WCBPIV = NPIV
          LD_WCBCB  = NCB
          PCB_COURANT = PPIV_COURANT + NPIV*NRHS_B
-         IFR = PPIV_COURANT - 1
-         OMP_FLAG = NRHS_B.GT.4 .AND. .FALSE.
-         IFR_ini = IFR
+         IFR8 = PPIV_COURANT - 1_8
+         TIME_TMP=MPI_WTIME()
+         IFR_ini8 = IFR8
          IPOSINRHSCOMP = POSINRHSCOMP_FWD(IW(J1)) 
-         DO 130 JJ = J1, J3
+         IF (KEEP(350).EQ.0) THEN
+!$        OMP_FLAG = NRHS_B.GT.4 .AND. .FALSE.
+!$OMP PARALLEL DO PRIVATE(J,IFR8,K) IF(OMP_FLAG)
+          DO 130 JJ = J1, J3
             J = IW(JJ)
-            IFR = IFR_ini + (JJ-J1) + 1
+            IFR8 = IFR_ini8 + int(JJ-J1+1,8)
             DO K=JBDEB, JBFIN
 #if defined(RHSCOMP_BYROWS)
-               WCB(IFR+(K-JBDEB)*NPIV) = 
+               WCB(IFR8+(K-JBDEB)*NPIV) = 
      &                RHSCOMP(K,IPOSINRHSCOMP+JJ-J1)
 #else
-               WCB(IFR+(K-JBDEB)*NPIV) = 
+               WCB(IFR8+(K-JBDEB)*NPIV) = 
      &                RHSCOMP(IPOSINRHSCOMP+JJ-J1,K)
 #endif
             END DO
- 130     CONTINUE
-         IFR = PCB_COURANT - 1
+ 130      CONTINUE
+!$OMP END PARALLEL DO
+         ELSE IF (KEEP(350).EQ.1.OR.KEEP(350).EQ.2) THEN
+!$        OMP_FLAG = ( JBFIN-JBDEB+1.GE.KEEP(362) .AND.
+!$   &                     (J3-J1+1)*(JBFIN-JBDEB+1) .GE. KEEP(363) )
+!$OMP PARALLEL DO PRIVATE(JJ,IFR8) IF(OMP_FLAG)
+          DO K=JBDEB, JBFIN
+           IFR8 = IFR_ini8 + (K-JBDEB)*NPIV
+           DO  JJ = J1, J3
+#if defined(RHSCOMP_BYROWS)
+            WCB(IFR8+int(JJ-J1+1,8)) = 
+     &           RHSCOMP(K,IPOSINRHSCOMP+JJ-J1)
+#else
+            WCB(IFR8+int(JJ-J1+1,8)) = 
+     &           RHSCOMP(IPOSINRHSCOMP+JJ-J1,K)
+#endif
+           ENDDO
+          ENDDO
+!$OMP END PARALLEL DO
+         ELSE
+             WRITE(*,*) "UNKNOWN VERSION OF KEEP(350)"
+             CALL MUMPS_ABORT()
+         ENDIF
+         DKEEP(123)=DKEEP(123)+real(MPI_WTIME()-TIME_TMP)
+         IFR8 = PCB_COURANT - 1_8
          IF (NPIV .LT. LIELL) THEN
-            IFR_ini = IFR
+            IFR_ini8 = IFR8
+            TIME_TMP=MPI_WTIME()
+            IF (KEEP(350).EQ.0) THEN
+!$OMP PARALLEL DO PRIVATE(J,IFR8,K,IPOSINRHSCOMP) IF(OMP_FLAG)
             DO 140 JJ = J3 + 1, J2
                J = IW(JJ)
-               IFR = IFR_ini + (JJ-J3)
+               IFR8 = IFR_ini8 + (JJ-J3)
                IPOSINRHSCOMP = abs(POSINRHSCOMP_FWD(J))
                DO K=JBDEB, JBFIN
 #if defined(RHSCOMP_BYROWS)
-                  WCB(IFR+(K-JBDEB)*NCB) = RHSCOMP(K,IPOSINRHSCOMP)
+                  WCB(IFR8+(K-JBDEB)*NCB) = RHSCOMP(K,IPOSINRHSCOMP)
 #else
-                  WCB(IFR+(K-JBDEB)*NCB) = RHSCOMP(IPOSINRHSCOMP,K)
+                  WCB(IFR8+(K-JBDEB)*NCB) = RHSCOMP(IPOSINRHSCOMP,K)
 #endif
 #if defined(RHSCOMP_BYROWS)
                   RHSCOMP(K,IPOSINRHSCOMP)=ZERO
@@ -591,8 +697,37 @@ C
 #endif
                ENDDO
  140        CONTINUE
+!$OMP END PARALLEL DO
+           ELSE IF (KEEP(350).EQ.1.OR.KEEP(350).EQ.2) THEN
+!$            OMP_FLAG = ( JBFIN-JBDEB+1.GE.KEEP(362) .AND.
+!$   &                     (J2-J3)*(JBFIN-JBDEB+1) .GE. KEEP(363) )
+!$OMP PARALLEL DO PRIVATE (IFR8, JJ, J, IPOSINRHSCOMP) IF (OMP_FLAG)
+              DO K=JBDEB, JBFIN
+                IFR8 = IFR_ini8+(K-JBDEB)*NCB
+                DO JJ = J3 + 1, J2
+                  J = IW(JJ)
+                  IPOSINRHSCOMP = abs(POSINRHSCOMP_FWD(J))
+#if defined(RHSCOMP_BYROWS)
+                  WCB(IFR8+int(JJ-J3,8)) = RHSCOMP(K,IPOSINRHSCOMP)
+#else
+                  WCB(IFR8+int(JJ-J3,8)) = RHSCOMP(IPOSINRHSCOMP,K)
+#endif
+#if defined(RHSCOMP_BYROWS)
+                  RHSCOMP(K,IPOSINRHSCOMP)=ZERO
+#else
+                  RHSCOMP(IPOSINRHSCOMP,K)=ZERO
+#endif
+                ENDDO
+              ENDDO
+!$OMP END PARALLEL DO
+           ELSE
+             WRITE(*,*) "UNKNOWN VERSION OF KEEP(350)"
+             CALL MUMPS_ABORT()
+           ENDIF
+         DKEEP(124)=DKEEP(124)+real(MPI_WTIME()-TIME_TMP)
          ENDIF
       ENDIF                     
+      TIME_TMP=MPI_WTIME()  
       IF ( NPIV .NE. 0 ) THEN
          IF (KEEP(201).EQ.1) THEN 
         APOSDEB = APOS
@@ -622,8 +757,8 @@ C
                ENDIF
             ENDIF 
             NUPDATE_PANEL = LDAJ - NBJ
-            PPIV_PANEL = PPIV_COURANT+J-1
-            PCB_PANEL  = PPIV_PANEL+NBJ
+            PPIV_PANEL = PPIV_COURANT+int(J-1,8)
+            PCB_PANEL  = PPIV_PANEL+int(NBJ,8)
             APOS1 = APOSDEB+int(NBJ,8)
             IF  (MTYPE.EQ.1) THEN
 #if defined(MUMPS_USE_BLAS2)
@@ -771,24 +906,48 @@ C
             END IF
          END IF
       END IF                    
+      DKEEP(125)=DKEEP(125)+real(MPI_WTIME()-TIME_TMP)
+      TIME_TMP=MPI_WTIME()
       IPOSINRHSCOMP =  POSINRHSCOMP_FWD(IW(J1)) 
       IF ( KEEP(50) .eq. 0 ) THEN
+         IF (KEEP(350).EQ.0) THEN
+           DO K=JBDEB,JBFIN
+             IFR8 =  PPIV_COURANT + int(K-JBDEB,8)*int(LD_WCBPIV,8)
 #if defined(RHSCOMP_BYROWS)
-         DO K=JBDEB,JBFIN
-            IFR =  PPIV_COURANT + (K-JBDEB)*LD_WCBPIV
-            RHSCOMP(K,IPOSINRHSCOMP:IPOSINRHSCOMP+NPIV-1) =
-     &           WCB(IFR:IFR+NPIV-1)
-         ENDDO
+             RHSCOMP(K,IPOSINRHSCOMP:IPOSINRHSCOMP+NPIV-1) =
 #else
-         OMP_FLAG = .FALSE.
-         DO K=JBDEB,JBFIN
-            IFR =  PPIV_COURANT + (K-JBDEB)*LD_WCBPIV
-            RHSCOMP(IPOSINRHSCOMP:IPOSINRHSCOMP+NPIV-1, K) =
-     &           WCB(IFR:IFR+NPIV-1)
-         ENDDO
+             RHSCOMP(IPOSINRHSCOMP:IPOSINRHSCOMP+NPIV-1,K) =
 #endif
+     &            WCB(IFR8:IFR8+int(NPIV-1,8))
+           ENDDO
+         ELSE IF (KEEP(350).EQ.1.OR.KEEP(350).EQ.2) THEN
+#if defined(RHSCOMP_BYROWS)
+!$         OMP_FLAG = (NPIV.GE.KEEP(362).AND.NRHS_B*NPIV.GE.KEEP(363))
+!$OMP      PARALLEL DO PRIVATE(IFR8,K) IF (OMP_FLAG)
+           DO I=1,NPIV
+             IFR8 =  PPIV_COURANT + I-1
+             DO K=JBDEB,JBFIN
+               RHSCOMP(K,IPOSINRHSCOMP+I-1) =
+     &              WCB(IFR8+(K-JBDEB)*LD_WCBPIV)
+             ENDDO
+           ENDDO
+!$OMP      END PARALLEL DO
+#else
+!$         OMP_FLAG=(NRHS_B.GE.KEEP(362).AND.NRHS_B*NPIV.GE.KEEP(363))
+!$OMP PARALLEL DO PRIVATE(IFR8) IF (OMP_FLAG)
+           DO K=JBDEB,JBFIN
+             IFR8 =  PPIV_COURANT + (K-JBDEB)*LD_WCBPIV
+             RHSCOMP(IPOSINRHSCOMP:IPOSINRHSCOMP+NPIV-1, K) =
+     &            WCB(IFR8:IFR8+int(NPIV-1,8))
+           ENDDO
+!$OMP END PARALLEL DO
+#endif
+         ELSE
+           WRITE(*,*) "UNKNOWN VERSION OF KEEP(350)"
+           CALL MUMPS_ABORT()
+         ENDIF
       ELSE
-         IFR = PPIV_COURANT - 1
+         IFR8 = PPIV_COURANT - 1_8
          IF (KEEP(201).EQ.1) THEN 
             LDAJ = TempNROW  
          ELSE                
@@ -799,49 +958,50 @@ C
          IF (KEEP(201).EQ.1) THEN
             NBK   = 0           
          ENDIF
+        IF (KEEP(350).EQ.0) THEN
          DO 
             IF(JJ .GT. J3) EXIT
-            IFR = IFR + 1
+            IFR8 = IFR8 + 1_8
             IF(IW(JJ+LIELL) .GT. 0) THEN
-               VALPIV  = ONE/A( APOS1 )
-               DO K=JBDEB, JBFIN
+              VALPIV  = ONE/A( APOS1 )
+              DO K=JBDEB, JBFIN
 #if defined(RHSCOMP_BYROWS)
                   RHSCOMP(K, IPOSINRHSCOMP+JJ-J1) = 
-     &                 WCB( IFR+(K-JBDEB)*LD_WCBPIV ) * VALPIV
+     &                 WCB( IFR8+(K-JBDEB)*LD_WCBPIV ) * VALPIV
 #else
                   RHSCOMP(IPOSINRHSCOMP+JJ-J1 , K ) = 
-     &                 WCB( IFR+(K-JBDEB)*LD_WCBPIV ) * VALPIV
+     &                 WCB( IFR8+(K-JBDEB)*LD_WCBPIV ) * VALPIV
 #endif
-               END DO
-            IF (KEEP(201).EQ.1) THEN
-              NBK = NBK+1
-              IF (NBK.EQ.PANEL_SIZE) THEN
-                NBK = 0
-                LDAJ = LDAJ - PANEL_SIZE
+              END DO
+              IF (KEEP(201).EQ.1) THEN
+                NBK = NBK+1
+                IF (NBK.EQ.PANEL_SIZE) THEN
+                  NBK = 0
+                  LDAJ = LDAJ - PANEL_SIZE
+                ENDIF
               ENDIF
-            ENDIF
-            APOS1 = APOS1 + int(LDAJ + 1,8)
-            JJ = JJ+1
-         ELSE
-            IF (KEEP(201).EQ.1) THEN
-              NBK = NBK+1
-            ENDIF
-            APOS2 = APOS1+int(LDAJ+1,8)
-            IF (KEEP(201).EQ.1) THEN
-              APOSOFF = APOS1+int(LDAJ,8)
+              APOS1 = APOS1 + int(LDAJ + 1,8)
+              JJ = JJ+1
             ELSE
-              APOSOFF=APOS1+1_8
-            ENDIF
-               A11 = A(APOS1)
-               A22 = A(APOS2)
-               A12 = A(APOSOFF)
-               DETPIV = A11*A22 - A12**2
-               A22 = A11/DETPIV
-               A11 = A(APOS2)/DETPIV
-               A12 = -A12/DETPIV
-               DO K=JBDEB, JBFIN
-                  POSWCB1 = IFR+(K-JBDEB)*LD_WCBPIV
-                  POSWCB2 = POSWCB1+1
+              IF (KEEP(201).EQ.1) THEN
+                NBK = NBK+1
+              ENDIF
+              APOS2 = APOS1+int(LDAJ+1,8)
+              IF (KEEP(201).EQ.1) THEN
+                APOSOFF = APOS1+int(LDAJ,8)
+              ELSE
+                APOSOFF=APOS1+1_8
+              ENDIF
+              A11 = A(APOS1)
+              A22 = A(APOS2)
+              A12 = A(APOSOFF)
+              DETPIV = A11*A22 - A12**2
+              A22 = A11/DETPIV
+              A11 = A(APOS2)/DETPIV
+              A12 = -A12/DETPIV
+              DO K=JBDEB, JBFIN
+                  POSWCB1 = IFR8+int(K-JBDEB,8)*int(LD_WCBPIV,8)
+                  POSWCB2 = POSWCB1+1_8
 #if defined(RHSCOMP_BYROWS)
                   RHSCOMP(K,IPOSINRHSCOMP+JJ-J1) =
      &               WCB(POSWCB1)*A11
@@ -857,20 +1017,108 @@ C
      &                 WCB(POSWCB1)*A12
      &                 + WCB(POSWCB2)*A22
 #endif
-               END DO
-               IF (KEEP(201).EQ.1) THEN
-                  NBK = NBK+1
-                  IF (NBK.GE.PANEL_SIZE) THEN
-                     LDAJ = LDAJ - NBK
-                     NBK = 0
-                  ENDIF
-               ENDIF
-               APOS1 = APOS2 + int(LDAJ + 1,8)
-               JJ = JJ+2
-               IFR = IFR+1
+              END DO
+              IF (KEEP(201).EQ.1) THEN
+                 NBK = NBK+1
+                 IF (NBK.GE.PANEL_SIZE) THEN
+                    LDAJ = LDAJ - NBK
+                    NBK = 0
+                 ENDIF
+              ENDIF
+              APOS1 = APOS2 + int(LDAJ + 1,8)
+              JJ = JJ+2
+              IFR8 = IFR8+1_8
             ENDIF
          ENDDO
+        ELSE IF (KEEP(350).EQ.1.OR.KEEP(350).EQ.2) THEN
+         IFR_ini8 = PPIV_COURANT - 1_8
+         LDAJ_ini = LDAJ   
+         IF (KEEP(201).EQ.1) NBK_ini = NBK  
+!$           OMP_FLAG = ( JBFIN-JBDEB+1.GE.KEEP(362) .AND.
+!$   &                  ((J3-J1+1)*(JBFIN-JBDEB+1) .GE. KEEP(363)))
+!$OMP  PARALLEL DO PRIVATE(JJ,IFR8,NBK,APOS1,APOS2,APOSOFF,VALPIV,
+!$OMP&      POSWCB1, POSWCB2,A11,A22,A12,DETPIV,LDAJ)  IF(OMP_FLAG)
+         DO K = JBDEB, JBFIN
+            IFR8  = IFR_ini8 + int(K-JBDEB,8)*int(LD_WCBPIV,8)
+            NBK   = NBK_ini
+            APOS1 = APOS
+            LDAJ  = LDAJ_ini
+            JJ    = J1
+          DO 
+            IF (JJ .GT. J3) EXIT
+            IFR8  = IFR8 + 1_8
+            IF (IW(JJ+LIELL) .GT. 0) THEN
+               VALPIV  = ONE/A( APOS1 )
+#if defined(RHSCOMP_BYROWS)
+                RHSCOMP(K, IPOSINRHSCOMP+JJ-J1) = 
+     &                 WCB( IFR8 ) * VALPIV
+#else
+                 RHSCOMP(IPOSINRHSCOMP+JJ-J1 , K ) = 
+     &                 WCB( IFR8 ) * VALPIV
+#endif
+              IF (KEEP(201).EQ.1) THEN
+                NBK = NBK+1
+                IF (NBK.EQ.PANEL_SIZE) THEN
+                  NBK = 0
+                  LDAJ = LDAJ - PANEL_SIZE
+                ENDIF
+              ENDIF
+              APOS1 = APOS1 + int(LDAJ + 1,8)
+              JJ = JJ+1
+            ELSE
+              IF (KEEP(201).EQ.1) THEN
+                NBK = NBK+1
+              ENDIF
+              APOS2 = APOS1+int(LDAJ+1,8)
+              IF (KEEP(201).EQ.1) THEN
+                APOSOFF = APOS1+int(LDAJ,8)
+              ELSE
+                APOSOFF=APOS1+1_8
+              ENDIF
+              A11 = A(APOS1)
+              A22 = A(APOS2)
+              A12 = A(APOSOFF)
+              DETPIV = A11*A22 - A12**2
+              A22 = A11/DETPIV
+              A11 = A(APOS2)/DETPIV
+              A12 = -A12/DETPIV
+              POSWCB1 = IFR8
+              POSWCB2 = POSWCB1+1_8
+#if defined(RHSCOMP_BYROWS)
+              RHSCOMP(K,IPOSINRHSCOMP+JJ-J1) =
+     &               WCB(POSWCB1)*A11
+     &               + WCB(POSWCB2)*A12
+              RHSCOMP(K,IPOSINRHSCOMP+JJ-J1+1) = 
+     &                 WCB(POSWCB1)*A12
+     &                 + WCB(POSWCB2)*A22
+#else
+              RHSCOMP(IPOSINRHSCOMP+JJ-J1,K) =
+     &               WCB(POSWCB1)*A11
+     &               + WCB(POSWCB2)*A12
+              RHSCOMP(IPOSINRHSCOMP+JJ-J1+1,K) = 
+     &                 WCB(POSWCB1)*A12
+     &                 + WCB(POSWCB2)*A22
+#endif
+              IF (KEEP(201).EQ.1) THEN
+                 NBK = NBK+1
+                 IF (NBK.GE.PANEL_SIZE) THEN
+                    LDAJ = LDAJ - NBK
+                    NBK = 0
+                 ENDIF
+              ENDIF
+              APOS1 = APOS2 + int(LDAJ + 1,8)
+              JJ = JJ+2
+              IFR8 = IFR8+1_8
+            ENDIF  
+           ENDDO   
+         ENDDO     
+!$OMP END PARALLEL DO
+         ELSE
+             WRITE(*,*) "UNKNOWN VERSION OF KEEP(350)"
+             CALL MUMPS_ABORT()
+         ENDIF
       END IF
+      DKEEP(126)=DKEEP(126)+real(MPI_WTIME()-TIME_TMP)
       IF (KEEP(201).GT.0) THEN
          CALL CMUMPS_FREE_FACTORS_FOR_SOLVE(INODE,PTRFAC,KEEP(28),
      &        A,LA,.TRUE.,IERR)
@@ -897,21 +1145,51 @@ C
          IF (MUMPS_PROCNODE(PROCNODE_STEPS(STEP(FPERE)),
      &        SLAVEF) .EQ. MYID) THEN
             IF ( NCB .ne. 0 ) THEN
-               PTRICB(STEP(INODE)) = NCB + 1
-        OMP_FLAG = .FALSE. 
+             PTRICB(STEP(INODE)) = NCB + 1
+             IF (KEEP(350).EQ.0) THEN
+!$             OMP_FLAG = .FALSE. 
+               TIME_TMP=MPI_WTIME()
+!$OMP PARALLEL DO PRIVATE(K,IPOSINRHSCOMP_TMP) IF(OMP_FLAG)
                DO 190 I = 1, NUPDATE
-                  IPOSINRHSCOMP = abs(POSINRHSCOMP_FWD(IW(J3 + I)))
+                  IPOSINRHSCOMP_TMP = 
+     &                 abs(POSINRHSCOMP_FWD(IW(J3 + I)))
                   DO K=JBDEB, JBFIN
 #if defined(RHSCOMP_BYROWS)
-                     RHSCOMP( K, IPOSINRHSCOMP ) = 
-     &                    RHSCOMP( K, IPOSINRHSCOMP )
+                     RHSCOMP( K, IPOSINRHSCOMP_TMP ) = 
+     &                    RHSCOMP( K, IPOSINRHSCOMP_TMP )
 #else
-                     RHSCOMP( IPOSINRHSCOMP, K ) = 
-     &                    RHSCOMP( IPOSINRHSCOMP, K )
+                     RHSCOMP( IPOSINRHSCOMP_TMP, K ) = 
+     &                    RHSCOMP( IPOSINRHSCOMP_TMP, K )
 #endif
      &             + WCB(PCB_COURANT + I-1 +(K-JBDEB)*LD_WCBCB)
                   ENDDO
  190           CONTINUE
+!$OMP END PARALLEL DO
+             ELSE IF (KEEP(350).EQ.1.OR.KEEP(350).EQ.2) THEN
+!$              OMP_FLAG = ( JBFIN-JBDEB+1.GE.KEEP(362) .AND.
+!$   &                     (NUPDATE*(JBFIN-JBDEB+1) .GE. KEEP(363)) )
+!$OMP PARALLEL DO PRIVATE(I,IFR8,IPOSINRHSCOMP_TMP) IF(OMP_FLAG)
+                DO K = JBDEB, JBFIN
+                  IFR8 = PCB_COURANT + int(K-JBDEB,8)*int(LD_WCBCB,8)
+                  DO I = 1, NUPDATE
+                    IPOSINRHSCOMP_TMP = 
+     &                 abs(POSINRHSCOMP_FWD(IW(J3 + I)))
+#if defined(RHSCOMP_BYROWS)
+                     RHSCOMP( K, IPOSINRHSCOMP_TMP ) = 
+     &                    RHSCOMP( K, IPOSINRHSCOMP_TMP )
+#else
+                     RHSCOMP( IPOSINRHSCOMP_TMP, K ) = 
+     &                    RHSCOMP( IPOSINRHSCOMP_TMP, K )
+#endif
+     &             + WCB(IFR8 + int(I-1,8))
+                  ENDDO
+                ENDDO
+!$OMP END PARALLEL DO
+         ELSE
+             WRITE(*,*) "UNKNOWN VERSION OF KEEP(350)"
+             CALL MUMPS_ABORT()
+         ENDIF
+               DKEEP(127)=DKEEP(127)+real(MPI_WTIME()-TIME_TMP)
                PTRICB(STEP( INODE )) = PTRICB(STEP( INODE )) - NUPDATE
                IF ( PTRICB(STEP(INODE)) == 1 ) THEN
                   NSTK_S(STEP(FPERE)) = NSTK_S(STEP(FPERE)) - 1
@@ -930,14 +1208,21 @@ C
             ENDIF
          ELSE
  210        CONTINUE
+            TIME_TMP=MPI_WTIME()
             CALL CMUMPS_BUF_SEND_VCB( NRHS_B, INODE, FPERE, 
      &           NCB, LD_WCBCB,
      &           NUPDATE,
      &           IW( J3 + 1 ), WCB( PCB_COURANT ), JBDEB, JBFIN,
+     &           RHSCOMP, 1, 1, -9999, -9999,
      &           KEEP,
      &           MUMPS_PROCNODE(PROCNODE_STEPS(STEP(FPERE)), SLAVEF),
      &           ContVec,
      &           COMM, IERR )
+            IF (IERR.EQ.0) THEN
+              DKEEP(132)=DKEEP(132)+real(MPI_WTIME()-TIME_TMP)
+            ELSE
+              DKEEP(134)=DKEEP(134)+real(MPI_WTIME()-TIME_TMP)
+            ENDIF
             IF ( IERR .EQ. -1 ) THEN
                CALL CMUMPS_SOLVE_RECV_AND_TREAT( .FALSE., FLAG,
      &              BUFR, LBUFR, LBUFR_BYTES,
@@ -946,10 +1231,10 @@ C
      &              NBFIN, NSTK_S, IW, LIW, A, LA, PTRIST, PTRFAC,
      &              IWCB, LIWCB,
      &              WCB, LWCB, POSWCB, PLEFTWCB, POSIWCB,
-     &              PTRICB, INFO, KEEP,KEEP8, STEP,
+     &              PTRICB, INFO, KEEP,KEEP8, DKEEP, STEP,
      &              PROCNODE_STEPS,
      &              RHSCOMP, LRHSCOMP, POSINRHSCOMP_FWD
-     &              )
+     &              , FROM_PP )
                IF ( INFO( 1 )  .LT. 0 )  GOTO 270
                GOTO 210
             ELSE IF ( IERR .EQ. -2 ) THEN
@@ -975,13 +1260,20 @@ C
      &           ISLAVE, NCB - NELIM, 
      &           NSLAVES, 
      &           Effective_CB_Size, FirstIndex )
- 222        CALL CMUMPS_BUF_SEND_MASTER2SLAVE( NRHS_B,
+ 222        CONTINUE
+                 TIME_TMP=MPI_WTIME()
+                 CALL CMUMPS_BUF_SEND_MASTER2SLAVE( NRHS_B,
      &           INODE, FPERE,
      &           Effective_CB_Size, LD_WCBCB, LD_WCBPIV, NPIV,
      &           JBDEB, JBFIN, 
      &           WCB( PCB_COURANT + NELIM + FirstIndex - 1 ),
      &           WCB( PPIV_COURANT ),
      &           PDEST, COMM, KEEP, IERR )
+                 IF (IERR.EQ.0) THEN
+                   DKEEP(133)=DKEEP(133)+real(MPI_WTIME()-TIME_TMP)
+                 ELSE
+                   DKEEP(134)=DKEEP(134)+real(MPI_WTIME()-TIME_TMP)
+                 ENDIF
             IF ( IERR .EQ. -1 ) THEN
                CALL CMUMPS_SOLVE_RECV_AND_TREAT( .FALSE., FLAG,
      &              BUFR, LBUFR, LBUFR_BYTES,
@@ -990,10 +1282,10 @@ C
      &              NBFIN, NSTK_S, IW, LIW, A, LA, PTRIST,PTRFAC,
      &              IWCB, LIWCB,
      &              WCB, LWCB, POSWCB, PLEFTWCB, POSIWCB,
-     &              PTRICB, INFO, KEEP,KEEP8, STEP,
+     &              PTRICB, INFO, KEEP,KEEP8, DKEEP, STEP,
      &              PROCNODE_STEPS,
      &              RHSCOMP, LRHSCOMP, POSINRHSCOMP_FWD
-     &              )
+     &              , FROM_PP )
                IF ( INFO( 1 )  .LT. 0 )  GOTO 270
                GOTO 222
             ELSE IF ( IERR .EQ. -2 ) THEN
@@ -1024,19 +1316,21 @@ C
      &           IWCB, LIWCB,
      &           WCB, LWCB, POSWCB,
      &           PLEFTWCB, POSIWCB,
-     &           PTRICB, INFO, KEEP,KEEP8, STEP, PROCNODE_STEPS,
+     &           PTRICB, INFO, KEEP,KEEP8, DKEEP, STEP, PROCNODE_STEPS,
      &           RHSCOMP, LRHSCOMP, POSINRHSCOMP_FWD
-     &            )
+     &            , FROM_PP)
       IMPLICIT NONE
       LOGICAL BLOQ
       INTEGER LBUFR, LBUFR_BYTES
       INTEGER MYID, SLAVEF, COMM
       INTEGER N, NRHS, LPOOL, III, LEAF, NBFIN
-      INTEGER LIWCB, LWCB, POSWCB, PLEFTWCB, POSIWCB
+      INTEGER LIWCB, POSIWCB
+      INTEGER(8) :: POSWCB, PLEFTWCB
       INTEGER LIW
-      INTEGER(8) :: LA
+      INTEGER(8), INTENT(IN) :: LA, LWCB
       INTEGER INFO( 40 ), KEEP( 500)
       INTEGER(8) KEEP8(150)
+      REAL, INTENT(INOUT) :: DKEEP(230)
       INTEGER BUFR( LBUFR ), IPOOL(LPOOL)
       INTEGER NSTK_S( KEEP(28) )
       INTEGER IWCB( LIWCB )
@@ -1053,11 +1347,14 @@ C
 #else
       COMPLEX RHSCOMP(LRHSCOMP,NRHS)
 #endif
+      LOGICAL, intent(in) :: FROM_PP
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'
       INTEGER :: IERR
       INTEGER :: STATUS(MPI_STATUS_SIZE)
       INTEGER MSGSOU, MSGTAG, MSGLEN
+      DOUBLE PRECISION :: TIME_TMP
+      TIME_TMP=MPI_WTIME()
       FLAG = .FALSE.
       IF ( BLOQ ) THEN
         CALL MPI_PROBE( MPI_ANY_SOURCE, MPI_ANY_TAG,
@@ -1067,6 +1364,7 @@ C
         CALL MPI_IPROBE( MPI_ANY_SOURCE, MPI_ANY_TAG, COMM,
      &                   FLAG, STATUS, IERR )
       END IF
+      DKEEP(134)=DKEEP(134)+real(MPI_WTIME()-TIME_TMP)
       IF ( FLAG ) THEN
          KEEP(266) = KEEP(266) -1
          MSGSOU = STATUS( MPI_SOURCE )
@@ -1077,8 +1375,10 @@ C
            INFO(2) = MSGLEN
            CALL CMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
          ELSE
+           TIME_TMP=MPI_WTIME()
            CALL MPI_RECV( BUFR, LBUFR_BYTES, MPI_PACKED,
      &                  MSGSOU, MSGTAG, COMM, STATUS, IERR )
+           DKEEP(134)=DKEEP(134)+real(MPI_WTIME()-TIME_TMP)
            CALL CMUMPS_TRAITER_MESSAGE_SOLVE( BUFR, LBUFR, LBUFR_BYTES,
      &          MSGTAG, MSGSOU, MYID, SLAVEF, COMM,
      &          N, NRHS, IPOOL, LPOOL, III, LEAF,
@@ -1086,10 +1386,10 @@ C
      &          IWCB, LIWCB,
      &          WCB, LWCB, POSWCB,
      &          PLEFTWCB, POSIWCB,
-     &          PTRICB, INFO, KEEP,KEEP8, STEP,
+     &          PTRICB, INFO, KEEP,KEEP8, DKEEP, STEP,
      &          PROCNODE_STEPS, 
      &          RHSCOMP, LRHSCOMP, POSINRHSCOMP_FWD
-     &          )
+     &          , FROM_PP )
          END IF
       END IF
       RETURN

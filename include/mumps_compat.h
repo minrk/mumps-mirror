@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.0.2, released
- *  on Fri Jul 15 09:12:54 UTC 2016
+ *  This file is part of MUMPS 5.1.1, released
+ *  on Tue Mar 21 14:55:59 UTC 2017
  *
  *
- *  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -24,9 +24,11 @@
 
 #ifndef MUMPS_CALL
 # ifdef MUMPS_WIN32
-/* Modify/choose between next 2 lines depending
- * on your Windows calling conventions */
-/* #  define MUMPS_CALL __stdcall */
+/* Choose between next lines or modify according
+ * to your Windows calling conventions:       */
+/*   #define MUMPS_CALL                       */
+/*   #define MUMPS_CALL __stdcall             */
+/*   #define MUMPS_CALL __declspec(dllexport) */
 #  define MUMPS_CALL
 # else
 #  define MUMPS_CALL

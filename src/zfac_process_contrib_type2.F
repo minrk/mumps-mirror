@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.2, released
-C  on Fri Jul 15 09:12:54 UTC 2016
+C  This file is part of MUMPS 5.1.1, released
+C  on Tue Mar 21 14:55:59 UTC 2017
 C
 C
-C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -22,15 +22,16 @@ C
      &   IPOOL, LPOOL, LEAF, ND, FRERE_STEPS, LPTRAR, NELT,
      &   FRTPTR, FRTELT, 
      &   ISTEP_TO_INIV2, TAB_POS_IN_PERE 
+     &               , LRGROUPS
      &   )
       USE ZMUMPS_LOAD
-      USE ZMUMPS_COMM_BUFFER
+      USE ZMUMPS_BUF
       IMPLICIT NONE
       INCLUDE 'zmumps_root.h'
       TYPE (ZMUMPS_ROOT_STRUC) :: root
       INTEGER ICNTL( 40 ), KEEP( 500 )
       INTEGER(8) KEEP8(150)
-      DOUBLE PRECISION    DKEEP(130)
+      DOUBLE PRECISION    DKEEP(230)
       INTEGER LBUFR, LBUFR_BYTES
       INTEGER COMM_LOAD, ASS_IRECV, MSGLEN
       INTEGER BUFR( LBUFR )
@@ -47,12 +48,13 @@ C
       INTEGER NBPROCFILS( KEEP(28) )
       INTEGER IW( LIW )
       COMPLEX(kind=8) A( LA )
+      INTEGER, intent(in) :: LRGROUPS(N)
       INTEGER ITLOC( N + KEEP(253)), NSTK_S( KEEP(28) ), FILS( N )
       COMPLEX(kind=8) :: RHS_MUMPS(KEEP(255))
       INTEGER ND(KEEP(28)), FRERE_STEPS( KEEP(28) )
-      INTEGER PTRARW( LPTRAR ), PTRAIW( LPTRAR )
-      INTEGER INTARR( max(1,KEEP(14)) )
-      COMPLEX(kind=8) DBLARR( max( 1,KEEP(13)) )
+      INTEGER(8), INTENT(IN) :: PTRARW( LPTRAR ), PTRAIW( LPTRAR )
+      INTEGER INTARR( KEEP8(27) )
+      COMPLEX(kind=8) DBLARR( KEEP8(26) )
       DOUBLE PRECISION OPASSW, OPELIW
       INTEGER COMM, MYID, IFLAG, IERROR
       INTEGER LEAF, LPOOL 
@@ -123,6 +125,7 @@ C
      &     INTARR, DBLARR, ICNTL,KEEP,KEEP8,DKEEP,ND, FRERE_STEPS,
      &     LPTRAR, NELT, FRTPTR, FRTELT, 
      &     ISTEP_TO_INIV2, TAB_POS_IN_PERE, .TRUE. 
+     &               , LRGROUPS
      &     )
           IF (IFLAG.LT.0) RETURN
       ENDIF
@@ -165,6 +168,10 @@ C
          POSCONTRIB = POSFAC
          POSFAC = POSFAC + LREQA
          KEEP8(67) = min(LRLUS, KEEP8(67))
+         KEEP8(70) = KEEP8(70) - LREQA
+         KEEP8(68) = min(KEEP8(70), KEEP8(68))
+         KEEP8(71) = KEEP8(71) - LREQA
+         KEEP8(69) = min(KEEP8(71), KEEP8(69))
          CALL ZMUMPS_LOAD_MEM_UPDATE(.FALSE.,.FALSE.,
      &        LA-LRLUS,0_8,LREQA,KEEP,KEEP8,LRLUS)
          IF  ( SLAVE_NODE ) THEN
@@ -350,6 +357,8 @@ C
          IWPOS = IWPOS - LREQI
          LRLU = LRLU + LREQA
          LRLUS = LRLUS + LREQA
+         KEEP8(70) = KEEP8(70) + LREQA
+         KEEP8(71) = KEEP8(71) + LREQA
          POSFAC = POSFAC - LREQA
          CALL ZMUMPS_LOAD_MEM_UPDATE(.FALSE.,.FALSE.,
      &        LA-LRLUS,0_8,-LREQA,KEEP,KEEP8,LRLUS)

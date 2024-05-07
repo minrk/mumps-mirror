@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.2, released
-C  on Fri Jul 15 09:12:54 UTC 2016
+C  This file is part of MUMPS 5.1.1, released
+C  on Tue Mar 21 14:55:59 UTC 2017
 C
 C
-C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -16,7 +16,8 @@ C
      &           A, LA, PTRAST, PTLUST_S, PTRFAC,
      &           STEP, INFO, LDLT, QR,
      &           WK, LWK, KEEP,KEEP8,DKEEP,OPELIW)
-      IMPLICIT NONE
+        USE CMUMPS_LR_STATS, ONLY: UPDATE_FLOPS_STATS_ROOT
+        IMPLICIT NONE
       INCLUDE 'cmumps_root.h'
       INCLUDE 'mpif.h'
       TYPE ( CMUMPS_ROOT_STRUC ) :: root
@@ -25,7 +26,7 @@ C
       INTEGER(8) :: LWK
       COMPLEX WK( LWK )
       INTEGER KEEP(500)
-      REAL    DKEEP(130)
+      REAL    DKEEP(230)
       INTEGER(8) KEEP8(150)
       INTEGER(8) :: PTRAST(KEEP(28))
       INTEGER(8) :: PTRFAC(KEEP(28))
@@ -113,8 +114,14 @@ C
           CALL MUMPS_UPDATE_FLOPS_ROOT( OPELIW, LDLT,
      &                          root%TOT_ROOT_SIZE, INFO(2),
      &                          root%NPROW, root%NPCOL, MYID )
+          CALL UPDATE_FLOPS_STATS_ROOT( LDLT,
+     &                          root%TOT_ROOT_SIZE, INFO(2),
+     &                          root%NPROW, root%NPCOL, MYID )
         ELSE
           CALL MUMPS_UPDATE_FLOPS_ROOT( OPELIW, LDLT,
+     &                          root%TOT_ROOT_SIZE, root%TOT_ROOT_SIZE,
+     &                          root%NPROW, root%NPCOL, MYID )
+          CALL UPDATE_FLOPS_STATS_ROOT( LDLT,
      &                          root%TOT_ROOT_SIZE, root%TOT_ROOT_SIZE,
      &                          root%NPROW, root%NPCOL, MYID )
         ENDIF

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.0.2, released
-C  on Fri Jul 15 09:12:54 UTC 2016
+C  This file is part of MUMPS 5.1.1, released
+C  on Tue Mar 21 14:55:59 UTC 2017
 C
       PROGRAM MUMPS_TEST
       IMPLICIT NONE
@@ -8,6 +8,7 @@ C
       INCLUDE 'dmumps_struc.h'
       TYPE (DMUMPS_STRUC) mumps_par
       INTEGER IERR, I
+      INTEGER(8) I8
       CALL MPI_INIT(IERR)
 C Define a communicator for the package.
       mumps_par%COMM = MPI_COMM_WORLD
@@ -26,13 +27,13 @@ C  for L U factorization (sym = 0, with working host)
 C  Define problem on the host (processor 0)
       IF ( mumps_par%MYID .eq. 0 ) THEN
         READ(5,*) mumps_par%N
-        READ(5,*) mumps_par%NZ
-        ALLOCATE( mumps_par%IRN ( mumps_par%NZ ) )
-        ALLOCATE( mumps_par%JCN ( mumps_par%NZ ) )
-        ALLOCATE( mumps_par%A( mumps_par%NZ ) )
+        READ(5,*) mumps_par%NNZ
+        ALLOCATE( mumps_par%IRN ( mumps_par%NNZ ) )
+        ALLOCATE( mumps_par%JCN ( mumps_par%NNZ ) )
+        ALLOCATE( mumps_par%A( mumps_par%NNZ ) )
         ALLOCATE( mumps_par%RHS ( mumps_par%N  ) )
-        DO I = 1, mumps_par%NZ
-          READ(5,*) mumps_par%IRN(I),mumps_par%JCN(I),mumps_par%A(I)
+        DO I8 = 1, mumps_par%NNZ
+          READ(5,*) mumps_par%IRN(I8),mumps_par%JCN(I8),mumps_par%A(I8)
         END DO
         DO I = 1, mumps_par%N
           READ(5,*) mumps_par%RHS(I)

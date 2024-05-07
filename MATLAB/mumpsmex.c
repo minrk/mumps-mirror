@@ -407,7 +407,7 @@ void mexFunction(int nlhs, mxArray *plhs[ ],
       EXTRACT_SCALING_FROM_MATLAB_TOPTR(ROWSCA_IN,(dmumps_par->rowsca),(dmumps_par->rowsca_from_mumps),((int)n)); /* type always double */
 
       EXTRACT_FROM_MATLAB_TOARR(KEEP_IN,dmumps_par->keep,int,500);
-      EXTRACT_FROM_MATLAB_TOARR(DKEEP_IN,dmumps_par->dkeep,double,30);
+      EXTRACT_FROM_MATLAB_TOARR(DKEEP_IN,dmumps_par->dkeep,double,230);
 
       dmumps_par->size_schur = (int)mxGetN(VAR_SCHUR);
       EXTRACT_FROM_MATLAB_TOPTR(VAR_SCHUR,(dmumps_par->listvar_schur),int,dmumps_par->size_schur);
@@ -611,7 +611,7 @@ void mexFunction(int nlhs, mxArray *plhs[ ],
     EXTRACT_FROM_C_TO_MATLAB( ROWSCA_OUT ,dmumps_par->rowsca,dmumps_par->n);
     EXTRACT_FROM_C_TO_MATLAB( COLSCA_OUT ,dmumps_par->colsca,dmumps_par->n);
     EXTRACT_FROM_C_TO_MATLAB( KEEP_OUT   ,dmumps_par->keep,500);
-    EXTRACT_FROM_C_TO_MATLAB( DKEEP_OUT  ,dmumps_par->dkeep,30);
+    EXTRACT_FROM_C_TO_MATLAB( DKEEP_OUT  ,dmumps_par->dkeep,230);
 
     if(dmumps_par->size_schur > 0 && dofactorize){
       SCHUR_OUT = mxCreateDoubleMatrix(dmumps_par->size_schur,dmumps_par->size_schur,mxREAL2);

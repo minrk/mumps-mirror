@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.2, released
-C  on Fri Jul 15 09:12:54 UTC 2016
+C  This file is part of MUMPS 5.1.1, released
+C  on Tue Mar 21 14:55:59 UTC 2017
 C
 C
-C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -12,9 +12,9 @@ C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       INTEGER FUNCTION MUMPS_BLOC2_GET_NSLAVESMIN 
      &         ( SLAVEF, K48, K821, K50,
-     &         NFRONT, NCB)
+     &         NFRONT, NCB, K375)
       IMPLICIT NONE
-      INTEGER,    INTENT (IN) :: SLAVEF, K48, K50, NFRONT, NCB
+      INTEGER,    INTENT (IN) :: SLAVEF, K48, K50, NFRONT, NCB, K375
       INTEGER(8), INTENT (IN) :: K821
       INTEGER NSLAVESMIN, NASS, KMAX
       REAL Wmaster, Wtotal, Wmax
@@ -72,13 +72,16 @@ C
       NSLAVESMIN = min ( NSLAVESMIN,(SLAVEF-1) )
       MUMPS_BLOC2_GET_NSLAVESMIN = 
      &               min ( NSLAVESMIN, NCB )
+      IF (K375 .EQ. 1) THEN
+        MUMPS_BLOC2_GET_NSLAVESMIN=1
+      ENDIF
       RETURN
       END FUNCTION MUMPS_BLOC2_GET_NSLAVESMIN 
       INTEGER FUNCTION MUMPS_BLOC2_GET_NSLAVESMAX 
      &        ( SLAVEF, K48, K821, K50,
-     &          NFRONT, NCB)
+     &          NFRONT, NCB, K375)
       IMPLICIT NONE
-      INTEGER, INTENT (IN) :: SLAVEF, K48, K50,NFRONT, NCB
+      INTEGER, INTENT (IN) :: SLAVEF, K48, K50,NFRONT, NCB, K375
       INTEGER(8), INTENT(IN) :: K821
       INTEGER NSLAVESMAX, KMAX, KMIN
       INTEGER NSLAVESMIN
@@ -97,10 +100,13 @@ C
          NSLAVESMAX = SLAVEF-1
       ENDIF
       NSLAVESMIN = MUMPS_BLOC2_GET_NSLAVESMIN(
-     &     SLAVEF, K48, K821, K50, NFRONT, NCB )
+     &     SLAVEF, K48, K821, K50, NFRONT, NCB, K375 )
       NSLAVESMAX = max ( NSLAVESMAX, NSLAVESMIN )
       MUMPS_BLOC2_GET_NSLAVESMAX = 
      &               min ( NSLAVESMAX, NCB )
+      IF (K375 .EQ. 1) THEN
+        MUMPS_BLOC2_GET_NSLAVESMAX = SLAVEF-1 
+      ENDIF
       RETURN
       END FUNCTION MUMPS_BLOC2_GET_NSLAVESMAX
       SUBROUTINE MUMPS_MAX_SURFCB_NBROWS( WHAT, KEEP,KEEP8,
@@ -128,7 +134,7 @@ C
       IF (WHAT .EQ.1.OR.WHAT.EQ.2) THEN
         NSLAVES = MUMPS_BLOC2_GET_NSLAVESMIN( SLAVEF, KEEP(48),
      &            KEEP8(21), KEEP(50),
-     &            NFR, NCB )
+     &            NFR, NCB, KEEP(375) )
       ELSE
         NSLAVES=SLAVEF
       ENDIF
@@ -396,10 +402,10 @@ C
       END FUNCTION MUMPS_BLOC2_COUT
       INTEGER FUNCTION MUMPS_REG_GET_NSLAVES 
      &      (K821, K48, K50, SLAVEF, 
-     &      NCB, NFRONT, NSLAVES_less, NMB_OF_CAND )
+     &      NCB, NFRONT, NSLAVES_less, NMB_OF_CAND, K375)
       IMPLICIT NONE
       INTEGER, INTENT( IN ) :: NCB, NFRONT, NSLAVES_less, 
-     &                  K48, K50, SLAVEF, NMB_OF_CAND
+     &                  K48, K50, SLAVEF, NMB_OF_CAND, K375
       INTEGER(8), INTENT(IN) :: K821
       INTEGER NSLAVES
       INTEGER KMAX, NPIV,
@@ -416,11 +422,11 @@ C
       IF ( (K48.EQ.0).OR. (K48.EQ.3) ) THEN
          KMAX = MUMPS_REG_GETKMAX( K821, NCB )
          NSLAVES_ref = MUMPS_BLOC2_GET_NSLAVESMIN(
-     &     SLAVEF, K48, K821, K50, NFRONT, NCB )
+     &     SLAVEF, K48, K821, K50, NFRONT, NCB, K375 )
          NSLAVES = NSLAVES_ref
          IF ( NSLAVES_ref.LT.SLAVEF ) THEN
            NSLAVES_max = MUMPS_BLOC2_GET_NSLAVESMAX(
-     &       SLAVEF, K48, K821, K50, NFRONT, NCB )
+     &       SLAVEF, K48, K821, K50, NFRONT, NCB, K375 )
            IF ( NSLAVES_max .LT. NSLAVES_less ) THEN
             NSLAVES =  NSLAVES_max
            ELSE 

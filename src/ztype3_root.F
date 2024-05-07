@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.2, released
-C  on Fri Jul 15 09:12:54 UTC 2016
+C  This file is part of MUMPS 5.1.1, released
+C  on Tue Mar 21 14:55:59 UTC 2017
 C
 C
-C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -62,15 +62,16 @@ C
      &    ND, FRERE,
      &    LPTRAR, NELT, FRTPTR, FRTELT, 
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE  
+     &               , LRGROUPS
      &     )
       USE ZMUMPS_OOC        
-      USE ZMUMPS_COMM_BUFFER
+      USE ZMUMPS_BUF
       USE ZMUMPS_LOAD
       IMPLICIT NONE
       INCLUDE 'zmumps_root.h'
       INTEGER KEEP(500), ICNTL(40)
       INTEGER(8) KEEP8(150)
-      DOUBLE PRECISION  DKEEP(130)
+      DOUBLE PRECISION  DKEEP(230)
       TYPE (ZMUMPS_ROOT_STRUC) :: root
       INTEGER COMM_LOAD, ASS_IRECV
       INTEGER N, ISON, IROOT, TAG
@@ -90,6 +91,7 @@ C
       INTEGER LIW
       INTEGER IW( LIW )
       COMPLEX(kind=8) A( LA )
+      INTEGER, intent(in) :: LRGROUPS(N)
       INTEGER LPTRAR, NELT
       INTEGER FRTPTR( N+1 ), FRTELT( NELT )
       INTEGER(8) :: PTRAST(KEEP(28))
@@ -107,9 +109,9 @@ C
       INTEGER ITLOC( N + KEEP(253) ), FILS( N )
       COMPLEX(kind=8) :: RHS_MUMPS(KEEP(255))
       INTEGER ND( KEEP(28) ), FRERE( KEEP(28) )
-      INTEGER PTRARW( LPTRAR ), PTRAIW( LPTRAR )
-      INTEGER INTARR( max(1,KEEP(14)) )
-      COMPLEX(kind=8) DBLARR( max(1,KEEP(13)) )
+      INTEGER(8), INTENT(IN) :: PTRARW( LPTRAR ), PTRAIW( LPTRAR )
+      INTEGER INTARR( KEEP8(27) )
+      COMPLEX(kind=8) DBLARR( KEEP8(26) )
       INTEGER ISTEP_TO_INIV2(KEEP(71)), 
      &        TAB_POS_IN_PERE(SLAVEF+2,max(1,KEEP(56)))
       INTEGER allocok
@@ -510,6 +512,7 @@ C
      &            PTRARW,PTRAIW,INTARR,DBLARR,ICNTL,KEEP,KEEP8,DKEEP,
      &            ND, FRERE, LPTRAR, NELT, FRTPTR, FRTELT, 
      &            ISTEP_TO_INIV2, TAB_POS_IN_PERE, .TRUE.
+     &               , LRGROUPS
      &             )
                   IF ( IFLAG .LT. 0 ) GOTO 500
                   IF (LDA_ARG < 0) THEN 
@@ -1055,7 +1058,7 @@ C
       INTEGER MYID
       INTEGER KEEP(500)
       INTEGER(8) KEEP8(150)
-      DOUBLE PRECISION DKEEP(130)
+      DOUBLE PRECISION DKEEP(230)
       TYPE (ZMUMPS_ROOT_STRUC ) :: root
       INTEGER(8) :: LA, LRLU, IPTRLU, LRLUS
       INTEGER IROOT, LIW, N, IWPOS, IWPOSCB
@@ -1068,9 +1071,10 @@ C
       COMPLEX(kind=8) :: RHS_MUMPS(KEEP(255))
       INTEGER COMP, IFLAG, IERROR
       INCLUDE 'mumps_headers.h'
-      INTEGER FILS( N ), PTRAIW(N), PTRARW( N )
-      INTEGER INTARR(max(1,KEEP(14)))
-      COMPLEX(kind=8) DBLARR(max(1,KEEP(13)))
+      INTEGER FILS( N )
+      INTEGER(8), INTENT(IN) :: PTRAIW(N), PTRARW( N )
+      INTEGER INTARR(KEEP8(27))
+      COMPLEX(kind=8) DBLARR(KEEP8(26))
       INTEGER numroc
       EXTERNAL numroc
       COMPLEX(kind=8) ZERO

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.2, released
-C  on Fri Jul 15 09:12:54 UTC 2016
+C  This file is part of MUMPS 5.1.1, released
+C  on Tue Mar 21 14:55:59 UTC 2017
 C
 C
-C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -27,7 +27,7 @@ C
       TYPE (CMUMPS_ROOT_STRUC ) :: root
       INTEGER    :: KEEP( 500 )
       INTEGER(8) :: KEEP8(150)
-      REAL       :: DKEEP(130)
+      REAL       :: DKEEP(230)
       INTEGER(8) :: LA, LRLU, IPTRLU, LRLUS
       INTEGER(8) :: PAMASTER(KEEP(28))
       INTEGER(8) :: PTRAST(KEEP(28))
@@ -46,9 +46,10 @@ C
       INTEGER ND(KEEP(28)), PROCNODE_STEPS(KEEP(28)),SLAVEF
       COMPLEX A( LA )
       INTEGER   MYID
-      INTEGER FILS( N ), PTRAIW(N), PTRARW( N )
-      INTEGER INTARR(max(1,KEEP(14)))
-      COMPLEX DBLARR(max(1,KEEP(13)))
+      INTEGER FILS( N )
+      INTEGER(8), INTENT(IN) :: PTRAIW(N), PTRARW( N )
+      INTEGER INTARR(KEEP8(27))
+      COMPLEX DBLARR(KEEP8(26))
         INCLUDE 'mpif.h'
         INTEGER IERR
         EXTERNAL MUMPS_PROCNODE
@@ -195,6 +196,8 @@ C
          IPTRLU  = IPTRLU  + LREQA
          LRLU    = LRLU    + LREQA
          LRLUS   = LRLUS   + LREQA
+         KEEP8(70) = KEEP8(70) + LREQA
+         KEEP8(71) = KEEP8(71) + LREQA
          CALL CMUMPS_LOAD_MEM_UPDATE(.FALSE.,.FALSE.,
      &                    LA-LRLUS,0_8,-LREQA,KEEP,KEEP8,LRLUS)
         ENDIF  
@@ -245,6 +248,8 @@ C
           IPTRLU  = IPTRLU  + LREQA
           LRLU    = LRLU    + LREQA
           LRLUS   = LRLUS   + LREQA
+          KEEP8(70) = KEEP8(70) + LREQA
+          KEEP8(71) = KEEP8(71) + LREQA
           CALL CMUMPS_LOAD_MEM_UPDATE(.FALSE.,.FALSE.,
      &                    LA-LRLUS,0_8,-LREQA,KEEP,KEEP8,LRLUS)
         ENDIF

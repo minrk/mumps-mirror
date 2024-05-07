@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.2, released
-C  on Fri Jul 15 09:12:54 UTC 2016
+C  This file is part of MUMPS 5.1.1, released
+C  on Tue Mar 21 14:55:59 UTC 2017
 C
 C
-C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -13,8 +13,12 @@ C
       SUBROUTINE MUMPS_PROPINFO( ICNTL, INFO, COMM, ID )
       INTEGER ICNTL(40), INFO(40), COMM, ID
       INCLUDE 'mpif.h'
-      INTEGER IN( 2 ), OUT( 2 )
-      INTEGER LP, IERR
+#if defined(WORKAROUNDINTELILP64MPI2INTEGER)
+      INTEGER(4) :: IN( 2 ), OUT( 2 )
+#else
+      INTEGER :: IN( 2 ), OUT( 2 )
+#endif
+      INTEGER ::  LP, IERR
       LP      = ICNTL( 1 )
       IN( 1 ) = INFO ( 1 )
       IN( 2 ) = ID

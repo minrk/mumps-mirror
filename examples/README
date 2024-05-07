@@ -7,6 +7,7 @@ generated, you may compile the example drivers by typing either
    make d
    make c
    make z
+   make multi
 or make all
 
 
@@ -33,3 +34,15 @@ or make all
     "./c_example" (sequential version).
   The solution should be (1,2)
 
+
+* For multiple instances using different arithmetics,
+  a small example is available in multiple_arithmetics_example.F.
+  Supposing the MUMPS libraries with all arithmetic have been generated,
+  you may compile the example driver by typing :
+
+   make multi
+
+   Then try for example:
+   	"mpirun -np 3 ./multiple_arithmetics_example" (parallel version),or
+   	"./multiple_arithmetics_example" (sequential version).
+	

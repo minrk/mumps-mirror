@@ -1,26 +1,28 @@
 C
-C  This file is part of MUMPS 5.0.2, released
-C  on Fri Jul 15 09:12:54 UTC 2016
+C  This file is part of MUMPS 5.1.1, released
+C  on Tue Mar 21 14:55:59 UTC 2017
 C
 C
-C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
 C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
-       SUBROUTINE SMUMPS_FAC_A(N, NZ, NSCA, 
-     &      ASPK, IRN, ICN, COLSCA, ROWSCA, WK, LWK, WK_REAL,
+       SUBROUTINE SMUMPS_FAC_A(N, NZ8, NSCA, 
+     &      ASPK, IRN, ICN, COLSCA, ROWSCA, WK, LWK8, WK_REAL,
      &      LWK_REAL, ICNTL, INFO)
        IMPLICIT NONE
-      INTEGER N, NZ, NSCA
-      INTEGER IRN(NZ), ICN(NZ)
+      INTEGER N, NSCA
+      INTEGER(8), INTENT(IN) :: NZ8
+      INTEGER IRN(NZ8), ICN(NZ8)
       INTEGER ICNTL(40), INFO(40)
-      REAL    ASPK(NZ)
+      REAL, INTENT(IN) :: ASPK(NZ8)
       REAL COLSCA(*), ROWSCA(*)
-      INTEGER LWK, LWK_REAL
-      REAL    WK(LWK)
+      INTEGER(8), INTENT(IN) :: LWK8
+      INTEGER LWK_REAL
+      REAL    WK(LWK8)
       REAL WK_REAL(LWK_REAL)
       INTEGER MPG,LP
       INTEGER IWNOR
@@ -32,7 +34,11 @@ C
       MPG     = ICNTL(2)
       MPG    = ICNTL(3)
       PROK   = ((MPG.GT.0).AND.(ICNTL(4).GE.2))
-      IF (PROK) WRITE(MPG,101)
+      IF (PROK) THEN
+        WRITE(MPG,101)
+      ELSE
+        MPG = 0
+      ENDIF
  101    FORMAT(/' ****** SCALING OF ORIGINAL MATRIX '/)
         IF (NSCA.EQ.1) THEN
          IF (PROK)
@@ -43,7 +49,7 @@ C
         ELSEIF (NSCA.EQ.4) THEN
          IF (PROK)
      &   WRITE (MPG,*) ' ROW AND COLUMN SCALING (1 Pass)'
-        ENDIF
+       ENDIF
         DO 10 I=1,N
             COLSCA(I) = ONE
             ROWSCA(I) = ONE
@@ -51,19 +57,15 @@ C
         IF (5*N.GT.LWK_REAL) GOTO 410
         IWNOR = 1
           IF (NSCA.EQ.1) THEN
-            CALL SMUMPS_FAC_V(N,NZ,ASPK,IRN,ICN,
+            CALL SMUMPS_FAC_V(N,NZ8,ASPK,IRN,ICN,
      &        COLSCA,ROWSCA,MPG)
           ELSEIF (NSCA.EQ.3) THEN
-            CALL SMUMPS_FAC_Y(N,NZ,ASPK,IRN,ICN,WK_REAL(IWNOR),
+            CALL SMUMPS_FAC_Y(N,NZ8,ASPK,IRN,ICN,WK_REAL(IWNOR),
      &      COLSCA, MPG)
           ELSEIF (NSCA.EQ.4) THEN
-            CALL SMUMPS_ROWCOL(N,NZ,IRN,ICN,ASPK,
+            CALL SMUMPS_ROWCOL(N,NZ8,IRN,ICN,ASPK,
      &      WK_REAL(IWNOR),WK_REAL(IWNOR+N),COLSCA,ROWSCA,MPG)
           ENDIF
-      GOTO 500
-      INFO(2) = NZ-LWK
-      IF ((LP.GT.0).AND.(ICNTL(4).GE.1))
-     &     WRITE(LP,*) '*** ERROR: Not enough space to scale matrix'
       GOTO 500
  410  INFO(1) = -5
       INFO(2) = 5*N-LWK_REAL
@@ -73,29 +75,31 @@ C
  500  CONTINUE
       RETURN
       END SUBROUTINE SMUMPS_FAC_A
-      SUBROUTINE SMUMPS_ROWCOL(N,NZ,IRN,ICN,VAL,
+      SUBROUTINE SMUMPS_ROWCOL(N,NZ8,IRN,ICN,VAL,
      &    RNOR,CNOR,COLSCA,ROWSCA,MPRINT)
-      INTEGER N, NZ
-      REAL    VAL(NZ)
+      INTEGER,    INTENT(IN) :: N
+      INTEGER(8), INTENT(IN) :: NZ8
+      REAL    VAL(NZ8)
       REAL    RNOR(N),CNOR(N)
       REAL    COLSCA(N),ROWSCA(N)
       REAL    CMIN,CMAX,RMIN,ARNOR,ACNOR
-      INTEGER IRN(NZ), ICN(NZ)
+      INTEGER IRN(NZ8), ICN(NZ8)
       REAL    VDIAG
       INTEGER MPRINT
-      INTEGER I,J,K
+      INTEGER I,J
+      INTEGER(8) :: K8
       REAL ZERO, ONE
       PARAMETER(ZERO=0.0E0, ONE=1.0E0)
       DO 50 J=1,N
        CNOR(J)   = ZERO
        RNOR(J)   = ZERO
   50  CONTINUE
-      DO 100 K=1,NZ
-          I = IRN(K)
-          J = ICN(K)
+      DO 100 K8=1_8,NZ8
+          I = IRN(K8)
+          J = ICN(K8)
           IF ((I.LE.0).OR.(I.GT.N).OR.
      &        (J.LE.0).OR.(J.GT.N)) GOTO 100
-            VDIAG = abs(VAL(K))
+            VDIAG = abs(VAL(K8))
             IF (VDIAG.GT.CNOR(J)) THEN
               CNOR(J) =     VDIAG
             ENDIF
@@ -141,27 +145,29 @@ C
      &  WRITE(MPRINT,*) ' END OF SCALING BY MAX IN ROW AND COL'
       RETURN
       END SUBROUTINE SMUMPS_ROWCOL
-      SUBROUTINE SMUMPS_FAC_Y(N,NZ,VAL,IRN,ICN,
+      SUBROUTINE SMUMPS_FAC_Y(N,NZ8,VAL,IRN,ICN,
      &       CNOR,COLSCA,MPRINT)
-      INTEGER N,NZ
-      REAL VAL(NZ)
-      REAL CNOR(N)
-      REAL COLSCA(N)
-      INTEGER IRN(NZ), ICN(NZ)
+      INTEGER,    INTENT(IN)  :: N
+      INTEGER(8), INTENT(IN)  :: NZ8
+      REAL,    INTENT(IN)  :: VAL(NZ8)
+      REAL,       INTENT(OUT) :: CNOR(N)
+      REAL,       INTENT(OUT) :: COLSCA(N)
+      INTEGER,    INTENT(IN)  :: IRN(NZ8), ICN(NZ8)
+      INTEGER,    INTENT(IN)  :: MPRINT
       REAL VDIAG
-      INTEGER MPRINT
-      INTEGER I,J,K
+      INTEGER I,J
+      INTEGER(8) :: K8
       REAL ZERO, ONE
       PARAMETER (ZERO=0.0E0,ONE=1.0E0)
       DO 10 J=1,N
        CNOR(J)   = ZERO
   10  CONTINUE
-      DO 100 K=1,NZ
-        I = IRN(K)
-        J = ICN(K)
+      DO 100 K8=1_8,NZ8
+        I = IRN(K8)
+        J = ICN(K8)
         IF ((I.LE.0).OR.(I.GT.N).OR.
      &      (J.LE.0).OR.(J.GT.N)) GOTO 100
-        VDIAG = abs(VAL(K))
+        VDIAG = abs(VAL(K8))
         IF (VDIAG.GT.CNOR(J)) THEN
            CNOR(J) =     VDIAG
         ENDIF
@@ -179,26 +185,29 @@ C
       IF (MPRINT.GT.0) WRITE(MPRINT,*) ' END OF COLUMN SCALING'
       RETURN
       END SUBROUTINE SMUMPS_FAC_Y
-      SUBROUTINE SMUMPS_FAC_V(N,NZ,VAL,IRN,ICN,
+      SUBROUTINE SMUMPS_FAC_V(N,NZ8,VAL,IRN,ICN,
      &      COLSCA,ROWSCA,MPRINT)
-      INTEGER   N, NZ
-      REAL  VAL(NZ)
-      REAL ROWSCA(N),COLSCA(N)
-      INTEGER   IRN(NZ),ICN(NZ)
-      REAL      VDIAG
-      INTEGER   MPRINT,I,J,K
+      INTEGER   , INTENT(IN)  :: N
+      INTEGER(8), INTENT(IN)  :: NZ8
+      REAL   , INTENT(IN)  :: VAL(NZ8)
+      REAL      , INTENT(OUT) :: ROWSCA(N),COLSCA(N)
+      INTEGER   , INTENT(IN)  :: IRN(NZ8),ICN(NZ8)
+      INTEGER   , INTENT(IN)  :: MPRINT
+      REAL       :: VDIAG
+      INTEGER    :: I,J
+      INTEGER(8) :: K8
       INTRINSIC sqrt
       REAL ZERO, ONE
       PARAMETER(ZERO=0.0E0, ONE=1.0E0)
       DO 10 I=1,N
        ROWSCA(I)   = ONE
   10  CONTINUE
-      DO 100 K=1,NZ
-          I = IRN(K)
+      DO 100 K8=1_8,NZ8
+          I = IRN(K8)
           IF ((I.GT.N).OR.(I.LE.0)) GOTO 100
-          J = ICN(K)
+          J = ICN(K8)
           IF (I.EQ.J) THEN
-            VDIAG = abs(VAL(K))
+            VDIAG = abs(VAL(K8))
             IF (VDIAG.GT.ZERO) THEN
               ROWSCA(J) = ONE/(sqrt(VDIAG))
             ENDIF
@@ -210,27 +219,29 @@ C
       IF (MPRINT.GT.0) WRITE(MPRINT,*) ' END OF DIAGONAL SCALING'
       RETURN
       END SUBROUTINE SMUMPS_FAC_V
-      SUBROUTINE SMUMPS_FAC_X(NSCA,N,NZ,IRN,ICN,VAL,
+      SUBROUTINE SMUMPS_FAC_X(NSCA,N,NZ8,IRN,ICN,VAL,
      &    RNOR,ROWSCA,MPRINT)
-      INTEGER N, NZ, NSCA
-      INTEGER IRN(NZ), ICN(NZ)
-      REAL VAL(NZ)
+      INTEGER,    INTENT(IN) :: N, NSCA
+      INTEGER(8), INTENT(IN) :: NZ8
+      INTEGER,    INTENT(IN) :: IRN(NZ8), ICN(NZ8)
+      REAL VAL(NZ8)
       REAL RNOR(N)
       REAL ROWSCA(N)
-      REAL VDIAG
       INTEGER MPRINT
-      INTEGER I,J,K
-      REAL ZERO,ONE
-      PARAMETER (ZERO=0.0E0, ONE=1.0E0)
+      REAL VDIAG
+      INTEGER I,J
+      INTEGER(8) :: K8
+      REAL, PARAMETER :: ZERO = 0.0E0
+      REAL, PARAMETER :: ONE  = 1.0E0
       DO 50 J=1,N
        RNOR(J)   = ZERO
   50  CONTINUE
-      DO 100 K=1,NZ
-          I = IRN(K)
-          J = ICN(K)
+      DO 100 K8=1_8,NZ8
+          I = IRN(K8)
+          J = ICN(K8)
           IF ((I.LE.0).OR.(I.GT.N).OR.
      &        (J.LE.0).OR.(J.GT.N)) GOTO 100
-            VDIAG = abs(VAL(K))
+            VDIAG = abs(VAL(K8))
             IF (VDIAG.GT.RNOR(I)) THEN
               RNOR(I) =  VDIAG
             ENDIF
@@ -246,11 +257,11 @@ C
         ROWSCA(I) = ROWSCA(I)* RNOR(I)
  110  CONTINUE
       IF ( (NSCA.EQ.4) .OR. (NSCA.EQ.6) ) THEN
-        DO 150 K=1,NZ
-          I   = IRN(K)
-          J   = ICN(K)
+        DO 150 K8 = 1_8, NZ8
+          I   = IRN(K8)
+          J   = ICN(K8)
           IF (min(I,J).LT.1 .OR. I.GT.N .OR. J.GT.N) GOTO 150
-          VAL(K) = VAL(K) * RNOR(I)
+          VAL(K8) = VAL(K8) * RNOR(I)
  150    CONTINUE
       ENDIF
       IF (MPRINT.GT.0)
@@ -293,12 +304,12 @@ C
             IF (KEEP(55).EQ.0) THEN
              IF (.NOT.LSCAL) THEN
               CALL SMUMPS_SOL_X(id%A(1),
-     &          id%NZ, id%N,
+     &          id%KEEP8(28), id%N,
      &          id%IRN(1), id%JCN(1),
      &          SUMR, KEEP(1),KEEP8(1) )
              ELSE
               CALL SMUMPS_SCAL_X(id%A(1),
-     &          id%NZ, id%N,
+     &          id%KEEP8(28), id%N,
      &          id%IRN(1), id%JCN(1), 
      &          SUMR, KEEP(1), KEEP8(1),
      &          id%COLSCA(1))
@@ -309,13 +320,14 @@ C
               CALL SMUMPS_SOL_X_ELT(MTYPE, id%N,
      &           id%NELT, id%ELTPTR(1),
      &           id%LELTVAR, id%ELTVAR(1),
-     &           id%NA_ELT, id%A_ELT(1),
-     &           SUMR, KEEP(1),KEEP8(1) )
+     &           id%KEEP8(30), 
+     &           id%A_ELT(1), SUMR, KEEP(1),KEEP8(1) )
              ELSE
               CALL SMUMPS_SOL_SCALX_ELT(MTYPE, id%N,
      &           id%NELT, id%ELTPTR(1),
      &           id%LELTVAR, id%ELTVAR(1),
-     &           id%NA_ELT, id%A_ELT(1),
+     &           id%KEEP8(30), 
+     &           id%A_ELT(1),
      &           SUMR, KEEP(1),KEEP8(1), id%COLSCA(1))
              ENDIF
             ENDIF
@@ -328,15 +340,15 @@ C
              RETURN
           ENDIF
           IF ( I_AM_SLAVE .and.
-     &           id%NZ_loc .NE. 0 ) THEN
+     &           id%KEEP8(29) .NE. 0 ) THEN
            IF (.NOT.LSCAL) THEN
               CALL SMUMPS_SOL_X(id%A_loc(1),
-     &          id%NZ_loc, id%N,
+     &          id%KEEP8(29), id%N,
      &          id%IRN_loc(1), id%JCN_loc(1), 
      &          SUMR_LOC, id%KEEP(1),id%KEEP8(1) )
            ELSE
               CALL SMUMPS_SCAL_X(id%A_loc(1),
-     &          id%NZ_loc, id%N,
+     &          id%KEEP8(29), id%N,
      &          id%IRN_loc(1), id%JCN_loc(1), 
      &          SUMR_LOC, id%KEEP(1),id%KEEP8(1),
      &          id%COLSCA(1))
