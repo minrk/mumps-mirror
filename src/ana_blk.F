@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.6.1, released
-C  on Tue Jul 11 07:51:28 UTC 2023
+C  This file is part of MUMPS 5.6.2, released
+C  on Wed Oct 11 09:36:25 UTC 2023
 C
 C
 C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -700,7 +700,6 @@ C
            IF ( LPOK ) THEN
               WRITE(LP, *) " ERROR allocate of LUMAT%COL; WT"
            END IF
-           GOTO 500
       ENDIF
       CALL MUMPS_PROPINFO(  ICNTL(1), INFO(1),
      &     COMM, MYID )
@@ -819,15 +818,16 @@ C
            IF ( LPOK ) THEN
               WRITE(LP, *) " ERROR allocate of LUMAT%COL; WT"
            END IF
-           GOTO 500
+           GOTO 400
       ENDIF
       CALL MUMPS_AB_LOCALCLEAN_LMAT ( MYID,
      &     LUMAT, WT(1), LUMAT%NBCOL, INFO(1), INFO(2), LP, LPOK
      & )
+      DEALLOCATE(WT)
+ 400  CONTINUE
       CALL MUMPS_PROPINFO(  ICNTL(1), INFO(1),
      &     COMM, MYID )
       IF ( INFO(1) .LT. 0 ) GOTO 500
-      DEALLOCATE(WT)
       GOTO 600
   500 CONTINUE
       IF (allocated(WT)) DEALLOCATE(WT)

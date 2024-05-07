@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.6.1, released
-C  on Tue Jul 11 07:51:28 UTC 2023
+C  This file is part of MUMPS 5.6.2, released
+C  on Wed Oct 11 09:36:25 UTC 2023
 C
 C
 C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -261,13 +261,20 @@ C
       IF (id%KEEP(53) .NE. 0) THEN
          SPLITROOT = .TRUE.
       ENDIF
-      SPLITROOT = (SPLITROOT.AND.( (id%KEEP(60).EQ.0) ))
+         SPLITROOT = (SPLITROOT.AND.( (id%KEEP(60).EQ.0) ))
          IF (SPLITROOT) THEN
+           IF (id%KEEP(339).EQ.0) THEN
             IDUMMY(1) = -1
             CALL SMUMPS_CUTNODES(N, FRERE(1), FILS(1), NFSIZ(1),
      &           IDUMMY, LIDUMMY, id%INFOG(6), 
      &           id%NSLAVES, id%KEEP(1), id%KEEP8(1),
      &           SPLITROOT, MP, LDIAG, id%INFOG(1), id%INFOG(2))
+           ELSE
+            CALL SMUMPS_CUTNODES(N, FRERE(1), FILS(1), NFSIZ(1),
+     &           SIZEOFBLOCKS, id%NBLK, id%INFOG(6), 
+     &           id%NSLAVES, id%KEEP(1), id%KEEP8(1),
+     &           SPLITROOT, MP, LDIAG, id%INFOG(1), id%INFOG(2))
+           ENDIF
             IF (id%INFOG(1).LT.0) RETURN
             IF ( id%KEEP(53) .NE. 0 ) THEN
               CALL MUMPS_MAKE1ROOT(N, FRERE(1), FILS(1), NFSIZ(1),
@@ -663,6 +670,12 @@ C
           LAST(I)  = -99
          ENDDO
          BASE = 0
+#if defined(AVOID_MPI_IN_PLACE)
+         CALL MPI_ALLGATHER( GCOMP_DIST%FIRST, 1, MPI_INTEGER,
+     &   FIRST, 1, MPI_INTEGER, ord%COMM_PARAORD, IERR )
+         CALL MPI_ALLGATHER( GCOMP_DIST%LAST, 1, MPI_INTEGER,
+     &   LAST, 1, MPI_INTEGER, ord%COMM_PARAORD, IERR )
+#else
          FIRST(ord%MYID_PARAORD + 1)= GCOMP_DIST%FIRST
          LAST (ord%MYID_PARAORD + 1)= GCOMP_DIST%LAST
          CALL MPI_ALLREDUCE(MPI_IN_PLACE, FIRST(1), 
@@ -671,6 +684,7 @@ C
          CALL MPI_ALLREDUCE(MPI_IN_PLACE, LAST(1),  
      &        ord%NPROCS_PARAORD+1,
      &        MPI_INTEGER, MPI_MAX, ord%COMM_PARAORD, IERR)
+#endif
          DO I=1, ord%NPROCS_PARAORD+1
           IF (FIRST(I).EQ.-99) THEN
             FIRST(I) = GCOMP_DIST%NG+1

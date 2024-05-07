@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.6.1, released
-C  on Tue Jul 11 07:51:28 UTC 2023
+C  This file is part of MUMPS 5.6.2, released
+C  on Wed Oct 11 09:36:25 UTC 2023
 C
 C
 C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -996,10 +996,11 @@ C
             END IF
            END DO
            IF ( IERR .eq. -2 ) THEN
-              IF (LP > 0 ) WRITE(LP,*) MYID,
+             IF (LP > 0 ) THEN 
+               WRITE(LP,*) MYID,
      &": FAILURE, SEND BUFFER TOO SMALL DURING
      & CMUMPS_PROCESS_SYM_BLOCFACTO"
-             WRITE(LP,*) "NPIV=", NPIV, "NROW1=",NROW1
+             ENDIF
              IFLAG = -17
              IERROR = 5 * KEEP(34) + NPIV * NROW1 * KEEP(35)
              GOTO 700

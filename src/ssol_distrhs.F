@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.6.1, released
-C  on Tue Jul 11 07:51:28 UTC 2023
+C  This file is part of MUMPS 5.6.2, released
+C  on Wed Oct 11 09:36:25 UTC 2023
 C
 C
 C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -72,6 +72,9 @@ C
       INTEGER :: NB_FS_TOUCHED
       INTEGER :: NBROWSTORECV                
       REAL, PARAMETER :: ZERO = 0.0E0
+#if defined(AVOID_MPI_IN_PLACE)
+      INTEGER :: allocoktmp
+#endif
 !$    NOMP = OMP_GET_MAX_THREADS()
       NB_BYTES_LOC = 0_8
       ALLOCATE( NBROWSTOSEND    (NSLAVES),
@@ -81,9 +84,15 @@ C
       IF (allocok > 0) THEN
         INFO(1) = -13
         INFO(2) = NSLAVES+NSLAVES+NRHS_loc
+      ELSE
+        NB_BYTES_LOC = int(2*NSLAVES+NRHS_loc,8)*KEEP(34)
       ENDIF
-      NB_BYTES_LOC = int(2*NSLAVES+NRHS_loc,8)*KEEP(34)
+#if defined(AVOID_MPI_IN_PLACE)
+      allocoktmp=allocok
+      CALL MPI_ALLREDUCE( allocoktmp, allocok, 1,
+#else
       CALL MPI_ALLREDUCE( MPI_IN_PLACE, allocok, 1,
+#endif
      &                    MPI_INTEGER, MPI_SUM,
      &                    COMM_NODES, IERR_MPI )
       IF (allocok .GT. 0) RETURN

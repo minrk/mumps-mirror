@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.6.1, released
-C  on Tue Jul 11 07:51:28 UTC 2023
+C  This file is part of MUMPS 5.6.2, released
+C  on Wed Oct 11 09:36:25 UTC 2023
 C
 C
 C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -939,6 +939,9 @@ C
                DEALLOCATE(IPQ8)
             ENDIF
             COMPRESS = 0
+           IF ( PROK ) THEN
+              CALL MUMPS_SECDEB( TIMEB )
+           ENDIF
            IF (KEEP(106).EQ.2) THEN
              IF (PROK) THEN
              WRITE(MP,'(A)') " SYMBOLIC based on column counts "

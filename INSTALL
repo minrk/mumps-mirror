@@ -1,5 +1,5 @@
 ===========================================
-MUMPS 5.6.1 INSTALLATION
+MUMPS 5.6.2 INSTALLATION
 ===========================================
 
 Pre-requisites
@@ -35,8 +35,8 @@ Installation
 
 The following steps can be applied.
 
-% tar zxvf MUMPS_5.6.1.tar.gz
-% cd MUMPS_5.6.1
+% tar zxvf MUMPS_5.6.2.tar.gz
+% cd MUMPS_5.6.2
 
 You then need to build a file called Makefile.inc corresponding
 to your architecture. A few examples are available in the
@@ -110,11 +110,11 @@ since dynamic libraries require the -fPIC option during compilation (if
 needed, the definition FPIC_OPT=-fPIC can be adapted in the Makefile.inc)
 
 The dynamic libraries (e.g. libmumps.so, libdmumps.so, etc.) are
-installed in the directory MUMPS_5.6.1/lib/
-so that including the directory MUMPS_5.6.1/lib in your
+installed in the directory MUMPS_5.6.2/lib/
+so that including the directory MUMPS_5.6.2/lib in your
 LD_LIBRARY_PATH environment variable will allow them to be successively
 loaded at runtime. Alternatively, you can uncomment and adapt the line
-#RPATH_OPT= -Wl,-rpath /path/to/MUMPS_5.6.1/lib
+#RPATH_OPT= -Wl,-rpath /path/to/MUMPS_5.6.2/lib
 in the Makefile.inc
 
 Although we do not currently support an official SONAME, note that, given a
@@ -135,7 +135,6 @@ memory estimates between executions.
 When compiling MUMPS with -DDETERMINISTIC_PARALLEL_GRAPH, the order of
 the edges of the graph passed to ordering packages will be identical
 for each run.
-
 
 -DMAIN_COMP:
 Note that some Fortran runtime libraries define the "main" symbol.
@@ -178,6 +177,13 @@ When this flag is used, MUMPS does not need to be linked with the
 BLACS and ScaLAPACK libraries. This is not recommended because
 performance can be decreased. ICNTL(13) will be ignored if it
 is set to 0.
+
+-DAVOID_MPI_IN_PLACE:
+MUMPS uses MPI_IN_PLACE in some collective MPI operations. In case of
+MPI environments where MPI_IN_PLACE is failing, it is possible to
+avoid the use of MPI_IN_PLACE at the cost of more temporary memory
+allocation and possibly less efficient code.
+
 
 Sequential version
 ------------------

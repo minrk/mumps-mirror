@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.6.1, released
-C  on Tue Jul 11 07:51:28 UTC 2023
+C  This file is part of MUMPS 5.6.2, released
+C  on Wed Oct 11 09:36:25 UTC 2023
 C
 C
 C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -7482,20 +7482,20 @@ C
      &                 id%COMM, id%MYID )
                   IF ( id%INFO(1) .LT. 0 ) GOTO 100
                   if(size_array1.EQ.-999) then
-                     SIZE_GEST_ROOT(i2)=SIZE_INT*2
-                     SIZE_VARIABLES_ROOT(i2)=0_8
-                     read(unit,iostat=err) dummy
+                    SIZE_GEST_ROOT(i2)=SIZE_INT*2
+                    SIZE_VARIABLES_ROOT(i2)=0_8
+                    read(unit,iostat=err) dummy
                   else
-                     SIZE_GEST_ROOT(i2)=SIZE_INT
-                     SIZE_VARIABLES_ROOT(i2)=size_array1*SIZE_ARITH_DEP
-                     allocate(id%root%RHS_CNTR_MASTER_ROOT(size_array1), 
-     &                    stat=allocok)
-                     if (allocok .GT. 0) THEN
-                        id%INFO(1) = -78
-                        CALL MUMPS_SETI8TOI4(
-     &                       TOTAL_STRUC_SIZE-size_allocated
-     &                       ,id%INFO(2))
-                     endif
+                    SIZE_GEST_ROOT(i2)=SIZE_INT
+                    SIZE_VARIABLES_ROOT(i2)=size_array1*SIZE_ARITH_DEP
+                    allocate(id%root%RHS_CNTR_MASTER_ROOT(size_array1),
+     &                   stat=allocok)
+                    if (allocok .GT. 0) THEN
+                       id%INFO(1) = -78
+                       CALL MUMPS_SETI8TOI4(
+     &                      TOTAL_STRUC_SIZE-size_allocated
+     &                      ,id%INFO(2))
+                    endif
                      read(unit,iostat=err) id%root%RHS_CNTR_MASTER_ROOT
                   endif
                   CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1),
@@ -7577,7 +7577,7 @@ C
                      SIZE_GEST_ROOT(i2)=SIZE_INT*2
                      SIZE_VARIABLES_ROOT(i2)=size_array1*size_array2
      &                    *SIZE_ARITH_DEP
-                     allocate(id%root%RHS_ROOT(size_array1,size_array2), 
+                     allocate(id%root%RHS_ROOT(size_array1,size_array2),
      &                    stat=allocok)
                      if (allocok .GT. 0) THEN
                         id%INFO(1) = -78

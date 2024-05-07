@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.6.1, released
-C  on Tue Jul 11 07:51:28 UTC 2023
+C  This file is part of MUMPS 5.6.2, released
+C  on Wed Oct 11 09:36:25 UTC 2023
 C
 C
 C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -121,6 +121,9 @@ C
      &           RKinidCOMM_PROC0SYMB
       LOGICAL :: COMM_PARAORD_ALLOCATED, COMM_PARASYMB_ALLOCATED
       INTEGER, ALLOCATABLE, DIMENSION(:) :: PARAORD_to_idCOMM
+#if defined(AVOID_MPI_IN_PLACE)
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: TMP
+#endif
 C     
 C     INTEGER WORKSPACE 
 C     
@@ -646,11 +649,17 @@ C         allocate and initialize PARAORD_to_idCOMM
           if (allocated(PARAORD_to_idCOMM)) 
      &         DEALLOCATE(PARAORD_to_idCOMM)
           allocate(PARAORD_to_idCOMM(NPROCS_PARAORD), 
+#if defined(AVOID_MPI_IN_PLACE)
+     &             TMP(NPROCS_PARAORD), 
+#endif
      &             STAT=allocok)
           IF (allocok.NE.0) THEN
-           id%INFO( 1 ) = -7
-           id%INFO( 2 ) = NPROCS_PARAORD
-           IF ( LPOK ) WRITE(LP, 150) ' PARAORD_to_idCOMM'
+            id%INFO( 1 ) = -7
+            id%INFO( 2 ) = NPROCS_PARAORD
+#if defined(AVOID_MPI_IN_PLACE)
+     &                   + NPROCS_PARAORD
+#endif
+            IF ( LPOK ) WRITE(LP, 150) ' PARAORD_to_idCOMM'
           ENDIF
           CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
      &     id%COMM, id%MYID )
@@ -660,8 +669,14 @@ C         allocate and initialize PARAORD_to_idCOMM
      &          COMM_PARASYMB, NPROCS_PARASYMB,
      &          COMM_PARAORD, NPROCS_PARAORD,
      &          PARAORD_to_idCOMM, 
+#if defined(AVOID_MPI_IN_PLACE)
+     &          TMP,
+#endif
      &          RKinSYMB_PROC0ORD, 
      &          RKinidCOMM_PROC0SYMB, id%NPROCS )
+#if defined(AVOID_MPI_IN_PLACE)
+          DEALLOCATE(TMP)
+#endif
 C
 C 
 C        build LUMAT such that col of LUMAT are distributed 
@@ -2605,9 +2620,9 @@ C       processes to fill NBINCOL_TMP and NBINROW_TMP.
          IF (allocok.GT.0) THEN
            INFO(1)=-7
            CALL MUMPS_SET_IERROR(int(id%N,8)+int(id%N,8), INFO(2))
-           CALL MUMPS_PROPINFO( ICNTL(1), INFO(1), id%COMM, id%MYID )
-           IF ( INFO(1).LT.0 ) GOTO 500
          ENDIF
+         CALL MUMPS_PROPINFO( ICNTL(1), INFO(1), id%COMM, id%MYID )
+         IF ( INFO(1).LT.0 ) GOTO 500
          CALL CMUMPS_ANA_N_DIST(id, NBINCOL_TMP, NBINROW_TMP)
 C        NBINCOL_TMP/NBINROW_TMP freed asap on non-working host
          IF ( .NOT. I_AM_SLAVE ) THEN

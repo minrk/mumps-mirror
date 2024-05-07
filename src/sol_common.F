@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.6.1, released
-C  on Tue Jul 11 07:51:28 UTC 2023
+C  This file is part of MUMPS 5.6.2, released
+C  on Wed Oct 11 09:36:25 UTC 2023
 C
 C
 C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -114,13 +114,29 @@ C
       INTEGER, INTENT(IN)    :: ICNTL(60)
       INCLUDE 'mpif.h'
       INTEGER :: I, NFS_LOC, NFS_TOT, IERR_MPI, allocok
+#if defined(AVOID_MPI_IN_PLACE)
+      INTEGER :: allocoktmp
+#endif
       INTEGER, ALLOCATABLE, DIMENSION(:) :: GLOBAL_MAPPING 
+#if defined(AVOID_MPI_IN_PLACE)
+      ALLOCATE(GLOBAL_MAPPING(int(N,8)+int(N,8)), stat=allocok)
+      IF (allocok .GT. 0) THEN
+        INFO(1)=-13
+        CALL MUMPS_SET_IERROR(int(N,8)+int(N,8), INFO(2))
+      ENDIF
+#else
       ALLOCATE(GLOBAL_MAPPING(N), stat=allocok)
       IF (allocok .GT. 0) THEN
         INFO(1)=-13
         INFO(2)= N
       ENDIF
+#endif
+#if defined(AVOID_MPI_IN_PLACE)
+      allocoktmp = allocok
+      CALL MPI_ALLREDUCE(allocoktmp, allocok, 1,
+#else
       CALL MPI_ALLREDUCE(MPI_IN_PLACE, allocok, 1,
+#endif
      &                   MPI_INTEGER, MPI_SUM,
      &                   COMM_NODES, IERR_MPI)
       IF (allocok .NE. 0) RETURN
@@ -146,8 +162,17 @@ C
      &  NFS_LOC, NFS_TOT, N
         CALL MUMPS_ABORT()
       ENDIF
-      CALL MPI_ALLREDUCE(MPI_IN_PLACE, GLOBAL_MAPPING, N, MPI_INTEGER,
-     &                   MPI_SUM, COMM_NODES, IERR_MPI)
+#if defined(AVOID_MPI_IN_PLACE)
+      DO I = 1, N
+        GLOBAL_MAPPING(int(N,8)+int(I,8)) = GLOBAL_MAPPING(I)
+      ENDDO
+      CALL MPI_ALLREDUCE( GLOBAL_MAPPING(N+1), GLOBAL_MAPPING,
+     &                    N, MPI_INTEGER,
+     &                    MPI_SUM, COMM_NODES, IERR_MPI )
+#else
+      CALL MPI_ALLREDUCE( MPI_IN_PLACE, GLOBAL_MAPPING, N, MPI_INTEGER,
+     &                    MPI_SUM, COMM_NODES, IERR_MPI )
+#endif
       DO I = 1, Nloc_RHS
         IF (IRHS_loc(I) .GE.1 .AND. IRHS_loc(I) .LE. N) THEN
           MAP_RHS_loc(I) = GLOBAL_MAPPING(IRHS_loc(I))

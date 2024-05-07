@@ -2,6 +2,14 @@
 = ChangeLog =
 -------------
 
+Changes from 5.6.1 to 5.6.2
+* Fixed time for symbolic factorization
+* Fixed parallel analysis when PAR=0, 1 MPI per node, #MPI not a power of 2
+* -DAVOID_MPI_IN_PLACE avoids MPI_IN_PLACE usage (in case not supported by MPI)
+* Fixed a bug in case of parallel analysis+analysis by blocks+scalapack off
+* Added missing $(PLAT) for libpord in makefile
+* Fixed message printing with error -17 
+
 Changes from 5.6.0 to 5.6.1
 * Fixed compatibility of parallel analysis with analysis by blocks/out-of-range
 * Minor fix of INFO(2) value in a case of INFO(1)=-7 with parallel analysis
@@ -763,6 +771,7 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.6.2            : October 2023
 Release 5.6.1            : July 2023
 Release 5.6.0            : April 2023
 Release 5.5.1            : July 2022

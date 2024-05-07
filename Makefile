@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.6.1, released
-#  on Tue Jul 11 07:51:28 UTC 2023
+#  This file is part of MUMPS 5.6.2, released
+#  on Wed Oct 11 09:36:25 UTC 2023
 #
 topdir = .
 libdir = $(topdir)/lib
@@ -88,19 +88,19 @@ libseqneededsharedlibseq:
 $(libdir)/libpord$(PLAT)$(LIBEXT):
 	if [ "$(LPORDDIR)" != "" ] ; then \
 	  cd $(LPORDDIR); \
-	  $(MAKE) CC="$(CC)" CFLAGS="$(OPTC)" AR="$(AR)" RANLIB="$(RANLIB)" OUTC="$(OUTC)" LIBEXT="$(LIBEXT)" LIBEXT_SHARED="$(LIBEXT_SHARED)" libpord$(LIBEXT); \
+	  $(MAKE) CC="$(CC)" PLAT="$(PLAT)" CFLAGS="$(OPTC)" AR="$(AR)" RANLIB="$(RANLIB)" OUTC="$(OUTC)" LIBEXT="$(LIBEXT)" LIBEXT_SHARED="$(LIBEXT_SHARED)" libpord$(PLAT)$(LIBEXT); \
 	fi;
 	if [ "$(LPORDDIR)" != "" ] ; then \
-	  cp $(LPORDDIR)/libpord$(LIBEXT) $@; \
+	  cp $(LPORDDIR)/libpord$(PLAT)$(LIBEXT) $@; \
 	fi;
 
 $(libdir)/libpord$(PLAT)$(LIBEXT_SHARED):
 	if [ "$(LPORDDIR)" != "" ] ; then \
 	  cd $(LPORDDIR); \
-	  $(MAKE) PLAT="$(PLAT)" FPIC="$(FPIC_OPT)" CC="$(CC)" CFLAGS="$(OPTC)" AR="$(AR)" RANLIB="$(RANLIB)" OUTC="$(OUTC)" LIBEXT="$(LIBEXT)" LIBEXT_SHARED="$(LIBEXT_SHARED)" libpord$(LIBEXT_SHARED); \
+	  $(MAKE) PLAT="$(PLAT)" FPIC="$(FPIC_OPT)" CC="$(CC)" CFLAGS="$(OPTC)" AR="$(AR)" RANLIB="$(RANLIB)" OUTC="$(OUTC)" LIBEXT="$(LIBEXT)" LIBEXT_SHARED="$(LIBEXT_SHARED)" libpord$(PLAT)$(LIBEXT_SHARED); \
 	fi;
 	if [ "$(LPORDDIR)" != "" ] ; then \
-	  cp $(LPORDDIR)/libpord$(LIBEXT_SHARED) $@; \
+	  cp $(LPORDDIR)/libpord$(PLAT)$(LIBEXT_SHARED) $@; \
 	fi;
 
 
