@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.4.0, released
-C  on Tue Apr 13 15:26:30 UTC 2021
+C  This file is part of MUMPS 5.4.1, released
+C  on Tue Aug  3 09:49:43 UTC 2021
 C
 C
 C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -17,7 +17,7 @@ C
      &           NUMELT, LIST_ELT, 
      &           MYID, INODE, N, IOLDPS,
      &           HF, NFRONT, NFRONT_EFF, PERM, 
-     &           NASS1, NASS, NUMSTK, NUMORG, IWPOSCB, 
+     &           NASS1, NASS, NUMSTK, NUMORG, IWPOSCB, IWPOS,
      &           IFSON, STEP, PIMASTER, PTRIST, PTRAIW, NELT, 
      &           IW, LIW, 
      &           INTARR, LINTARR, ITLOC,
@@ -39,6 +39,7 @@ C
      &        PERM(N)
       INTEGER, TARGET :: IW(LIW)
       INTEGER, INTENT(IN), TARGET :: IWPOSCB
+      INTEGER, INTENT(IN)         :: IWPOS
       INTEGER(8), INTENT(IN) :: LINTARR
       INTEGER :: INTARR(LINTARR)
       LOGICAL, intent(in)    :: NIV1
@@ -65,8 +66,9 @@ C
       INCLUDE 'mumps_headers.h'
       INTEGER, POINTER :: SON_IWPOSCB
       INTEGER, POINTER, DIMENSION(:) :: SON_IW
-      INTEGER allocok
-      INTEGER, ALLOCATABLE, DIMENSION(:) :: PTTRI, PTLAST
+      INTEGER, POINTER, DIMENSION(:) :: PTTRI, PTLAST
+      INTEGER                        :: LREQ, allocok
+      INTEGER, ALLOCATABLE, TARGET   :: TMP_ALLOC_ARRAY(:)
       INTEGER  MUMPS_TYPESPLIT, MUMPS_TYPENODE
       EXTERNAL MUMPS_TYPESPLIT, MUMPS_TYPENODE 
       IW(IOLDPS+XXNBPR) = 0
@@ -159,17 +161,18 @@ C
         ENDDO
         RETURN   
       ENDIF
-      IF (NUMSTK.GT.0) THEN
-        ALLOCATE(PTTRI(NUMSTK), stat=allocok)
-        IF (allocok .GT. 0) THEN
-         IFLAG = -13
-         GOTO 800
-        ENDIF
-        ALLOCATE(PTLAST(NUMSTK), stat=allocok)
-        IF (allocok .GT. 0) THEN
-          IFLAG = -13
-          GOTO 800
-      ENDIF
+      LREQ= 2*NUMSTK
+      IF ((IWPOS + LREQ -1) .GT. IWPOSCB) THEN
+       ALLOCATE(TMP_ALLOC_ARRAY(LREQ), stat=allocok)
+       IF (allocok .GT. 0) THEN
+        IFLAG = -13
+        GOTO 800
+       ENDIF
+       PTTRI  => TMP_ALLOC_ARRAY(1:NUMSTK)
+       PTLAST => TMP_ALLOC_ARRAY(NUMSTK+1:LREQ)
+      ELSE
+       PTTRI  => IW(IWPOS:IWPOS+NUMSTK-1)
+       PTLAST => IW(IWPOS+NUMSTK:IWPOS+LREQ)
       ENDIF
       IF (.NOT. NIV1) SONROWS_PER_ROW(1:NFRONT-NASS1) = 0
       IN = INODE
@@ -454,8 +457,7 @@ C
           ITLOC(I) = 0
         ENDDO
   800 CONTINUE
-      IF (allocated(PTTRI)) DEALLOCATE(PTTRI)
-      IF (allocated(PTLAST)) DEALLOCATE(PTLAST)
+      IF (allocated(TMP_ALLOC_ARRAY)) DEALLOCATE(TMP_ALLOC_ARRAY)
       RETURN
       END SUBROUTINE MUMPS_ELT_BUILD_SORT
       END MODULE MUMPS_BUILD_SORT_INDEX_ELT_M

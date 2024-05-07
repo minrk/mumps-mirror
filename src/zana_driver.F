@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.4.0, released
-C  on Tue Apr 13 15:26:30 UTC 2021
+C  This file is part of MUMPS 5.4.1, released
+C  on Tue Aug  3 09:49:43 UTC 2021
 C
 C
 C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -138,7 +138,7 @@ C     Element matrix entry
       INTEGER :: IB, BLKSIZE
       INTEGER :: IBcurrent, IPOS, IPOSB, II
 C      Internal work arrays:
-C      DOF2BLOCK(idof)=inode, idof∈[1,N], inode∈[1,NBLK]
+C      DOF2BLOCK(idof)=inode, idof in [1,N], inode in [1,NBLK]
 C      SIZEBLOCK(1:NBLK) (for node valuation) 
       INTEGER, TARGET, DIMENSION(:), allocatable:: SIZEOFBLOCKS
       INTEGER, DIMENSION(:), allocatable:: DOF2BLOCK
@@ -816,13 +816,6 @@ C                      of max trans value will be done during analysis
 C                Permutation is held in UNS_PERM(1, ...,N).  
 C                Maximum transversal is not available for element 
 C                entry format
-               IF (.not.associated(id%A)) THEN
-C              -- If maxtrans is required and A not allocated then reset 
-C              -- it to structural based maxtrans.
-                  IF (KEEP(23).GT.2) THEN
-                     KEEP(23) = 1
-                  ENDIF
-               ENDIF
 C              UNS_PERM that might be set to
 C              to permutation computed during Max transversal
                ALLOCATE(id%UNS_PERM(id%N),IKEEPALLOC(3*id%N),
@@ -3773,7 +3766,7 @@ C     ordering is given,
 C     or matrix is in element form, or Schur is asked
 C     or initial matrix is distributed
 C     --------------------------------------------
-         IF (id%KEEP(23).LT.0.OR.id%KEEP(23).GT.7) id%KEEP(23) = 7
+         IF (id%KEEP(23).LT.0.OR.id%KEEP(23).GT.7) id%KEEP(23) = 0
 C        still forbid max trans for SYM=1 case
          IF ( id%KEEP(50) .EQ. 1 ) THEN
             IF (id%KEEP(23) .NE. 0) THEN
@@ -4454,33 +4447,99 @@ C     =======
 C
 C     If id%WRITE_PROBLEM has been set by the user,
 C     possibly on all processors in case of distributed
-C     matrix, opens a file and dumps the matrix and/or
-C     the right hand side. This subroutine calls
-C     ZMUMPS_DUMP_MATRIX and ZMUMPS_DUMP_RHS.
-C     The routine should be called on all processors.
+C     matrix, open a file and dumps the matrix and/or
+C     the right hand side. In case the last characters
+C     of id.WRITE_PROBLEM are "bin" (uppercase letters
+C     are also accepted), then the matrix is written
+C     in binary stream format (a C routine is called to
+C     avoid depending on the access='stream' mode that
+C     is only available since Fortran 2003). In that case,
+C     a small header file is also written.
+C     Otherwise, this subroutine calls
+C     ZMUMPS_DUMP_MATRIX (to write the matrix in
+C     matrix-market format) and ZMUMPS_DUMP_RHS.
+C     The routine should be called on all MPI processes.
+C
+C     Examples:
+C     1/ WRITE_PROBLEM='mymatrix.txt', centralized matrix
+C       mymatrix.txt contains the matrix in matrix-market format
+C     2/ WRITE_PROBLEM='mymatrix.txt', distributed matrix
+C       mymatrix.txt<i> contains the portion of the matrix
+C       on process <i>, in matrix-market format
+C     3/ WRITE_PROBLEM='mymatrix.bin', centralized matrix
+C       mymatrix.bin contains the matrix in binary format
+C       mymatrix.header contains a short description in text format,
+C                       with the first line identical to the one of
+C                       a matrix-market format
+C     4/ WRITE_PROBLEM='mymatrix.bin', distributed matrix
+C       mymatrix.bin<i> contains the portion of the matrix
+C                       on process <i>, in binary format
+C
+C       mymatrix.header contains a short description in text format,
+C          with the first line identical to matrix-market format
+C
+C     If a centralized, dense, RHS is available, it is also written,
+C     either in matrix-market or binary format (if WRITE_PROBLEM
+C     has a .bin extension). In that case the filename for the RHS
+C     is WRITE_PROBLEM//".rhs". If written in binary form, information
+C     on the RHS is also provided in the header file.
 C
       INCLUDE 'mpif.h'
+C
 C     Arguments
 C     =========
+C
       TYPE(ZMUMPS_STRUC)  :: id
 C
 C     Local variables
 C     ===============
 C
-      INTEGER              :: MASTER, IERR
+      INTEGER              :: MASTER, IERR, I
       INTEGER              :: IUNIT
       LOGICAL              :: IS_ELEMENTAL
       LOGICAL              :: IS_DISTRIBUTED
-      INTEGER              :: MM_WRITE
-      INTEGER              :: MM_WRITE_CHECK
-      CHARACTER(LEN=20)    :: MM_IDSTR
+      LOGICAL              :: NAME_INITIALIZED
+      INTEGER              :: DO_WRITE, DO_WRITE_CHECK
+      CHARACTER(LEN=20)    :: IDSTR
       LOGICAL              :: I_AM_SLAVE, I_AM_MASTER
+      INTEGER              :: L
+      LOGICAL              :: BINARY_FORMAT, DUMP_RHS,
+     &                        DUMP_BLKPTR, DUMP_BLKVAR
+      INTEGER              :: IS_A_PROVIDED, IS_A_PROVIDED_GLOB
+      COMPLEX(kind=8), TARGET                :: A_DUMMY(1)
+      INTEGER, TARGET                :: IRN_DUMMY(1), JCN_DUMMY(1)
+      INTEGER, POINTER, DIMENSION(:) :: IRN_PASSED, JCN_PASSED
+      COMPLEX(kind=8), POINTER, DIMENSION(:) :: A_PASSED
       PARAMETER( MASTER = 0 )
       IUNIT = 69
       I_AM_SLAVE = ( id%MYID .NE. MASTER  .OR.
      &     ( id%MYID .EQ. MASTER .AND.
      &     id%KEEP(46) .EQ. 1 ) )
       I_AM_MASTER = (id%MYID.EQ.MASTER)
+      NAME_INITIALIZED = id%WRITE_PROBLEM(1:20)
+     &     .NE. "NAME_NOT_INITIALIZED"
+      BINARY_FORMAT = .FALSE.
+      L=len_trim(id%WRITE_PROBLEM)
+      IF (L.GT.4) THEN
+        IF ( id%WRITE_PROBLEM(L-3:L-3) .EQ. '.' .AND.
+     &       ( id%WRITE_PROBLEM(L-2:L-2) .EQ. 'b' .OR.
+     &         id%WRITE_PROBLEM(L-2:L-2) .EQ. 'B' ) .AND.
+     &       ( id%WRITE_PROBLEM(L-1:L-1) .EQ. 'i' .OR.
+     &         id%WRITE_PROBLEM(L-1:L-1) .EQ. 'I' ) .AND.
+     &       ( id%WRITE_PROBLEM(L:L) .EQ. 'n' .OR.
+     &         id%WRITE_PROBLEM(L:L) .EQ. 'N' ) ) THEN
+          BINARY_FORMAT = .TRUE.
+        ENDIF
+      ENDIF
+C     Check if RHS should also be dumped
+      DUMP_RHS = id%MYID.EQ.MASTER .AND.
+     &     associated(id%RHS) .AND. NAME_INITIALIZED
+      DUMP_RHS = DUMP_RHS .AND. id%NRHS .GE. 1
+      DUMP_RHS = DUMP_RHS .AND. id%N .GE. 1
+      DUMP_RHS = DUMP_RHS .AND. id%ICNTL(20) .EQ. 0
+C     Check if BLKPTR and/or BLKVAR should also be dumped
+      DUMP_BLKPTR = .FALSE.
+      DUMP_BLKVAR = .FALSE.
 C     Remark: if id%KEEP(54) = 1 or 2, the structure
 C     is centralized at analysis. Since ZMUMPS_DUMP_PROBLEM
 C     is called at analysis phase, we define IS_DISTRIBUTED
@@ -4494,25 +4553,56 @@ C        ====================
 C        Matrix is assembled
 C        and centralized
 C        ====================
-        IF (id%WRITE_PROBLEM(1:20) .NE. "NAME_NOT_INITIALIZED")THEN
-          OPEN(IUNIT,FILE=trim(id%WRITE_PROBLEM))
-          CALL ZMUMPS_DUMP_MATRIX( id, IUNIT, I_AM_SLAVE, I_AM_MASTER,
+        IF (NAME_INITIALIZED) THEN
+          IF ( BINARY_FORMAT ) THEN
+            IF (id%KEEP8(28) .EQ. 0_8) THEN
+C             Special case of empty matrix
+              A_PASSED   => A_DUMMY
+              IRN_PASSED => IRN_DUMMY
+              JCN_PASSED => JCN_DUMMY
+              IS_A_PROVIDED = 1
+            ELSE IF (associated(id%A)) THEN
+              A_PASSED=>id%A
+              IRN_PASSED => id%IRN
+              JCN_PASSED => id%JCN
+              IS_A_PROVIDED = 1
+            ELSE
+              A_PASSED => A_DUMMY
+              IRN_PASSED => id%IRN
+              JCN_PASSED => id%JCN
+              IS_A_PROVIDED = 0
+            ENDIF
+            OPEN( IUNIT, FILE=id%WRITE_PROBLEM(1:L-4)//'.header' )
+            CALL ZMUMPS_DUMP_HEADER( IUNIT, id%N,
+     &      IS_A_PROVIDED, id%KEEP(50), IS_DISTRIBUTED,
+     &      id%NSLAVES, id%KEEP8(28), DUMP_RHS, id%NRHS,
+     &      DUMP_BLKPTR, DUMP_BLKVAR, id%NBLK, id%ICNTL(15) )
+            CLOSE( IUNIT )
+            CALL MUMPS_DUMPMATBINARY_C( id%N, id%KEEP8(28),
+     &      id%KEEP(35),
+     &      IRN_PASSED(1), JCN_PASSED(1), A_PASSED(1),
+     &      IS_A_PROVIDED,
+     &      trim(id%WRITE_PROBLEM)//char(0) )
+          ELSE
+            OPEN(IUNIT,FILE=trim(id%WRITE_PROBLEM))
+            CALL ZMUMPS_DUMP_MATRIX( id, IUNIT, I_AM_SLAVE, I_AM_MASTER,
      &         IS_DISTRIBUTED,  ! = .FALSE., centralized
      &         IS_ELEMENTAL,    ! Elemental or not
      &         .FALSE.)
-          CLOSE(IUNIT)
+            CLOSE(IUNIT)
+          ENDIF
         ENDIF
       ELSE IF (id%KEEP(54).EQ.3) THEN
 C        =====================
 C        Matrix is distributed
 C        =====================
-         IF (id%WRITE_PROBLEM(1:20) .EQ. "NAME_NOT_INITIALIZED"
+         IF ( .NOT.NAME_INITIALIZED
      &        .OR. .NOT. I_AM_SLAVE )THEN
-            MM_WRITE = 0
+            DO_WRITE = 0
          ELSE
-            MM_WRITE = 1
+            DO_WRITE = 1
          ENDIF
-         CALL MPI_ALLREDUCE(MM_WRITE, MM_WRITE_CHECK, 1,
+         CALL MPI_ALLREDUCE(DO_WRITE, DO_WRITE_CHECK, 1,
      &        MPI_INTEGER, MPI_SUM, id%COMM, IERR)
 C        -----------------------------------------
 C        If yes, each processor writes its share
@@ -4523,15 +4613,60 @@ C        Safer in case all filenames are the
 C        same if all processors share the same
 C        file system.
 C        -----------------------------------------
-         IF (MM_WRITE_CHECK.EQ.id%NSLAVES .AND. I_AM_SLAVE) THEN
-            WRITE(MM_IDSTR,'(I9)') id%MYID_NODES
-            OPEN(IUNIT,
-     &           FILE=trim(id%WRITE_PROBLEM)//trim(adjustl(MM_IDSTR)))
-            CALL ZMUMPS_DUMP_MATRIX(id, IUNIT, I_AM_SLAVE, I_AM_MASTER,
+         IF (DO_WRITE_CHECK.EQ.id%NSLAVES .AND. I_AM_SLAVE) THEN
+            WRITE(IDSTR,'(I9)') id%MYID_NODES
+            IF (BINARY_FORMAT) THEN
+              IF (id%KEEP8(29) .EQ. 0_8) THEN
+C               Special case of empty matrix
+                A_PASSED   => A_DUMMY
+                IRN_PASSED => IRN_DUMMY
+                JCN_PASSED => JCN_DUMMY
+C               (consider that A is provided when NNZ_loc=0)
+                IS_A_PROVIDED = 1
+              ELSE IF (associated(id%A_loc)) THEN
+                A_PASSED=>id%A_loc
+                IRN_PASSED => id%IRN_loc
+                JCN_PASSED => id%JCN_loc
+                IS_A_PROVIDED = 1
+              ELSE
+                A_PASSED => A_DUMMY
+                IRN_PASSED => id%IRN_loc
+                JCN_PASSED => id%JCN_loc
+                IS_A_PROVIDED = 0
+              ENDIF
+              CALL MPI_ALLREDUCE( IS_A_PROVIDED,
+     &             IS_A_PROVIDED_GLOB, 1,
+     &             MPI_INTEGER, MPI_PROD, id%COMM_NODES, IERR )
+C             IS_A_PROVIDED_GLOB = 1 => dump numerical values
+C             IS_A_PROVIDED_GLOB = 0 => some processes did not provide
+C                                   numerical values, dump only pattern,
+C                                   and indicate this in the header
+              IF ( id%MYID_NODES.EQ.0) THEN
+C               Print header on first MPI worker (only one global header
+C               file in case of distributed matrix), replacing the .bin
+C               extension by a .header extension
+                OPEN( IUNIT, FILE=id%WRITE_PROBLEM(1:L-4)//'.header' )
+                CALL ZMUMPS_DUMP_HEADER( IUNIT, id%N,
+     &          IS_A_PROVIDED_GLOB, id%KEEP(50), IS_DISTRIBUTED,
+     &          id%NSLAVES, id%KEEP8(28), DUMP_RHS, id%NRHS,
+     &          DUMP_BLKPTR, DUMP_BLKVAR, id%NBLK, id%ICNTL(15) )
+                CLOSE( IUNIT )
+              ENDIF
+              CALL MUMPS_DUMPMATBINARY_C( id%N, id%KEEP8(29),
+     &        id%KEEP(35),
+     &        IRN_PASSED(1), JCN_PASSED(1), A_PASSED(1),
+     &        IS_A_PROVIDED_GLOB,
+     &        trim(id%WRITE_PROBLEM)//trim(adjustl(IDSTR))//char(0) )
+            ELSE
+              OPEN(IUNIT,
+     &             FILE=trim(id%WRITE_PROBLEM)//trim(adjustl(IDSTR)))
+              CALL ZMUMPS_DUMP_MATRIX(id,
+     &           IUNIT, I_AM_SLAVE, I_AM_MASTER,
      &           IS_DISTRIBUTED,           ! =.TRUE., distributed
      &           IS_ELEMENTAL,             ! Elemental or not
      &           .FALSE.)
-            CLOSE(IUNIT)
+              CLOSE(IUNIT)
+            ENDIF
          ENDIF
 C     ELSE ...
 C     Nothing written in other cases.
@@ -4539,19 +4674,139 @@ C     Nothing written in other cases.
 C     ===============
 C     Right-hand side
 C     ===============
-      IF ( id%MYID.EQ.MASTER .AND.
-     &     associated(id%RHS) .AND.
-     &     id%WRITE_PROBLEM(1:20)
-     &     .NE. "NAME_NOT_INITIALIZED")THEN
-        OPEN(IUNIT,FILE=trim(id%WRITE_PROBLEM) //".rhs")
-        CALL ZMUMPS_DUMP_RHS(IUNIT, id)
-        CLOSE(IUNIT)
+      IF ( DUMP_RHS ) THEN
+        IF (BINARY_FORMAT) THEN
+C         dump RHS in binary format
+          CALL MUMPS_DUMPRHSBINARY_C( id%N, id%NRHS, id%LRHS, id%RHS(1),
+     &    id%KEEP(35),
+     &    trim(id%WRITE_PROBLEM)//'.rhs'//char(0) )
+        ELSE
+C         dump RHS in matrix-market format
+          OPEN(IUNIT,FILE=trim(id%WRITE_PROBLEM) //".rhs")
+          CALL ZMUMPS_DUMP_RHS(IUNIT, id)
+          CLOSE(IUNIT)
+        ENDIF
+      ENDIF
+      IF ( DUMP_BLKPTR ) THEN
+          IF (BINARY_FORMAT) THEN
+!           suppress trailing '.bin' and use '.blkptr'
+            OPEN( IUNIT, FILE=id%WRITE_PROBLEM(1:L-4)//'.blkptr' )
+          ELSE
+!           just append '.blkptr'
+            OPEN(IUNIT,FILE=trim(id%WRITE_PROBLEM)//".blkptr")
+          ENDIF
+          WRITE(IUNIT,'(I9)') id%NBLK
+          DO I=1,id%NBLK+1
+            WRITE(IUNIT,'(I9)') id%BLKPTR(I)
+          ENDDO
+          CLOSE(IUNIT)
+      ENDIF
+      IF ( DUMP_BLKVAR ) THEN
+          IF (BINARY_FORMAT) THEN
+!           suppress trailing '.bin' and use '.blkvar'
+            OPEN( IUNIT, FILE=id%WRITE_PROBLEM(1:L-4)//'.blkvar' )
+          ELSE
+!           just append '.blkvar'
+            OPEN(IUNIT,FILE=trim(id%WRITE_PROBLEM)//".blkvar")
+          ENDIF
+          DO I=1,id%N
+            WRITE(IUNIT,'(I9)') id%BLKVAR(I)
+          ENDDO
+          CLOSE(IUNIT)
       ENDIF
       RETURN
       END SUBROUTINE ZMUMPS_DUMP_PROBLEM
+      SUBROUTINE ZMUMPS_DUMP_HEADER( IUNIT, N, IS_A_PROVIDED_GLOB,
+     &  SYM, IS_DISTRIBUTED, NSLAVES, NNZTOT, DUMP_RHS, NRHS,
+     &  DUMP_BLKPTR, DUMP_BLKVAR, NBLK, ICNTL15 )
+C
+C  Purpose:
+C  =======
+C
+C  Write a small header file, similar to matrix-market headers,
+C  to accompany a matrix written in binary format.
+C
+      INTEGER, INTENT(IN) :: IUNIT, N, IS_A_PROVIDED_GLOB , SYM, NSLAVES
+      INTEGER(8), INTENT(IN) :: NNZTOT
+      LOGICAL, INTENT(IN) :: IS_DISTRIBUTED, DUMP_RHS
+      INTEGER, INTENT(IN) :: NRHS
+      LOGICAL, INTENT(IN) :: DUMP_BLKPTR, DUMP_BLKVAR
+      INTEGER, INTENT(IN) :: NBLK
+      INTEGER, INTENT(IN) :: ICNTL15
+C
+C  Local declarations:
+C  ==================
+C
+      CHARACTER (LEN=10)   :: SYMM
+      CHARACTER (LEN=8)    :: ARITH
+C     1/ write a line identical to first line of matrix-market header
+      IF ( IS_A_PROVIDED_GLOB .EQ. 1 ) THEN
+          ARITH='complex'
+      ELSE
+        ARITH='pattern'
+      ENDIF
+      IF (SYM .eq. 0) THEN
+        SYMM="general"
+      ELSE
+        SYMM="symmetric"
+      END IF
+      WRITE(IUNIT,'(A,A,A,A)') '%%MatrixMarket matrix coordinate ',
+     &           trim(ARITH)," ",trim(SYMM)
+C     2/ indicate if matrix is distributed or centralized,
+C     then describe binary file content and format
+      IF ( IS_DISTRIBUTED ) THEN
+        WRITE(IUNIT,FMT='(A,I5,A)')
+     &  '% Matrix is distributed (MPI ranks=',NSLAVES,')'
+      ELSE
+        WRITE(IUNIT,FMT='(A)')
+     &  '% Matrix is centralized'
+      ENDIF
+      WRITE(IUNIT,FMT='(A)')
+     &    '% Unformatted stream IO (no record boundaries):'
+      IF (ARITH(1:7).EQ.'pattern') THEN
+        IF (IS_DISTRIBUTED) THEN
+          WRITE(IUNIT,'(A)')
+     &    '%    N,NNZ_loc,IRN_loc(1:NNZ_loc),JCN_loc(1:NNZ_loc)'
+        ELSE
+          WRITE(IUNIT,'(A)')
+     &    '%    N,NNZ,IRN(1:NNZ),JCN(1:NNZ)'
+        ENDIF
+        WRITE(IUNIT,'(A)') '%    (numerical values not provided)'
+      ELSE
+        IF (IS_DISTRIBUTED) THEN
+          WRITE(IUNIT,'(A)')
+     &    '%    N,NNZ_loc,IRN_loc(1:NNZ_loc),JCN_loc(1:NNZ_loc),'//
+     &    'A_loc(1:NNZ_loc)'
+        ELSE
+          WRITE(IUNIT,'(A)') '%    N/NNZ/IRN(1:NNZ),JCN(1:NNZ),A(1:NNZ)'
+        ENDIF
+        WRITE(IUNIT,'(A)') '%    Double complex storage'
+      ENDIF
+      IF ( IS_DISTRIBUTED ) THEN
+        WRITE(IUNIT,'(A,/,A)')
+     &  '%    N,IRN_loc(i),JCN_loc(i): 32 bits',
+     &  '%    NNZ_loc: 64 bits'
+      ELSE
+        WRITE(IUNIT,'(A,/,A)')
+     &  '%    N,IRN(i),JCN(i): 32 bits',
+     &  '%    NNZ: 64 bits'
+      ENDIF
+      WRITE(IUNIT,FMT='(A,I12)') '% Matrix order: N=',N
+      WRITE(IUNIT,FMT='(A,I12)') '% Matrix nonzeros: NNZ=',NNZTOT
+      IF (DUMP_RHS) THEN
+        WRITE(IUNIT,FMT='(A)') '%'
+        WRITE(IUNIT,FMT='(A,/,A,I10,A,I5)')
+     &  '% A RHS was also written to disk by columns in binary form.',
+     &  '%    Size: N rows x NRHS columns with N=',N,'  NRHS=',NRHS
+        WRITE(IUNIT,FMT='(A,I12,A)')
+     &  '%    Total:',int(N,8)*int(NRHS,8),' scalar values.'
+        WRITE(IUNIT,'(A)') '%    Double complex storage'
+      ENDIF
+      RETURN
+      END SUBROUTINE ZMUMPS_DUMP_HEADER
       SUBROUTINE ZMUMPS_DUMP_MATRIX
      & (id, IUNIT, I_AM_SLAVE, I_AM_MASTER,
-     &  IS_DISTRIBUTED, IS_ELEMENTAL, SAVE_PATTERN )
+     &  IS_DISTRIBUTED, IS_ELEMENTAL, PATTERN_ONLY )
       USE ZMUMPS_STRUC_DEF
       IMPLICIT NONE
 C
@@ -4583,7 +4838,7 @@ C
      &                       I_AM_MASTER,
      &                       IS_DISTRIBUTED,
      &                       IS_ELEMENTAL,
-     &                       SAVE_PATTERN
+     &                       PATTERN_ONLY
       INTEGER, intent(in) :: IUNIT
       TYPE(ZMUMPS_STRUC), intent(in)  :: id
 C
@@ -4606,7 +4861,7 @@ C        ==================
          ELSE
            NNZ_i=id%KEEP8(28)
          ENDIF
-         IF ((associated(id%A)).AND.(.NOT.SAVE_PATTERN)) THEN
+         IF ((associated(id%A)).AND.(.NOT.PATTERN_ONLY)) THEN
 C     Write header line:
                ARITH='complex'
          ELSE
@@ -4620,7 +4875,7 @@ C     Write header line:
          WRITE(IUNIT,FMT=*)'%%MatrixMarket matrix coordinate ',
      &           trim(ARITH)," ",trim(SYMM)
          WRITE(IUNIT,*) id%N, id%N, NNZ_i
-         IF ((associated(id%A)).AND.(.NOT.SAVE_PATTERN)) THEN
+         IF ((associated(id%A)).AND.(.NOT.PATTERN_ONLY)) THEN
             DO I8=1_8,NNZ_i
                IF (id%KEEP(50).NE.0 .AND. id%IRN(I8).LT.id%JCN(I8)) THEN
 C              permute upper diag entry
@@ -4651,7 +4906,7 @@ C        ==================
          ELSE
            NNZ_i=id%KEEP8(29)
          ENDIF
-         IF ((associated(id%A_loc)).AND.(.NOT.SAVE_PATTERN)) THEN
+         IF ((associated(id%A_loc)).AND.(.NOT.PATTERN_ONLY)) THEN
                ARITH='complex'
          ELSE
                ARITH='pattern '
@@ -4664,7 +4919,7 @@ C        ==================
          WRITE(IUNIT,FMT=*)'%%MatrixMarket matrix coordinate ',
      &           trim(ARITH)," ",trim(SYMM)
          WRITE(IUNIT,*) id%N, id%N, NNZ_i
-         IF ((associated(id%A_loc)).AND.(.NOT.SAVE_PATTERN)) THEN
+         IF ((associated(id%A_loc)).AND.(.NOT.PATTERN_ONLY)) THEN
             DO I8=1_8,NNZ_i
                IF (id%KEEP(50).NE.0 .AND.
      &             id%IRN_loc(I8).LT.id%JCN_loc(I8)) THEN
@@ -4696,7 +4951,7 @@ C        ==================
          WRITE(IUNIT,*) size(id%A_ELT)," :: NELTVL"
          WRITE(IUNIT,*) id%ELTPTR(:)," ::ELTPTR"
          WRITE(IUNIT,*) id%ELTVAR(:)," ::ELTVAR"
-         IF(.NOT.SAVE_PATTERN) THEN
+         IF(.NOT.PATTERN_ONLY) THEN
             WRITE(IUNIT,*) id%A_ELT(:)         
          ENDIF
       ENDIF
@@ -4721,7 +4976,8 @@ C  Local variables
 C  ===============
 C
       CHARACTER (LEN=8)    :: ARITH
-      INTEGER              :: I, J, K, LD_RHS
+      INTEGER              :: I, J
+      INTEGER(8)           :: LD_RHS8, K8
 C
 C  Executable statements
 C  =====================
@@ -4733,14 +4989,14 @@ C
      &           ' general'
         WRITE(IUNIT,*) id%N, id%NRHS
         IF ( id%NRHS .EQ. 1 ) THEN
-           LD_RHS = id%N
+           LD_RHS8 = int(id%N,8)
         ELSE
-           LD_RHS = id%LRHS
+           LD_RHS8 = int(id%LRHS,8)
         ENDIF
         DO J = 1, id%NRHS
            DO I = 1, id%N
-              K=(J-1)*LD_RHS+I
-                 WRITE(IUNIT,*) dble(id%RHS(K)), aimag(id%RHS(K))
+              K8=int(J-1,8)*LD_RHS8+int(I,8)
+                 WRITE(IUNIT,*) dble(id%RHS(K8)), aimag(id%RHS(K8))
         ENDDO
         ENDDO
       ENDIF

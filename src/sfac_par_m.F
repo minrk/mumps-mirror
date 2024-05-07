@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.4.0, released
-C  on Tue Apr 13 15:26:30 UTC 2021
+C  This file is part of MUMPS 5.4.1, released
+C  on Tue Aug  3 09:49:43 UTC 2021
 C
 C
 C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -775,7 +775,7 @@ C
      &                     LRHS_CNTR_MASTER_ROOT), stat=IERR )
                   IF (IERR.gt.0) THEN
                     INFO(1) = -13
-                    CALL MUMPS_SET_IERROR(LRHS_CNTR_MASTER_ROOT,INFO(2))
+                    INFO(2) = LRHS_CNTR_MASTER_ROOT
                     IF (LP > 0 )
      &              write(LP,*) ' Error allocating, real array ',
      &              'of size before SMUMPS_FACTO_ROOT',

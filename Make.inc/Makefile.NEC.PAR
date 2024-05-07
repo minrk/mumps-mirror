@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.4.0, released
-#  on Tue Apr 13 15:26:30 UTC 2021
+#  This file is part of MUMPS 5.4.1, released
+#  on Tue Aug  3 09:49:43 UTC 2021
 #
 #Begin orderings
 
@@ -67,34 +67,43 @@ PLAT    =
 LIBEXT  = .a
 OUTC    = -o 
 OUTF    = -o 
-RM      = /bin/rm -f
-CC      = sxcc
-FC = sxmpif90
-FL = sxmpif90
-AR = sxar vr 
+RM      = rm -f
+CC      = mpincc
+FC      = mpinfort
+FL      = mpinfort
+AR      = nar vr 
 RANLIB  = echo
 
-#
-# Use module load scalapack, module load blas, etc.
-#
-#LAPACK = -llapack
-#SCALAP  = -lscalapack -lblacs -lblacsCinit -lblacsF90init 
-#INCPAR = -I/usr/lib
-#LIBPAR = $(SCALAP) $(LAPACK) -L/usr/lib -lmpi -lmpi++
+LAPACK  = -llapack
+SCALAP  = -lscalapack
 
-INCSEQ = -I$(topdir)/libseq
+#INCPAR = 
+LIBPAR  = $(SCALAP) $(LAPACK)
+
+INCSEQ  = -I$(topdir)/libseq
 LIBSEQ  = $(LAPACK) -L$(topdir)/libseq -lmpiseq
 
-# LIBBLAS = -lcblas -lblas
+LIBBLAS = -lblas_openmp
 LIBOTHERS = -lpthread
 
 #Preprocessor defs for calling Fortran from C (-DAdd_ or -DAdd__ or -DUPPER)
 CDEFS   = -DAdd_
 
+#
+# Inline basics
+#
+STRIP_TOPDIR = $(strip $(topdir))
+MUMPS_INLINE_LIST = -finline-functions -finline-max-depth=5 -finline-max-function-size=500
+#
+# Inline search on the whole directory
+#
+MUMPS_INLINE_LIST += -finline-directory=$(STRIP_TOPDIR)/src
+                        
+
 #Begin Optimization options
-OPTF   = 
-OPTL   = 
-OPTC   = -Kc99 -O  -I
+OPTF   = -O2 -DGEMMT_AVAILABLE -fpp -fopenmp -Wobsolescent -Wextension -Wall -Woverflow $(MUMPS_INLINE_LIST)
+OPTL   = -O2 -fopenmp
+OPTC   = -O2 -fopenmp -Wall
 #End Optimization options
 
  

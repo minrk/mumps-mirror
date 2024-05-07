@@ -7818,6 +7818,15 @@ C           There is nothing left of this node except for an
 C           edge to the current pivot element.  elen (i) is 1,
 C           and there are no variables adjacent to node i.
 C           Absorb i into the current pivot element, me.
+             TOTO = I
+ 5911        IF(TOTO .NE. 0) THEN
+                J = CONSTRAINT(TOTO)
+                IF(J .GT. 0) THEN
+                   CONSTRAINT(J) = 0
+                ENDIF
+                TOTO = THESON(TOTO)
+                GOTO 5911
+             ENDIF
             PE (I) = int(-ME,8)
             NVI = -NV (I)
             DEGME = DEGME - NVI
@@ -8354,8 +8363,8 @@ C       On output:  (PE is copied on output into PARENT array)
 C
 C  
 C NV(inout): 
-C          On input:  encoding of a blocked matrix if NV(1) = -1 
-C            NV(I) holds the weight of node I. 
+C          On input:  encoding of a blocked matrix 
+C            if NV(1).NE.-1 the NV(I) holds the weight of node I. 
 C          During execution, 
 C            abs (nv (i)) is equal to the number of rows
 C            that are represented by the principal supervariable i.  
@@ -8800,7 +8809,7 @@ C=======================================================================
            ELEN(1) = 1
            LAST(1) = 1
            PE(1) = 0_8
-           NV(1) = 1
+           IF (NV(1).LT.0) NV(1) = 1
            NCMPA = 0
            PARENT(1) = 0
            RETURN
@@ -8847,12 +8856,6 @@ C           (To be Tested it seperately)
              ThresMin  = N
              ThresPrev = N
       ELSE
-COLD         THRESM    = max(int(sqrt(dble(N)))+N/8+1, THRESM)
-COLD         THRESM    = max(THRESM,1)
-COLD         ThresMin  = max( THRESM / 8, 1)
-COLD         ThresPrev = THRESM
-COLD    ENDIF
-COLD    ThresMinINIT = ThresMin
              THRESM    = max(int(31*N/32),THRESM)
              THRESM    = max(THRESM,1)
 C

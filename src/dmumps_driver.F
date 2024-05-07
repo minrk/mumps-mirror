@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.4.0, released
-C  on Tue Apr 13 15:26:30 UTC 2021
+C  This file is part of MUMPS 5.4.1, released
+C  on Tue Aug  3 09:49:43 UTC 2021
 C
 C
 C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -79,7 +79,8 @@ C -----------
 C
 C  P. Amestoy, J.-Y. L'Excellent, G. Moreau, On exploiting sparsity of 
 C    multiple right-hand sides in sparse direct solvers,
-C    SIAM Journal on Scientific Computing, to appear (2019)
+C    SIAM Journal on Scientific Computing, volume 41, number 2,
+C    pages A269-A291 (2019)
 C
 C  G. Moreau, PhD Thesis, ENS-Lyon, University of Lyon,  
 C    On the solution phase of direct methods for sparse linear systems
@@ -96,9 +97,9 @@ C    scalability, November 2017.
 C
 C  S. de la Kethulle de Ryhove, P. Jaysaval and D.V. Shantsev, 
 C    P. R. Amestoy, J.-Y. L'Excellent and T. Mary, 
-C    Large-scale 3D Controlled source EM modeling with a 
-C    Block Low-Rank MUMPS solver, Geophysical Journal International,
-C    volume 209, number 3, pages 1558-1571.
+C    Large-scale 3D EM modeling with a Block Low-Rank MUMPS solver, 
+C    Geophysical Journal International, volume 209, number 3, 
+C    pages 1558-1571 (2017) .
 C
 C  P. Amestoy, A. Buttari, J.-Y. L'Excellent and T. Mary, 
 C    On the complexity of the Block Low-Rank multifrontal factorization, 
@@ -797,7 +798,11 @@ C       -----------------------------
      &          IERR )
 !$      IF (ICNTL16_LOC .GT. 0) THEN
 !$        PREVIOUS_OMP_THREADS_NUM = omp_get_max_threads()
+#if defined(WORKAROUNDINTELILP64OPENMPLIMITATION)
+!$        CALL omp_set_num_threads(int(ICNTL16_LOC,4))
+#else
 !$        CALL omp_set_num_threads(ICNTL16_LOC)
+#endif
 !$      ENDIF
 C       -----------------------------
 C       Check if number of threads is
@@ -2111,7 +2116,11 @@ C     --------------------------------
          id%RINFOG(18)=dble(id%KEEP8(58))/1D6
       ENDIF
 !$    IF (ICNTL16_LOC .GT. 0) THEN
+#if defined(WORKAROUNDINTELILP64OPENMPLIMITATION)
+!$      CALL omp_set_num_threads(int(PREVIOUS_OMP_THREADS_NUM,4))
+#else
 !$      CALL omp_set_num_threads(PREVIOUS_OMP_THREADS_NUM)
+#endif
 !$      ICNTL16_LOC = 0
 !$    ENDIF
 *===============
@@ -2308,7 +2317,7 @@ C--------------------------------------------------------------------
       ENDIF
  980  FORMAT (/'***********CONTROL PARAMETERS (ICNTL)**************'/)
  981  FORMAT (
-     &     ' CNTL(1)   Effective threshold for pivoting)       =',D16.4/
+     &     ' CNTL(1)   Threshold for numerical pivoting        =',D16.4/
      &     ' CNTL(3)   Null pivot detection threshold          =',D16.4/
      &     ' CNTL(4)   Threshold for static pivoting           =',D16.4/
      &     ' CNTL(5)   Fixation for null pivots                =',D16.4/

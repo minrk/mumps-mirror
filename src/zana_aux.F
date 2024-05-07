@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.4.0, released
-C  on Tue Apr 13 15:26:30 UTC 2021
+C  This file is part of MUMPS 5.4.1, released
+C  on Tue Aug  3 09:49:43 UTC 2021
 C
 C
 C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -1288,9 +1288,6 @@ C
       SCALINGLOC = .FALSE.
       IF(KEEP(52) .EQ. -2) THEN
          IF(.not.associated(idA)) THEN
-            INFO(1) = -22
-            INFO(2) = 4
-            GOTO 500
          ELSE
             SCALINGLOC = .TRUE.
          ENDIF
@@ -1325,9 +1322,9 @@ C
                   IF(ABSAK .EQ. dble(0.0D0)) THEN
                      RZ_DIAG = RZ_DIAG + 1
                   ENDIF
-                  NZER_DIAG = NZER_DIAG - 1                     
-                  ENDIF
-               ENDIF
+                ENDIF
+                NZER_DIAG = NZER_DIAG - 1                     
+              ENDIF
             ENDIF
         ENDDO
         IF( (NZER_DIAG+RZ_DIAG) .LT. (N/10) ) THEN
@@ -1340,6 +1337,7 @@ C
          IF (PROK) WRITE(MPRINT,*) 
      &        'Scaling will be computed during analysis'
       ENDIF
+      IF( MTRANS.NE.0 .AND. (.NOT.associated(idA)) ) MTRANS=1
       MTRANSLOC = MTRANS
       IF (MTRANS.LT.0 .OR. MTRANS.GT.7) GO TO 500
       IF (K50 .EQ. 0) THEN
@@ -2571,7 +2569,9 @@ C
            IF ( (NV(I).GT. 50*NV(DADI)).AND. (NSLAVES.GT.1) 
      &          .AND. (ICNTL13.LE.0)
      &          .AND. (NV(I).GT. KEEP37) )  THEN
-             AMALG_TO_father_OK = .TRUE.
+             IF ( ( ACCU / SIZE_DADI_AMALGAMATED ) .LT. 0.2 ) THEN
+               AMALG_TO_father_OK = .TRUE.
+             ENDIF
            ENDIF
            IF ( ALLOW_AMALG_TINY_NODES .AND.
      &     NODE(I) * 900 .LE. NV(DADI) - NAMALG(DADI)) THEN

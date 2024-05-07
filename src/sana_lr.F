@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.4.0, released
-C  on Tue Apr 13 15:26:30 UTC 2021
+C  This file is part of MUMPS 5.4.1, released
+C  on Tue Aug  3 09:49:43 UTC 2021
 C
 C
 C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -837,9 +837,9 @@ C
      &        ) 
      &     THEN
                DO I=1,NV
-                  LRGROUPS(WORK(I))=NBGROUPS+1+I/GROUP_SIZE2
+                  LRGROUPS(WORK(I))=NBGROUPS+1+(I-1)/GROUP_SIZE2
                END DO
-               NBGROUPS = NBGROUPS + NV/GROUP_SIZE2 + 1
+               NBGROUPS = NBGROUPS + (NV-1)/GROUP_SIZE2 + 1
             ELSE
               CALL SEP_GROUPING(NV, WORK(1), N, NZ8,
      &              LRGROUPS, NBGROUPS, IW(1), LW, IPE(1), LEN(1),
@@ -1080,9 +1080,9 @@ C
      &    THEN
 !$OMP CRITICAL(lrgrouping_cri)
             DO I=1,NV
-              LRGROUPS(WORK(I))=NBGROUPS+1+I/GROUP_SIZE2
+              LRGROUPS(WORK(I))=NBGROUPS+1+(I-1)/GROUP_SIZE2
             END DO
-            NBGROUPS = NBGROUPS + NV/GROUP_SIZE2 + 1
+            NBGROUPS = NBGROUPS + (NV-1)/GROUP_SIZE2 + 1
 !$OMP END CRITICAL(lrgrouping_cri)
           ELSE
             IF (K469_LOC .EQ. 2) THEN
@@ -1361,9 +1361,9 @@ C
             GROUP_SIZE2 = max(int(real(GROUP_SIZE2)/COMPRESS_RATIO), 1)
 !$OMP CRITICAL(lrgrouping_cri)
             DO I=1,NV
-              LRGROUPS(WORK(I))=NBGROUPS+1+I/GROUP_SIZE2
+              LRGROUPS(WORK(I))=NBGROUPS+1+(I-1)/GROUP_SIZE2
             END DO
-            NBGROUPS = NBGROUPS + NV/GROUP_SIZE2 + 1
+            NBGROUPS = NBGROUPS + (NV-1)/GROUP_SIZE2 + 1
 !$OMP END CRITICAL(lrgrouping_cri)
           ELSE
             IF (K469_LOC .EQ. 2) THEN
@@ -1663,9 +1663,9 @@ C
             GROUP_SIZE2 = max(int(real(GROUP_SIZE2)/COMPRESS_RATIO), 1)
 !$OMP CRITICAL(lrgrouping_cri)
             DO I=1,NV
-              LRGROUPS(WORK(I))=NBGROUPS+1+I/GROUP_SIZE2
+              LRGROUPS(WORK(I))=NBGROUPS+1+(I-1)/GROUP_SIZE2
             END DO
-            NBGROUPS = NBGROUPS + NV/GROUP_SIZE2 + 1
+            NBGROUPS = NBGROUPS + (NV-1)/GROUP_SIZE2 + 1
 !$OMP END CRITICAL(lrgrouping_cri)
           ELSE
             IF (K469_LOC .EQ. 2) THEN
@@ -1756,6 +1756,7 @@ C
         CALL MPI_ALLREDUCE( PVSCHANGED_INT, PVSCHANGED_INT_GLOB, 1, 
      &                 MPI_INTEGER,
      &                 MPI_MAX, COMM, IERR_MPI )
+        PVSCHANGED_INT_GLOB = 1
         IF (PVSCHANGED_INT_GLOB.NE.0) THEN
           IF (NPROCS.GT.1) THEN 
             ALLOCATE(WORKH(2*N+3*NSTEPS+1), STAT=IERR_PRIV)

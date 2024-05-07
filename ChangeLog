@@ -2,6 +2,17 @@
 = ChangeLog =
 -------------
 
+Changes from 5.4.0 to 5.4.1
+* Added feature to dump a matrix/rhs in binary form (see id%WRITE_PROBLEM)
+* Fixed error during constrained ordering (ICNTL(12)=3) leading to a segfault
+* Fixed type 2 assembly by pieces in case of huge blocks of delayed pivots
+* Avoid repeated small allocations in MUMPS_BUILD_SORT_INDEX
+* Fixed automatic choice for ICNTL(6) when values are not provided at analysis
+* Avoid an access to an unitialized value (FLOP_FRFRONTS, MPI only, LDLT)
+* Fixed error printing in case of error -53
+* Fixed an erroneous -9 error in case of large Schur + discard factors
+* -DWORKAROUNDINTELILP64OPENMPLIMITATION avoids -i8 compilation warnings
+* Limited repeated amalgamations of large child with small parent
 
 Changes from 5.3.5 to 5.4.0
 * Modified default threshold for null pivot detection (CNTL(3))
@@ -666,6 +677,8 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.4.1            : August 2021
+Release 5.4.0            : April 2021
 Release 5.3.5            : October 2020
 Release 5.3.4            : September 2020
 Release 5.3.3            : June 2020

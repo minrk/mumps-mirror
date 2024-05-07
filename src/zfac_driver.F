@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.4.0, released
-C  on Tue Apr 13 15:26:30 UTC 2021
+C  This file is part of MUMPS 5.4.1, released
+C  on Tue Aug  3 09:49:43 UTC 2021
 C
 C
 C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -545,7 +545,7 @@ C          Out of range values treated as 0
           IF (id%ICNTL(36).EQ.1.OR.id%ICNTL(36).EQ.3) THEN
             IF (CNTL1.EQ.ZERO .OR. KEEP(468).LE.1) THEN
               KEEP(475) = 3
-            ELSE IF (KEEP(269).GT.0) THEN
+            ELSE IF ( (KEEP(269).GT.0).OR. (KEEP(269).EQ.-2)) THEN
               KEEP(475) = 2
             ELSE IF (KEEP(468).EQ.2) THEN
               KEEP(475) = 2
@@ -1850,7 +1850,8 @@ C     EARLYT3ROOTINS (KEEP(200)=1), root will
 C     be assembled into id%S later and size of
 C     id%S will be checked later)
 C     ---------------------------------------------
-      IF (EARLYT3ROOTINS .AND. KEEP(38).NE.0 .AND. I_AM_SLAVE) THEN
+      IF (EARLYT3ROOTINS .AND. KEEP(38).NE.0 .AND.
+     &    KEEP(60) .EQ.0 .AND. I_AM_SLAVE) THEN
         LWK = int(numroc( id%root%ROOT_SIZE, id%root%MBLOCK,
      &             id%root%MYROW, 0, id%root%NPROW ),8)
         LWK = max( 1_8, LWK )

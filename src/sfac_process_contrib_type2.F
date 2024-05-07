@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.4.0, released
-C  on Tue Apr 13 15:26:30 UTC 2021
+C  This file is part of MUMPS 5.4.1, released
+C  on Tue Aug  3 09:49:43 UTC 2021
 C
 C
 C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -99,6 +99,7 @@ C
       INTEGER(8) :: IACHK, SIZFR8, DYN_SIZE
       REAL, DIMENSION(:), POINTER :: DYNPTR
       INTEGER    :: NSLAVES, NFRONT, NASS1, IOLDPS, PARPIV_T1
+      LOGICAL    :: LR_ACTIVATED
       INTEGER(8) :: POSELT
       INCLUDE 'mumps_headers.h'
       POSITION = 0
@@ -473,10 +474,11 @@ C
                NASS1  = iabs(IW(IOLDPS + 2+KEEP(IXSZ)))
                POSELT = PTRAST(STEP(INODE))
                PARPIV_T1 = -999 
+               LR_ACTIVATED = (IW(IOLDPS+XXLR).GT.0)
                CALL SMUMPS_PARPIVT1_SET_NVSCHUR_and_MAX (
      &           N, INODE, IW, LIW, A, LA, KEEP, PERM,
      &            IOLDPS, POSELT, 
-     &            NFRONT, NASS1, PARPIV_T1)
+     &            NFRONT, NASS1, LR_ACTIVATED, PARPIV_T1)
              ENDIF
                CALL SMUMPS_INSERT_POOL_N( N, IPOOL, LPOOL,
      &              PROCNODE_STEPS,

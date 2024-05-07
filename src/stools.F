@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.4.0, released
-C  on Tue Apr 13 15:26:30 UTC 2021
+C  This file is part of MUMPS 5.4.1, released
+C  on Tue Aug  3 09:49:43 UTC 2021
 C
 C
 C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -45,6 +45,7 @@ C
       INTEGER INODE
       INTEGER IERR
       INTEGER PARPIV_T1
+      LOGICAL LR_ACTIVATED
       IERR=0
       LDLT = KEEP(50)
       IOLDSHIFT = IOLDPS + KEEP(IXSZ)
@@ -86,9 +87,10 @@ C
           ENDIF
         ENDIF
       ELSE
+        LR_ACTIVATED =  (IW(IOLDPS+XXLR).GT.0)
         IF (LDLT.EQ.0) THEN
          CALL SMUMPS_SET_PARPIVT1 ( INODE, NFRONT, NELIM+NPIV, 
-     &     KEEP, PARPIV_T1) 
+     &     KEEP, LR_ACTIVATED, PARPIV_T1) 
          IF (PARPIV_T1.EQ.0) THEN
           SIZECB = int(LCONT,8) * int(LCONT,8)
          ELSE
@@ -96,7 +98,7 @@ C
          ENDIF
         ELSE
          CALL SMUMPS_SET_PARPIVT1 ( INODE, NFRONT, NELIM+NPIV, 
-     &     KEEP, PARPIV_T1) 
+     &     KEEP, LR_ACTIVATED, PARPIV_T1) 
          IF (PARPIV_T1.EQ.0) THEN
            SIZECB = int(NROW,8) * int(LCONT,8)
          ELSE
@@ -700,10 +702,10 @@ C
      &           KEEP8(35),  
      &           KEEP8(50),  
      &           KEEP8(36),  
-     &           KEEP8(47),   
-     &           KEEP8(37),   
-     &           KEEP8(38),   
-     &           KEEP8(39),   
+     &           KEEP8(47),  
+     &           KEEP8(37),  
+     &           KEEP8(38),  
+     &           KEEP8(39),  
      &          MemEstimGlobal 
      &          )
            IF (KEEP(400).LE.0) THEN

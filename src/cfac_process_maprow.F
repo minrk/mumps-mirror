@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.4.0, released
-C  on Tue Apr 13 15:26:30 UTC 2021
+C  This file is part of MUMPS 5.4.1, released
+C  on Tue Aug  3 09:49:43 UTC 2021
 C
 C
 C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -1289,6 +1289,7 @@ C
       LOGICAL :: M_ARRAY_RETRIEVED
       INTEGER(8) :: POSELT
       INTEGER    :: IOLDPS, PARPIV_T1
+      LOGICAL    :: LR_ACTIVATED
       INTEGER, POINTER, DIMENSION(:) :: BEGS_BLR_ROW, BEGS_BLR_COL,
      &                    BEGS_BLR_STA
       INTEGER :: NB_BLR_COLS, NB_BLR_ROWS,
@@ -1728,10 +1729,11 @@ C
              IF (NSLAVES_PERE.EQ.0) THEN 
                POSELT = PTRAST(STEP(IFATH))
                PARPIV_T1 = -999 
+               LR_ACTIVATED = (IW(IOLDPS+XXLR).GT.0)
                CALL CMUMPS_PARPIVT1_SET_NVSCHUR_and_MAX (
      &           N, IFATH, IW, LIW, A, LA, KEEP, PERM,
      &            IOLDPS, POSELT, 
-     &            NFRONT_PERE, NASS_PERE, PARPIV_T1)
+     &            NFRONT_PERE, NASS_PERE, LR_ACTIVATED, PARPIV_T1)
              ENDIF
                CALL CMUMPS_INSERT_POOL_N( N, IPOOL, LPOOL,
      &           PROCNODE_STEPS,

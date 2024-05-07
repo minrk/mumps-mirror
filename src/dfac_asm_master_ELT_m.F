@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.4.0, released
-C  on Tue Apr 13 15:26:30 UTC 2021
+C  This file is part of MUMPS 5.4.1, released
+C  on Tue Aug  3 09:49:43 UTC 2021
 C
 C
 C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -261,7 +261,7 @@ C
      &        NUMELT, FRT_ELT(ELBEG),
      &        MYID, INODE, N, IOLDPS, HF,
      &        NFRONT, NFRONT_EFF, PERM,
-     &        NASS1, NASS, NUMSTK, NUMORG, IWPOSCB,
+     &        NASS1, NASS, NUMSTK, NUMORG, IWPOSCB, IWPOS,
      &        IFSON, STEP, PIMASTER, PTRIST, PTRAIW, NELT, IW, LIW,
      &        INTARR, LINTARR, ITLOC, FILS, FRERE,
      &        KEEP,
@@ -305,7 +305,8 @@ C
       NCB   = NFRONT - NASS1
       MAXFRW = max0(MAXFRW, NFRONT)
       ICT11 = IOLDPS + HF - 1 + NFRONT
-      CALL DMUMPS_SET_PARPIVT1 ( INODE, NFRONT, NASS1, KEEP, PARPIV_T1) 
+      CALL DMUMPS_SET_PARPIVT1 ( INODE, NFRONT, NASS1, KEEP, 
+     &                           LR_ACTIVATED, PARPIV_T1) 
       NFRONT8=int(NFRONT,8)
       LAELL8 = NFRONT8 * NFRONT8
       IF(PARPIV_T1.NE.0) THEN
@@ -729,7 +730,7 @@ C
         CALL DMUMPS_PARPIVT1_SET_NVSCHUR_and_MAX (
      &     N, INODE, IW, LIW, A, LA, KEEP, PERM,
      &     IOLDPS, POSELT, 
-     &     NFRONT, NASS1, PARPIV_T1)
+     &     NFRONT, NASS1, LR_ACTIVATED, PARPIV_T1)
       ENDIF
       GOTO 500
   270 CONTINUE
@@ -1123,7 +1124,7 @@ C
      &        NUMELT, FRT_ELT(ELBEG),
      &        MYID, INODE, N, IOLDPS, HF,
      &        NFRONT, NFRONT_EFF, PERM,
-     &        NASS1, NASS, NUMSTK, NUMORG, IWPOSCB,
+     &        NASS1, NASS, NUMSTK, NUMORG, IWPOSCB, IWPOS,
      &        IFSON, STEP, PIMASTER, PTRIST, PTRAIW, NELT, IW, LIW,
      &        INTARR, LINTARR, ITLOC, FILS, FRERE,
      &        KEEP, SON_LEVEL2, NIV1, INFO(1),

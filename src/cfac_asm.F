@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.4.0, released
-C  on Tue Apr 13 15:26:30 UTC 2021
+C  This file is part of MUMPS 5.4.1, released
+C  on Tue Aug  3 09:49:43 UTC 2021
 C
 C
 C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -763,9 +763,10 @@ C
       RETURN
       END SUBROUTINE CMUMPS_ASM_SLAVE_ARROWHEADS
       SUBROUTINE CMUMPS_SET_PARPIVT1 ( INODE, NFRONT, NASS1, KEEP,
-     &                                 PARPIV_T1)
+     &                                 LR_ACTIVATED, PARPIV_T1)
        IMPLICIT NONE
       INTEGER, intent(in)  :: INODE, NFRONT, NASS1, KEEP(500)
+      LOGICAL, intent(in)  :: LR_ACTIVATED
       INTEGER, intent(out) :: PARPIV_T1
       INTEGER :: NCB
       LOGICAL, EXTERNAL :: CMUMPS_IS_TRSM_LARGE_ENOUGH, 
@@ -778,6 +779,9 @@ C
        PARPIV_T1 = 0
       ENDIF
       IF (PARPIV_T1.EQ.0) RETURN
+      IF ( (PARPIV_T1.EQ.-2).AND.LR_ACTIVATED ) THEN
+         PARPIV_T1 = 1
+      ENDIF
       NCB = NFRONT-NASS1
       IF (PARPIV_T1.EQ.-2) THEN
          IF ( 
@@ -906,7 +910,7 @@ C
       SUBROUTINE CMUMPS_PARPIVT1_SET_NVSCHUR_and_MAX
      &    (N, INODE, IW, LIW, A, LA, KEEP, PERM,
      &     IOLDPS, POSELT, 
-     &     NFRONT, NASS1, PARPIV_T1)
+     &     NFRONT, NASS1, LR_ACTIVATED, PARPIV_T1)
       USE CMUMPS_FAC_FRONT_AUX_M, 
      &                      ONLY: CMUMPS_COMPUTE_SIZE_SCHUR_IN_FRONT
       IMPLICIT NONE
@@ -914,6 +918,7 @@ C
      &                          NFRONT, NASS1
       INTEGER(8), intent(in) :: LA, POSELT
       INTEGER, intent(in)    :: IW (LIW), PERM(N), KEEP(500)
+      LOGICAL, intent(in)    :: LR_ACTIVATED
       COMPLEX, intent(inout) :: A(LA)
       INTEGER, intent(inout) :: PARPIV_T1
       INTEGER     :: NVSCHUR_K253, IROW_L
@@ -921,7 +926,7 @@ C
       INCLUDE 'mumps_headers.h'
       IF (PARPIV_T1.EQ.-999) THEN
         CALL CMUMPS_SET_PARPIVT1 ( INODE, NFRONT, NASS1, KEEP, 
-     &                             PARPIV_T1) 
+     &                             LR_ACTIVATED, PARPIV_T1) 
       ELSE IF ((PARPIV_T1.NE.0.AND.PARPIV_T1.NE.1)) THEN
        PARPIV_T1 = 0
       ENDIF

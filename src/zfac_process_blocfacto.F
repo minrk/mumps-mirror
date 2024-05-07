@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.4.0, released
-C  on Tue Apr 13 15:26:30 UTC 2021
+C  This file is part of MUMPS 5.4.1, released
+C  on Tue Aug  3 09:49:43 UTC 2021
 C
 C
 C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -390,6 +390,7 @@ C
            COMPRESS_CB = .FALSE.
            IW(IOLDPS+XXLR) = IW(IOLDPS+XXLR) -1
         ENDIF
+        IF (NPIV.NE.0) THEN
         IF ( (NPIV1.EQ.0) 
      &   ) THEN
           IOLDPS = PTRIST(STEP(INODE))
@@ -444,6 +445,7 @@ C
           NPARTSASS = 1
           NPARTSCB  = NB_BLR_L
         ENDIF 
+      ENDIF
       ENDIF
       IF ( (NPIV .GT. 0)
      &   ) THEN

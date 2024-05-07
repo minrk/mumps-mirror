@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.4.0, released
-C  on Tue Apr 13 15:26:30 UTC 2021
+C  This file is part of MUMPS 5.4.1, released
+C  on Tue Aug  3 09:49:43 UTC 2021
 C
 C
 C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -1741,7 +1741,7 @@ C        ||B_{I(k+1:end),J{k+1:end}}||_X <= TOLEPS*sqrt(||B_{I,I}||_2*||B_{J,J}|
          END IF
       END IF
       IF( INFO.NE.0 ) THEN
-         CALL XERBLA( 'CGEQP3', -INFO )
+         WRITE(*,999) -INFO
          RETURN
       END IF
       MINMN = MIN(M,N)
@@ -1954,4 +1954,7 @@ C          TRUNC_ERR = dnrm2( N-RK, VN1( RK+1 ), 1 )
          ENDIF
       END DO
       RANK = RK
+      RETURN
+ 999  FORMAT ('On entry to ZMUMPS_TRUNCATED_RRQR, parameter number',
+     &            I2,' had an illegal value')
       END SUBROUTINE ZMUMPS_TRUNCATED_RRQR

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.4.0, released
-C  on Tue Apr 13 15:26:30 UTC 2021
+C  This file is part of MUMPS 5.4.1, released
+C  on Tue Aug  3 09:49:43 UTC 2021
 C
 C
 C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -1033,13 +1033,15 @@ C
      &     PTRAST(STEP(INODE)), IW(IOLDPS+XXD), IW(IOLDPS+XXR),
      &     A_PTR, POSELT, LA_PTR )
       IF (LASTBL) THEN
-          IF (LR_ACTIVATED) THEN
-            CALL STATS_COMPUTE_FLOP_SLAVE_TYPE2(NROW1, NCOL1, NASS1,
+         IF ( KEEP(486) .NE. 0) THEN
+           IF (LR_ACTIVATED) THEN
+             CALL STATS_COMPUTE_FLOP_SLAVE_TYPE2(NROW1, NCOL1, NASS1,
      &             KEEP(50), INODE)
-          ELSE
-            CALL UPD_FLOP_FRFRONT_SLAVE(NROW1, NCOL1, NASS1,
+           ELSE
+             CALL UPD_FLOP_FRFRONT_SLAVE(NROW1, NCOL1, NASS1,
      &             KEEP(50), INODE)
-          ENDIF
+           ENDIF
+         ENDIF
          IF ( IW(IOLDPS+6+KEEP(IXSZ)).EQ.
      &     huge(IW(IOLDPS+6+KEEP(IXSZ))) ) THEN
            IW(IOLDPS+6+KEEP(IXSZ)) =  1

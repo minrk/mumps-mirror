@@ -1,5 +1,5 @@
 ===========================================
-MUMPS 5.4.0 INSTALLATION
+MUMPS 5.4.1 INSTALLATION
 ===========================================
 
 Pre-requisites
@@ -35,8 +35,8 @@ Installation
 
 The following steps can be applied.
 
-% tar zxvf MUMPS_5.4.0.tar.gz
-% cd MUMPS_5.4.0
+% tar zxvf MUMPS_5.4.1.tar.gz
+% cd MUMPS_5.4.1
 
 You then need to build a file called Makefile.inc corresponding
 to your architecture. A few examples are available in the
@@ -243,13 +243,15 @@ from the Makefile.inc corresponding to your local configuration.
 ii) on forcing a 64-bit default integer in C code, by adding the -DINTSIZE64
 option to the OPTC variable from your Makefile.inc (remark that this option
 will also force an installation of PORD with 64-bit integers, since PORD
-installation is also based on the same OPTC)
+installation is based on the same OPTC variable)
 iii) on the fact that all external libraries called by MUMPS should use
 64-bit integers. In particular, all external orderings must have been compiled
 with 64-bit integers as we have not developed 64-bit to 32-bit wrappers.
+
 Furthermore:
 - for the MPI-free version, METIS, SCOTCH, BLAS, LAPACK should thus
-also rely on 64-bit integers.
+  also rely on 64-bit integers.
+
 - for the MPI version, one also needs an MPI (and ScaLAPACK) implementation
   where all integers are 64-bit (both MPI_INTEGER and counts).
 
@@ -261,7 +263,12 @@ also rely on 64-bit integers.
   try adding -DWORKAROUNDINTELILP64MPI2INTEGER to the OPTF variable of
   your Makefile.inc
 
-  Finally, when including MUMPS headers files from a  C application,
+- The OpenMP runtime library should also rely on 64-bit integers. Adding
+  -DWORKAROUNDINTELILP64OPENMPLIMITATION to the OPTF variable from the
+  file Makefile.inc will use 32-bit integers during OpenMP calls and
+  avoid warnings in an Intel environment.
+
+  When including MUMPS headers files from a  C application,
   one can check at compilation time the preprocessing constants
   MUMPS_INTSIZE32 and MUMPS_INTSIZE64 (see include/mumps_int_def.h generated
   during the build process and include/mumps_c_types.h) in order

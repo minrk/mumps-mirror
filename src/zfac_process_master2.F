@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.4.0, released
-C  on Tue Apr 13 15:26:30 UTC 2021
+C  This file is part of MUMPS 5.4.1, released
+C  on Tue Aug  3 09:49:43 UTC 2021
 C
 C
 C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -23,6 +23,7 @@ C
      &     ND, FILS, DAD, FRERE, ITLOC, RHS_MUMPS,
      &     ISTEP_TO_INIV2, TAB_POS_IN_PERE )
       USE ZMUMPS_LOAD
+      USE ZMUMPS_DYNAMIC_MEMORY_M, ONLY : ZMUMPS_DM_SET_PTR
       IMPLICIT NONE
       INCLUDE 'mpif.h'
       INTEGER IERR
@@ -60,6 +61,8 @@ C
       INTEGER NOREAL_PACKET
       LOGICAL PERETYPE2
       INCLUDE 'mumps_headers.h'
+      COMPLEX(kind=8), POINTER, DIMENSION(:) :: SON_A
+      INTEGER(8) :: DYN_SIZE
       INTEGER  MUMPS_TYPENODE
       EXTERNAL MUMPS_TYPENODE
       POSITION = 0
@@ -141,10 +144,20 @@ C
         ENDIF
       ENDIF
       IF (NOREAL_PACKET.GT.0) THEN
-        CALL MPI_UNPACK(BUFR, LBUFR_BYTES, POSITION,
-     &        A(PAMASTER(STEP(ISON)) +
-     &        int(NBROWS_ALREADY_SENT,8) * int(NCOL_EFF,8)),
-     &        NOREAL_PACKET, MPI_DOUBLE_COMPLEX, COMM, IERR)
+        CALL MUMPS_GETI8(DYN_SIZE, IW(PIMASTER(STEP(ISON))+XXD))
+        IF ( DYN_SIZE .GT. 0_8 ) THEN
+          CALL ZMUMPS_DM_SET_PTR( PAMASTER(STEP(ISON)),
+     &                            DYN_SIZE, SON_A )
+          CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
+     &        SON_A( 1_8 +
+     &        int(NBROWS_ALREADY_SENT,8) * int(NCOL_EFF,8) ),
+     &        NOREAL_PACKET, MPI_DOUBLE_COMPLEX, COMM, IERR )
+        ELSE
+          CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
+     &        A( PAMASTER(STEP(ISON)) +
+     &        int(NBROWS_ALREADY_SENT,8) * int(NCOL_EFF,8) ),
+     &        NOREAL_PACKET, MPI_DOUBLE_COMPLEX, COMM, IERR )
+        ENDIF
       ENDIF
       IF ( NBROWS_ALREADY_SENT + NBROWS_PACKET .EQ. NROW ) THEN
         PERETYPE2 = ( MUMPS_TYPENODE(PROCNODE_STEPS(STEP(IFATH)),

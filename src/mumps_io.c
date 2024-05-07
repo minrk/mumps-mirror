@@ -1,7 +1,7 @@
 /*
  *
- *  This file is part of MUMPS 5.4.0, released
- *  on Tue Apr 13 15:26:30 UTC 2021
+ *  This file is part of MUMPS 5.4.1, released
+ *  on Tue Aug  3 09:49:43 UTC 2021
  *
  *
  *  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -24,11 +24,63 @@
 double mumps_time_spent_in_sync;
 #endif
 double read_op_vol,write_op_vol,total_vol;
-/**
- * Forward declaration. Definition at the end of the file.
- */
-/*MUMPS_INLINE int
-  mumps_convert_2fint_to_longlong( MUMPS_INT *, MUMPS_INT *, long long *);*/
+void MUMPS_CALL MUMPS_DUMPRHSBINARY_C ( MUMPS_INT *N, MUMPS_INT *NRHS,
+     MUMPS_INT *LRHS, float *RHS, MUMPS_INT *K35,
+     char *filename, mumps_ftnlen l1 )
+{
+   float *RHSshift; /* float: arbitrary, we use binary content */
+   FILE *fd;
+   int icol;
+   fd=fopen(filename, "w");
+   RHSshift=RHS;
+   for(icol=0;icol<*NRHS;icol++)
+   {
+     fwrite(RHSshift, (size_t)(*K35), (size_t)(*N), fd);
+     RHSshift=RHSshift+(size_t)(*LRHS)*(size_t)(*K35/sizeof(float));
+   }
+   fclose(fd);
+}
+void MUMPS_CALL MUMPS_DUMPMATBINARY_C ( MUMPS_INT *N, MUMPS_INT8 *NNZ,
+     MUMPS_INT* K35, MUMPS_INT *irn, MUMPS_INT *jcn,
+     void *A, MUMPS_INT *is_A_provided,
+     char *filename, mumps_ftnlen l1 )
+{
+   int64_t i8;
+   int32_t myN, tmpi;
+   FILE *fd;
+   fd=fopen(filename, "w");
+   /* cast to int32_t in case MUMPS_INT is 64-bits */
+   myN=(int32_t)(*N);
+   fwrite( &myN, sizeof(int32_t), 1, fd);
+   fwrite( NNZ, sizeof(int64_t), 1, fd);
+   if (*NNZ > 0)
+   {
+     if ( sizeof(MUMPS_INT) == 4 )
+     {
+       /* write irn and jcn contents directly */
+       fwrite( irn, sizeof(int32_t), (size_t)(*NNZ), fd);
+       fwrite( jcn, sizeof(int32_t), (size_t)(*NNZ), fd);
+     }
+     else
+     {
+       for(i8=0;i8 < *NNZ;i8++)
+       {
+          tmpi=irn[i8];
+          fwrite(&tmpi, sizeof(int32_t), 1, fd);
+       }
+       for(i8=0;i8 < *NNZ;i8++)
+       {
+          tmpi=jcn[i8];
+          fwrite(&tmpi, sizeof(int32_t), 1, fd);
+       }
+     }
+     if (*is_A_provided)
+     {
+       fwrite(A, (size_t)(*K35), (size_t)(*NNZ), fd);
+     }
+   }
+   fclose(fd);
+}
 /* Tests if the request "request_id" has finished. It sets the flag  */
 /* argument to 1 if the request has finished (0 otherwise)           */
 void MUMPS_CALL

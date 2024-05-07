@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.4.0, released
-C  on Tue Apr 13 15:26:30 UTC 2021
+C  This file is part of MUMPS 5.4.1, released
+C  on Tue Aug  3 09:49:43 UTC 2021
 C
 C
 C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -563,7 +563,11 @@ C
 !$        TRSM_GEMM_FINISHED = .FALSE.
 !$OMP     PARALLEL SHARED(TRSM_GEMM_FINISHED)
 !$        IF (OMP_GET_THREAD_NUM() .EQ. 1) THEN
+#if defined(WORKAROUNDINTELILP64OPENMPLIMITATION)
+!$          CALL OMP_SET_NUM_THREADS(int(NOMP,4))
+#else
 !$          CALL OMP_SET_NUM_THREADS(NOMP)
+#endif
           IF (CALL_LTRSM) THEN
             CALL ctrsm('L','L','N','N',LKJIW,NEL1,ONE,
      &                 A(POSELT_LOCAL),NFRONT,
@@ -595,7 +599,11 @@ C
 !$OMP     END PARALLEL
 !$        CALL OMP_SET_NESTED(SAVE_NESTED)
 !$        CALL OMP_SET_DYNAMIC(SAVE_DYNAMIC)
+#if defined(WORKAROUNDINTELILP64OPENMPLIMITATION)
+!$        CALL OMP_SET_NUM_THREADS(int(NOMP,4))
+#else
 !$        CALL OMP_SET_NUM_THREADS(NOMP)
+#endif
         ENDIF
       ELSE
         IF (CALL_UTRSM.AND.UTRSM_NCOLS.NE.0) THEN

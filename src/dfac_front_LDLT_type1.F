@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.4.0, released
-C  on Tue Apr 13 15:26:30 UTC 2021
+C  This file is part of MUMPS 5.4.1, released
+C  on Tue Aug  3 09:49:43 UTC 2021
 C
 C
 C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -164,7 +164,8 @@ C
      &          )
       OOC_EFFECTIVE_ON_FRONT= ((KEEP(201).EQ.1).AND. 
      &                         OOCWRITE_COMPATIBLE_WITH_BLR)
-      CALL DMUMPS_SET_PARPIVT1 ( INODE, NFRONT, NASS, KEEP, PARPIV_T1)
+      CALL DMUMPS_SET_PARPIVT1 ( INODE, NFRONT, NASS, KEEP, 
+     &                           LR_ACTIVATED, PARPIV_T1)
       LRTRSM_OPTION = KEEP(475)
       PIVOT_OPTION = KEEP(468)
       IF (UUTEMP.EQ.ZERO) THEN 
