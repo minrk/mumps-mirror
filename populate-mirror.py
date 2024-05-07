@@ -17,13 +17,15 @@ mirror_branch = "main"  # the branch containing the mirror
 cache_dir = Path(appdirs.user_cache_dir()) / "mumps-mirror"
 changelog_url = "https://mumps-solver.org/index.php?page=dwnld"
 
-if os.getenv("GITHUB_REPOSITORY"):
+if os.getenv("GITHUB_ACTION"):
     repo_url = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}"
     # run in local checkout on GitHub actions
     repo_path = Path.cwd()
+    run_url = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
 else:
     repo_url = "git@github.com:minrk/mumps-mirror"
     repo_path = cache_dir / "repo"
+    run_url = ""
 
 
 _skip_versions = {"5.1.0"}  # doesn't appear to be published
@@ -165,6 +167,8 @@ def add_version(repo_path: Path, version: str, no_cache=False):
     print(f"Adding {len(new_files)} files")
     repo.index.add(repo.untracked_files)
     message = f"Mirror MUMPS {version}"
+    if run_url:
+        message = message + f"\n\nCreated by {run_url}"
     repo.index.commit(message)
     repo.create_tag(version, message=message)
 
@@ -202,6 +206,7 @@ def main(clean, no_cache, push):
         return
     print(f"New versions to add: {new_versions}")
     repo = Repo(repo_path)
+    new_versions = new_versions[:1]
     for version in new_versions:
         add_version(repo_path, version, no_cache=no_cache)
         if push:
