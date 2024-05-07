@@ -1,5 +1,5 @@
 ===========================================
-MUMPS 5.6.0 INSTALLATION
+MUMPS 5.6.1 INSTALLATION
 ===========================================
 
 Pre-requisites
@@ -35,8 +35,8 @@ Installation
 
 The following steps can be applied.
 
-% tar zxvf MUMPS_5.6.0.tar.gz
-% cd MUMPS_5.6.0
+% tar zxvf MUMPS_5.6.1.tar.gz
+% cd MUMPS_5.6.1
 
 You then need to build a file called Makefile.inc corresponding
 to your architecture. A few examples are available in the
@@ -110,11 +110,11 @@ since dynamic libraries require the -fPIC option during compilation (if
 needed, the definition FPIC_OPT=-fPIC can be adapted in the Makefile.inc)
 
 The dynamic libraries (e.g. libmumps.so, libdmumps.so, etc.) are
-installed in the directory MUMPS_5.6.0/lib/
-so that including the directory MUMPS_5.6.0/lib in your
+installed in the directory MUMPS_5.6.1/lib/
+so that including the directory MUMPS_5.6.1/lib in your
 LD_LIBRARY_PATH environment variable will allow them to be successively
 loaded at runtime. Alternatively, you can uncomment and adapt the line
-#RPATH_OPT= -Wl,-rpath /path/to/MUMPS_5.6.0/lib
+#RPATH_OPT= -Wl,-rpath /path/to/MUMPS_5.6.1/lib
 in the Makefile.inc
 
 Although we do not currently support an official SONAME, note that, given a
@@ -338,9 +338,11 @@ extension, we strongly recommend to use it.
 -DGEMMT_AVAILABLE should then be added to the OPTF variable of your Makefile.inc. 
 This can significantly improve the performance of the factorization of
 symmetric matrices.  To be compatible, the GEMMT signature should be the
-same as the one described at
+same as the ones described at
 
-https://software.intel.com/en-us/mkl-developer-reference-fortran-gemmt.
+https://www.intel.com/content/www/us/en/docs/onemkl/developer-reference-fortran/2023-0/gemmt.html
+
+https://sxauroratsubasa.sakura.ne.jp/documents/sdk/SDK_NLC/UsersGuide/man/dgemmt.html
 
 
 Platform and software dependencies

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.6.0, released
-C  on Wed Apr 19 15:50:57 UTC 2023
+C  This file is part of MUMPS 5.6.1, released
+C  on Tue Jul 11 07:51:28 UTC 2023
 C
 C
 C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -44,7 +44,7 @@ C
       CALL MUMPS_FIND_UNIT(fileunit)
       IF ( fileunit .EQ. -1 ) THEN
          id%INFO(1) = -79
-         id%INFO(2) = 0
+         id%INFO(2) = 2
       ENDIF
       CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1),
      &     id%COMM, id%MYID )
@@ -58,8 +58,8 @@ C
 #endif
      &     ,STATUS='old',FORM='unformatted',IOSTAT=ierr)
       IF ( ierr.ne.0 ) THEN
-        id%INFO(1) = -74
-        id%INFO(2) = 0
+        id%INFO(1) = -76
+        id%INFO(2) = id%MYID
       endif
       CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1),
      &     id%COMM, id%MYID )
@@ -115,6 +115,7 @@ C
           IF (ICNTL34 .NE. 1) THEN
             localid%COMM = id%COMM
             localid%INFO(1) = 0
+            localid%ICNTL(1) = id%ICNTL(1) 
             localid%MYID = id%MYID
             localid%NPROCS = id%NPROCS
             localid%KEEP(10) = id%KEEP(10)
@@ -138,12 +139,16 @@ C
         ENDIF
       ENDIF
       call MUMPS_CLEAN_SAVED_DATA(id%MYID,ierr,RESTOREFILE,INFOFILE)
-      IF (ierr.ne.0) THEN
+      IF (ierr.eq.-79) THEN
+        id%INFO(1) = -79
+        id%INFO(2) = 2
+      ELSE IF (ierr.ne.0) THEN
         id%INFO(1) = -76
         id%INFO(2) = id%MYID
       ENDIF
       CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1),
      &     id%COMM, id%MYID )
+      RETURN
       END SUBROUTINE DMUMPS_REMOVE_SAVED
       SUBROUTINE DMUMPS_RESTORE_OOC(localid)
       INCLUDE 'mpif.h'
@@ -205,7 +210,7 @@ C
       CALL MUMPS_FIND_UNIT(IN)
       IF ( IN .EQ. -1 ) THEN
          localid%INFO(1) = -79
-         localid%INFO(2) = 0
+         localid%INFO(2) = 2
       ENDIF
       CALL MUMPS_PROPINFO( localid%ICNTL(1), localid%INFO(1),
      &     localid%COMM, localid%MYID )
@@ -217,7 +222,7 @@ C
      &     ,STATUS='old',form='unformatted',iostat=ierr)
       if(ierr.ne.0) THEN
          localid%INFO(1) = -74
-         localid%INFO(2) = 0
+         localid%INFO(2) = localid%MYID
       endif  
       CALL MUMPS_PROPINFO( localid%ICNTL(1), localid%INFO(1),
      &     localid%COMM, localid%MYID )
@@ -380,7 +385,7 @@ C
       CALL MUMPS_FIND_UNIT(OUT)
       IF ( OUT .EQ. -1 ) THEN
          id%INFO(1) = -79
-         id%INFO(2) = 0
+         id%INFO(2) = 2
       ENDIF
       CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1),
      &     id%COMM, id%MYID )
@@ -408,7 +413,7 @@ C
       CALL MUMPS_FIND_UNIT(OUTINFO)
       IF ( OUTINFO .EQ. -1 ) THEN
          id%INFO(1) = -79
-         id%INFO(2) = 0
+         id%INFO(2) = 2
       ENDIF
       CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1),
      &     id%COMM, id%MYID )
@@ -571,7 +576,7 @@ C
       CALL MUMPS_FIND_UNIT(IN)
       IF ( IN .EQ. -1 ) THEN
          id%INFO(1) = -79
-         id%INFO(2) = 0
+         id%INFO(2) = 2
       ENDIF
       CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1),
      &     id%COMM, id%MYID )
@@ -583,7 +588,7 @@ C
      &     ,STATUS='old',form='unformatted',iostat=ierr)
       if(ierr.ne.0) THEN
          id%INFO(1) = -74
-         id%INFO(2) = 0
+         id%INFO(2) = id%MYID
       endif  
       CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1),
      &     id%COMM, id%MYID )

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.6.0, released
-C  on Wed Apr 19 15:50:57 UTC 2023
+C  This file is part of MUMPS 5.6.1, released
+C  on Tue Jul 11 07:51:28 UTC 2023
 C
 C
 C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -22,14 +22,6 @@ C
         INFO(2)=MYID
       ENDIF
       RETURN
-      CONTAINS
-        SUBROUTINE MUMPS_ACCESS_ICNTL50_VOLATILE( ICNTL50_out,
-     &                                            ICNTL50_in )
-        INTEGER, VOLATILE :: ICNTL50_in
-        INTEGER, intent(out) :: ICNTL50_out
-        ICNTL50_out=ICNTL50_in
-        RETURN
-        END SUBROUTINE MUMPS_ACCESS_ICNTL50_VOLATILE
       END SUBROUTINE MUMPS_STOP_ON_USER_REQUEST
       SUBROUTINE MUMPS_BUILD_COMM_PARA_ANA (
      &      OPTION, N, COMM, MYID, COMM_NODES, MYID_NODES,

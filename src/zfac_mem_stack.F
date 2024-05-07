@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.6.0, released
-C  on Wed Apr 19 15:50:57 UTC 2023
+C  This file is part of MUMPS 5.6.1, released
+C  on Tue Jul 11 07:51:28 UTC 2023
 C
 C
 C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -179,9 +179,7 @@ C
       ELSE
         FAC_ENTRIES = ( int(NPIV,8)*int(NPIV+1,8) )/ 2_8
       ENDIF
-      IF ( KEEP(451) .NE. 2 ) THEN
-        FAC_ENTRIES = FAC_ENTRIES + int(NBROW,8) * int(NPIV,8)
-      ENDIF
+      FAC_ENTRIES = FAC_ENTRIES + int(NBROW,8) * int(NPIV,8)
       IF ( KEEP(405) .EQ. 0 ) THEN
         KEEP8(10) = KEEP8(10) + FAC_ENTRIES
         KEEP(429) = KEEP(429) - 1

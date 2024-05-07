@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.6.0, released
-C  on Wed Apr 19 15:50:57 UTC 2023
+C  This file is part of MUMPS 5.6.1, released
+C  on Tue Jul 11 07:51:28 UTC 2023
 C
 C
 C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -941,7 +941,7 @@ C
             COMPRESS = 0
            IF (KEEP(106).EQ.2) THEN
              IF (PROK) THEN
-             WRITE(MP,*) " SYMBOLIC based on column counts "
+             WRITE(MP,'(A)') " SYMBOLIC based on column counts "
              ENDIF
              IF (present(SIZEOFBLOCKS)) THEN
                DO I=1, N
@@ -998,6 +998,11 @@ C
      &           AGG6, PARENT)
             DEALLOCATE(WTEMP)
            ENDIF  
+           IF ( PROK ) THEN
+               CALL MUMPS_SECFIN( TIMEB )
+               WRITE( MP, '(A,F12.4)' )
+     &        ' ELAPSED TIME IN symbolic factorization  =', TIMEB
+           ENDIF
          ELSE
             CALL ZMUMPS_ANA_J(N, NZ8, IRN(1), ICN(1), IKEEP1(1), IW(1),
      &           LIW8, IPE(1),

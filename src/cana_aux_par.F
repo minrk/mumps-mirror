@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.6.0, released
-C  on Wed Apr 19 15:50:57 UTC 2023
+C  This file is part of MUMPS 5.6.1, released
+C  on Tue Jul 11 07:51:28 UTC 2023
 C
 C
 C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -622,8 +622,10 @@ C
       INTEGER, POINTER    :: SIZES(:), ORDER(:)
       INTEGER, POINTER    :: VELOLOCTAB(:)
       INTEGER             :: SIZE_VELOLOCTAB
+      INTEGER, TARGET     :: IDUMMY(1)
       nullify(FIRST, LAST, SWORK, VERTLOCTAB, EDGELOCTAB, RCVCNTS,
-     &      SIZES, ORDER, VELOLOCTAB)
+     &      SIZES, ORDER )
+      VELOLOCTAB      => IDUMMY 
       MYID            = ord%MYID
       NPROCS          = ord%NPROCS
       IERR            = 0
@@ -792,8 +794,10 @@ C
       INTEGER, POINTER              :: EDGELOCTAB(:)
       INTEGER, POINTER              :: VELOLOCTAB(:)
       INTEGER                       :: SIZE_VELOLOCTAB
+      INTEGER, TARGET               :: IDUMMY(1)
       INTEGER :: PTHREAD_NUMBER, NOMP
-      nullify(FIRST, LAST, SWORK, VERTLOCTAB, EDGELOCTAB, VELOLOCTAB)
+      nullify(FIRST, LAST, SWORK, VERTLOCTAB, EDGELOCTAB)
+      VELOLOCTAB => IDUMMY 
       CALL MPI_BARRIER(ord%COMM, IERR)
       MYID            = ord%MYID
       NPROCS          = ord%NPROCS

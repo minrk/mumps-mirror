@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.6.0, released
-C  on Wed Apr 19 15:50:57 UTC 2023
+C  This file is part of MUMPS 5.6.1, released
+C  on Tue Jul 11 07:51:28 UTC 2023
 C
 C
 C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -1219,6 +1219,9 @@ C     allocate id%S later otherwise.
       DKEEP(18)= 1.0D12
       KEEP(242) = -9
       KEEP(243) = -1
+C     Parallel analysis compatible with analysis by blocks
+C                       and detection out-of-range 
+      KEEP(339)= 6
       KEEP(249)=1
 !$    KEEP(249) = OMP_GET_MAX_THREADS()
       KEEP(250) = 1

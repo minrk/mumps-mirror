@@ -2,13 +2,26 @@
 = ChangeLog =
 -------------
 
+Changes from 5.6.0 to 5.6.1
+* Fixed compatibility of parallel analysis with analysis by blocks/out-of-range
+* Minor fix of INFO(2) value in a case of INFO(1)=-7 with parallel analysis
+* WRITE_PROBLEM: avoid leading space when printing "%%MatrixMarket matrix [..]"
+* Fix incorrect error code -74 instead of -76 (save-restore)
+* Avoid a remaining hard-coded Fortran unit (save-restore)
+* Avoid -Wundef warning in case __STDC_VERSION__ is not defined
+* Avoid calling MPI_IPROBE in case of a single MPI process
+  (performance improvement on matrices with small fronts)
+* During analysis, write time for symbolic factorization
+* Update GEMMT link in INSTALL file
+
 Changes from 5.5.1 to 5.6.0
 * Analysis by blocks and out-of-range entries compatible with parallel analysis 
 * Compact workarray S before solution phase (ICNTL(49)=1,2)
 * JOB=-4 frees data from factorization and keeps results from analysis
 * NEC vector engine version: tuned block low rank and GEMMT usage
 * Reduced memory for symbolic datastructures (order-N arrays, arrowheads)
-* Use new symbolic factorization (column counts) by default (+allow forest in case of Schur)
+* Use new symbolic factorization (column counts) by default (+allow forest
+  in case of Schur)
 * Improved amalgamation algorithm to reduce the number tiny nodes
 * Discard factors option is now compatible with BLR 
 * Discard L factors option in case of LU factorization available for in-core 
@@ -28,6 +41,7 @@ Changes from 5.5.1 to 5.6.0
 * NEC: Fix MUMPS_WRAP_GINP94 offloading to host
 * Shared libraries: minor update in Makefiles
 * Fixed missing printings of preprocessing constants in mumps_print_defined.F
+* -DNOSCALAPACK: compilation without BLACS/ScaLAPACK (reduced performance)
 
 Changes from 5.5.0 to 5.5.1
 * 64-bit default integer version: avoid MPI buffer size > 2^31
@@ -749,6 +763,7 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.6.1            : July 2023
 Release 5.6.0            : April 2023
 Release 5.5.1            : July 2022
 Release 5.5.0            : April 2022

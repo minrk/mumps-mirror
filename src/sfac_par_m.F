@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.6.0, released
-C  on Wed Apr 19 15:50:57 UTC 2023
+C  This file is part of MUMPS 5.6.1, released
+C  on Tue Jul 11 07:51:28 UTC 2023
 C
 C
 C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -235,7 +235,8 @@ C
       SET_IRECV = .TRUE.
       BLOCKING = .FALSE.
       MESSAGE_RECEIVED = .FALSE.
-      CALL SMUMPS_TRY_RECVTREAT(
+      IF ( SLAVEF .GT. 1 ) THEN 
+        CALL SMUMPS_TRY_RECVTREAT(
      &      COMM_LOAD, ASS_IRECV, BLOCKING, SET_IRECV,
      &      MESSAGE_RECEIVED,
      &      MPI_ANY_SOURCE, MPI_ANY_TAG,
@@ -256,7 +257,8 @@ C
      &      STACK_RIGHT_AUTHORIZED
      &               , LRGROUPS
      &       )
-      CALL SMUMPS_LOAD_RECV_MSGS(COMM_LOAD)
+        CALL SMUMPS_LOAD_RECV_MSGS(COMM_LOAD)
+      ENDIF
       IF (MPA.GT.0)
      &   CALL MUMPS_PRINT_STILL_ACTIVE (MYID_NODES, KEEP, 
      &                        dble(DKEEP(17)), 

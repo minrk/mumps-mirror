@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.6.0, released
-C  on Wed Apr 19 15:50:57 UTC 2023
+C  This file is part of MUMPS 5.6.1, released
+C  on Tue Jul 11 07:51:28 UTC 2023
 C
 C
 C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -202,7 +202,11 @@ C
       INTEGER::supp,tmp_err
       ierr = 0
       tmp_err = 0
-      supp=200+MYID
+      CALL MUMPS_FIND_UNIT(supp)
+      IF ( supp .EQ. -1 ) THEN
+         ierr=-79
+         RETURN
+      ENDIF
       open(UNIT=supp,FILE=SUPPFILE,STATUS='old',
      &     form='unformatted',iostat=tmp_err)
       if (tmp_err.eq.0) THEN
@@ -226,6 +230,7 @@ C
           tmp_err = 0
         endif
       endif
+      RETURN
       END SUBROUTINE MUMPS_CLEAN_SAVED_DATA
       SUBROUTINE DMUMPS_GET_SAVE_FILES(id,SAVE_FILE,INFO_FILE)
       INCLUDE 'mpif.h'

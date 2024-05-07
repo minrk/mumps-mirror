@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.6.0, released
-C  on Wed Apr 19 15:50:57 UTC 2023
+C  This file is part of MUMPS 5.6.1, released
+C  on Tue Jul 11 07:51:28 UTC 2023
 C
 C
 C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -412,11 +412,8 @@ C     Compute the number of integers and nb of reals in the structure
 C     ======================================
 C     BEGIN CHECK KEEP ENTRIES AND INTERFACE
 C     ======================================
-C     The checks below used to be in SMUMPS_DRIVER. It is much better
-C     to have them here in SMUMPS_SOL_DRIVER because this enables
-C     more flexibility in the management of priorities between various
-C     checks.
       IF (id%MYID .EQ. MASTER) THEN
+C     {
 c     subroutine only because called at facto and solve
           CALL SMUMPS_SET_K221(id)
           id%KEEP(111) = id%ICNTL(25)
@@ -576,6 +573,7 @@ C
           ELSE
             KEEP(485) = 0 ! FR solve
           ENDIF
+C     }
       ENDIF
 C     Bcast id%KEEP(401) strategy (which
 C     may be switched off or on during solve)
@@ -1147,7 +1145,7 @@ C        -- Allocate Step2node on each proc
      &        STRING='id%Step2node (Solve)', MEMCNT=NBT, ERRCODE=-13)
          CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
      &        id%COMM, id%MYID )
-         IF ( INFO(1).LT.0 ) RETURN
+         IF ( INFO(1).LT.0 ) GOTO 500
 C        -- build Step2node on each proc;
 C        -- this is usefull to have at each step a unique
 C        -- representative node (associated with principal variable of
@@ -1461,12 +1459,12 @@ C       S(LA+1..MAXS) is free workspace
 C              freee space in id%S
                IF (associated(id%S)) THEN
                  DEALLOCATE (id%S) 
-                 NB_BYTES  = NB_BYTES - MAXS 
+                 NB_BYTES  = NB_BYTES - MAXS * K35_8
                ENDIF
                MAXS     = 1_8
                KEEP8(23)= MAXS
                ALLOCATE (id%S(MAXS), stat = allocok)
-               NB_BYTES  = NB_BYTES + MAXS 
+               NB_BYTES  = NB_BYTES + MAXS * K35_8
              ENDIF
            ENDIF
         ELSE
@@ -5521,6 +5519,14 @@ C         OOC: free space for S that was allocated
           id%KEEP8(23)=0_8
           DEALLOCATE(id%S)
           NULLIFY(id%S)
+        ELSE IF ( associated(id%S) .AND. KEEP8(31) .EQ. 0_8 .AND.
+     &            .NOT. WK_USER_PROVIDED .AND. KEEP(201).EQ.0 ) THEN
+C         In that case, MAXS was allocated of size 1
+C         at the beginning of the solve, free it.
+          DEALLOCATE (id%S) 
+          NULLIFY(id%S)
+          NB_BYTES  = NB_BYTES - KEEP8(23) * K35_8
+          KEEP8(23) = 0_8
         ENDIF
         IF (KEEP(221).NE.1) THEN
 C       -- After reduction of RHS to Schur variables
@@ -5554,6 +5560,7 @@ C       Otherwise, WORK_WCB may point to some
 C       position inside id%S, nullify it
         NULLIFY( WORK_WCB )
       ENDIF
+ 500  CONTINUE
       RETURN
  55   FORMAT (//' ERROR ANALYSIS BEFORE ITERATIVE REFINEMENT')
  100  FORMAT(//' ****** SOLVE & CHECK STEP ********'/)

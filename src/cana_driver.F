@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.6.0, released
-C  on Wed Apr 19 15:50:57 UTC 2023
+C  This file is part of MUMPS 5.6.1, released
+C  on Tue Jul 11 07:51:28 UTC 2023
 C
 C
 C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -1302,7 +1302,7 @@ C           Not concerned by CMUMPS_ANA_F_PAR
          IF (IERR.GT.0) THEN
            INFO(1) = -7
            IF (id%MYID .EQ. MASTER) THEN
-             INFO( 2 ) = 3*SIZEIKEEPALLOC+7*NBLK
+             INFO( 2 ) = SIZEIKEEPALLOC+7*NBLK
            ELSE
              INFO( 2 ) = 7*NBLK
            ENDIF
@@ -5824,7 +5824,7 @@ C     Write header line:
          ELSE
             SYMM="symmetric"
          END IF
-         WRITE(IUNIT,FMT=*)'%%MatrixMarket matrix coordinate ',
+         WRITE(IUNIT,'(A,A,A,A)') '%%MatrixMarket matrix coordinate ',
      &           trim(ARITH)," ",trim(SYMM)
          WRITE(IUNIT,*) id%N, id%N, NNZ_i
          IF ((associated(id%A)).AND.(.NOT.PATTERN_ONLY)) THEN
@@ -5868,7 +5868,7 @@ C        ==================
          ELSE
             SYMM="symmetric"
          END IF
-         WRITE(IUNIT,FMT=*)'%%MatrixMarket matrix coordinate ',
+         WRITE(IUNIT,'(A,A,A,A)') '%%MatrixMarket matrix coordinate ',
      &           trim(ARITH)," ",trim(SYMM)
          WRITE(IUNIT,*) id%N, id%N, NNZ_i
          IF ((associated(id%A_loc)).AND.(.NOT.PATTERN_ONLY)) THEN
@@ -5936,7 +5936,7 @@ C  =====================
 C
       IF (associated(id%RHS)) THEN
                ARITH='complex'
-        WRITE(IUNIT,FMT=*)'%%MatrixMarket matrix array ',
+        WRITE(IUNIT,'(A,A,A)') '%%MatrixMarket matrix array ',
      &           trim(ARITH),
      &           ' general'
         WRITE(IUNIT,*) id%N, id%NRHS

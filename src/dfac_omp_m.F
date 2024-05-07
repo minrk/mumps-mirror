@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.6.0, released
-C  on Wed Apr 19 15:50:57 UTC 2023
+C  This file is part of MUMPS 5.6.1, released
+C  on Tue Jul 11 07:51:28 UTC 2023
 C
 C
 C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -638,6 +638,7 @@ C
       ENDDO
       NBROOT_UNDER_L0 = NBROOT_PROCESSED
       DKEEP(95) = MPI_WTIME() - GTIME 
+      IF (KEEP(486) .NE. 0) THEN
       TIME_UPDATE          = TIME_UPDATE/dble(KEEP(400))
       TIME_COMPRESS        = TIME_COMPRESS/dble(KEEP(400))
       TIME_FRSWAP_COMPRESS = TIME_FRSWAP_COMPRESS/dble(KEEP(400))
@@ -660,6 +661,7 @@ C
       TIME_FRASM_LOCASM2   = TIME_FRASM_LOCASM2/dble(KEEP(400))
       TIME_FRASM_MAPLIG1   = TIME_FRASM_MAPLIG1/dble(KEEP(400))
       TIME_FRASM_CONTRIB2  = TIME_FRASM_CONTRIB2/dble(KEEP(400))
+      ENDIF
       DKEEP(97)            = DKEEP(97) / dble(KEEP(400))
       CALL MUMPS_LOAD_ENABLE()
       CALL DMUMPS_LOAD_UPDATE(0,.FALSE., FLOP_ESTIM_ACC,KEEP,KEEP8)
