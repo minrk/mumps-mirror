@@ -182,9 +182,9 @@ def main(clean, no_cache, push):
     print(f"Working in {repo_path}")
     clone(repo_path, clean=clean)
     existing_tags = list_tags(repo_path)
-    print(f"Have versions: {existing_tags}")
+    print(f"     Have versions: {', '.join(existing_tags)}")
     available_versions = list_versions()
-    print(f"Available versions: {available_versions}")
+    print(f"Available versions: {', '.join(available_versions)}")
     if existing_tags:
         latest_tag = existing_tags[-1]
     else:
