@@ -13,15 +13,18 @@ from bs4 import BeautifulSoup
 from git import Repo
 from tqdm import tqdm
 
-if os.getenv("GITHUB_REPOSITORY"):
-    repo_url = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}"
-else:
-    repo_url = "git@github.com:minrk/mumps-mirror"
-
 mirror_branch = "main"  # the branch containing the mirror
 cache_dir = Path(appdirs.user_cache_dir()) / "mumps-mirror"
-repo_path = cache_dir / "repo"
 changelog_url = "https://mumps-solver.org/index.php?page=dwnld"
+
+if os.getenv("GITHUB_REPOSITORY"):
+    repo_url = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}"
+    # run in local checkout on GitHub actions
+    repo_path = Path.cwd()
+else:
+    repo_url = "git@github.com:minrk/mumps-mirror"
+    repo_path = cache_dir / "repo"
+
 
 _skip_versions = {"5.1.0"}  # doesn't appear to be published
 
@@ -131,6 +134,7 @@ def download(url: str, no_cache=False) -> Path:
 
 
 def clear_repo(repo_path):
+    """Remove all tracked files from the repo"""
     repo = Repo(repo_path)
     paths = []
     for (path, stage), _entry in repo.index.entries.items():
