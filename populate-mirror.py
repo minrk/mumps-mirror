@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 from git import Repo
 from tqdm import tqdm
 
-mirror_branch = "main"  # the branch containing the mirror
+mirror_branch = "mirror"  # the branch containing the mirror
 cache_dir = Path(appdirs.user_cache_dir()) / "mumps-mirror"
 changelog_url = "https://mumps-solver.org/index.php?page=dwnld"
 

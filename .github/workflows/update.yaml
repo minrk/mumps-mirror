@@ -7,7 +7,7 @@ on:
     - cron: "0 4 * * *"
   push:
     branches:
-      - mirror
+      - main
 
 jobs:
   update-mirror:
