@@ -66,7 +66,8 @@ def list_versions(cutoff: str = "4.999") -> list[str]:
     for heading in page.find_all("h5"):
         if heading.string.startswith("Changes"):
             for vs in re.findall(r"\b([\d\.]+\d+)$", heading.string):
-                versions.add(vs)
+                if vs not in _skip_versions:
+                    versions.add(vs)
     cutoff_v = _v(cutoff)
     version_list = sorted(v for v in versions if _v(v) > cutoff_v)
     return version_list
@@ -192,10 +193,12 @@ def main(clean, no_cache, push):
     missing_versions = [
         v
         for v in available_versions
-        if (v not in (set(existing_tags) | _skip_versions) and _v(v) < _v(latest_tag))
+        if (v not in existing_tags and _v(v) < _v(latest_tag))
     ]
     if missing_versions:
+        # report versions in the past that we don't have
         print(f"Missing versions: {missing_versions}")
+
     new_versions = [
         v
         for v in available_versions
@@ -204,6 +207,7 @@ def main(clean, no_cache, push):
     if not new_versions:
         print("Up-to-date")
         return
+
     print(f"New versions to add: {new_versions}")
     repo = Repo(repo_path)
     for version in new_versions:
