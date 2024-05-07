@@ -1,6 +1,6 @@
 !
-!  This file is part of MUMPS 5.1.1, released
-!  on Tue Mar 21 14:55:59 UTC 2017
+!  This file is part of MUMPS 5.1.2, released
+!  on Mon Oct  2 07:37:01 UTC 2017
 !
 !
 !  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,

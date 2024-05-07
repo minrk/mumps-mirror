@@ -2,6 +2,22 @@
 = ChangeLog =
 -------------
 
+Changes from 5.1.1 to 5.1.2
+* Corrected an overestimation of memory (regression from 5.1.0)
+* Corrected/extended WORKAROUNDINTELILP64MPI2INTEGER mechanism (see INSTALL)
+* Parallel analysis: fixed a bug, limited number of MPI processes on small
+  problems, and reverted to sequential analysis on tiny problems. This is
+  to avoid erroneous behavior and failures in the parallel ordering tools.
+* Faster BLR clustering on matrices with quasi-dense rows (which are skipped)
+* Improved performance of solve phase on very small matrices
+* Solve phase with a single MPI process is more thread-safe
+* Fixed compilation issue with opensolaris ([SDCZ]MUMPS_TRUNCATED_RRQR)
+* Fixed minor bug in BLR factorization (uninitialized timer)
+* Corrected minor compiler warnings
+* Minor correction to userguide
+* Add -DBLR_MT in Intel example Makefile
+
+
 Changes from 5.1.0 to 5.1.1
 * Fix in parallel analysis
 * Stabilization of 5.1.0:
@@ -36,7 +52,7 @@ Changes from 5.0.2 to 5.1.0
 * New error -22, INFO(2)=16 when IRN_loc or JCN_loc not associated
   while ICNTL(18) is set to 3
 * Missing O_BINARY flag was added to open binary files on MINGW systems
-* New error -900 that could reflect a matrix structure change between
+* New error -53 that could reflect a matrix structure change between
 analysis and factorization
 
 Changes from 5.0.1 to 5.0.2
@@ -541,8 +557,8 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
-Release 5.1.1            : March 2016
-Release 5.1.0            : Feb 2016, internal release (limited diffusion)
+Release 5.1.1            : March 2017
+Release 5.1.0            : Feb 2017, internal release (limited diffusion)
 Release 5.0.2            : July 2016
 Release 5.0.1            : July 2015
 Release 5.0.0            : February 2015
