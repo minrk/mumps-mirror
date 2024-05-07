@@ -14,7 +14,7 @@ from git import Repo
 from tqdm import tqdm
 
 if os.getenv("GITHUB_REPOSITORY"):
-    repo_url = f"{os.environ['GITHUB_SERVER']}/{os.eviron['GITHUB_REPOSITORY']}"
+    repo_url = f"{os.environ['GITHUB_SERVER_URL']}/{os.eviron['GITHUB_REPOSITORY']}"
 else:
     repo_url = "git@github.com:minrk/mumps-mirror"
 
