@@ -2,6 +2,12 @@
 = ChangeLog =
 -------------
 
+Changes from 5.7.0 to 5.7.1
+* Fixed dynamic libray creation for PORD
+* Avoid need to link with deprecated LAPACK routine [csdz]geqpf
+* Fixed an error with ICNTL(37)=1 in case of numerically difficult problems and 
+  very limited workspace
+
 Changes from 5.6.2 to 5.7.0
 * New feature: Evolution of the distributed RHS: exploit sparsity (empty rows)
 * New feature: more efficient multithreading (see ICNTL(48))
@@ -798,6 +804,7 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.7.1            : May 2024
 Release 5.7.0            : April 2024
 Release 5.6.2            : October 2023
 Release 5.6.1            : July 2023

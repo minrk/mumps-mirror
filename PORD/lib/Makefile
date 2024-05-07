@@ -31,7 +31,7 @@ libpord$(PLAT)$(LIBEXT):$(OBJS)
 	$(RANLIB) $@
 
 libpord$(PLAT)$(LIBEXT_SHARED):$(OBJS)
-	$(CC) $(SHARED_OPT) $(OBJS) -o libpord$(PLAT)$(LIBEXT_SHARED)
+	$(CC) -shared $(OBJS) -o libpord$(PLAT)$(LIBEXT_SHARED)
 
 clean:
 	rm -f *.o
