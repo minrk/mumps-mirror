@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -42,9 +42,7 @@ C
      &                    FLOP_ACCUM_COMPRESS,
      &                    FLOP_DECOMPRESS,
      &                    FLOP_CB_DECOMPRESS,
-     &                    FLOP_FRFRONTS,
-     &                    FLOP_SOLFWD_FR,
-     &                    FLOP_SOLFWD_LR
+     &                    FLOP_FRFRONTS
       DOUBLE PRECISION :: FACTOR_PROCESSED_FRACTION
       INTEGER(KIND=8)  :: FACTOR_SIZE
       DOUBLE PRECISION :: TOTAL_FLOP
@@ -371,8 +369,6 @@ C
         FLOP_PANEL = 0.D0
         FLOP_TRSM = 0.D0
         FLOP_FRFRONTS = 0.D0
-        FLOP_SOLFWD_FR = 0.D0
-        FLOP_SOLFWD_LR = 0.D0
         TOTAL_NBLOCKS_ASS = 0
         TOTAL_NBLOCKS_CB = 0
         AVG_BLOCKSIZE_ASS = 0.D0
@@ -427,10 +423,9 @@ C
 !$OMP   END ATOMIC
       RETURN
       END SUBROUTINE UPD_MRY_LU_FR
-      SUBROUTINE UPD_MRY_CB(NROWS, NCOLS,
-     &                       SYM, NIV, LRGAIN)
-        INTEGER,INTENT(IN) :: NROWS, NCOLS, SYM, NIV, LRGAIN
-        DOUBLE PRECISION :: MRY, LRGAIND
+      SUBROUTINE UPD_MRY_CB_FR(NROWS, NCOLS, SYM)
+        INTEGER,INTENT(IN) :: NROWS, NCOLS, SYM
+        DOUBLE PRECISION :: MRY
         IF (SYM.EQ.0) THEN
           MRY = dble(NCOLS)*dble(NROWS)
         ELSE
@@ -440,39 +435,25 @@ C
 !$OMP   ATOMIC UPDATE
         MRY_CB_FR = MRY_CB_FR + MRY
 !$OMP   END ATOMIC
-        LRGAIND=dble(LRGAIN)
+        RETURN
+      END SUBROUTINE UPD_MRY_CB_FR
+      SUBROUTINE UPD_MRY_CB_LRGAIN(LRB
+     &                            )
+        TYPE(LRB_TYPE),  INTENT(IN) :: LRB
+        DOUBLE PRECISION :: LRGAIND
+        LRGAIND = dble(LRB%M*LRB%N-(LRB%M+LRB%N)*LRB%K)
 !$OMP   ATOMIC UPDATE
         MRY_CB_LRGAIN = MRY_CB_LRGAIN + LRGAIND
 !$OMP   END ATOMIC
         RETURN
-      END SUBROUTINE UPD_MRY_CB
-      SUBROUTINE UPD_MRY_LU_LRGAIN(BLR_PANEL, NB_INASM,
-     &                NB_INCB, DIR)
-        INTEGER,INTENT(IN) :: NB_INASM, NB_INCB
+      END SUBROUTINE UPD_MRY_CB_LRGAIN
+      SUBROUTINE UPD_MRY_LU_LRGAIN(BLR_PANEL, NBBLOCKS)
+        INTEGER,INTENT(IN) :: NBBLOCKS
         TYPE(LRB_TYPE),  INTENT(IN) :: BLR_PANEL(:)
-        CHARACTER(len=1) :: DIR
-        DOUBLE PRECISION :: FLOPFR, FLOPLR, MRY
+        DOUBLE PRECISION :: MRY
         INTEGER :: I
-        FLOPFR = 0.0D0
-        FLOPLR = 0.0D0
         MRY    = 0.0D0
-        IF (NB_INASM.GT.0.AND.DIR .EQ.'V') THEN
-          FLOPFR = FLOPFR + dble(BLR_PANEL(1)%N)*dble(BLR_PANEL(1)%N-1)
-          FLOPLR = FLOPLR + dble(BLR_PANEL(1)%N)*dble(BLR_PANEL(1)%N-1)
-        ENDIF
-        DO I = 1, NB_INASM+NB_INCB
-          IF (DIR .EQ. 'V') THEN
-            FLOPFR = FLOPFR + 
-     &          2.0D0*dble(BLR_PANEL(I)%M)*dble(BLR_PANEL(I)%N) 
-            IF (BLR_PANEL(I)%ISLR) THEN
-              FLOPLR = FLOPLR + 
-     &              2.0D0*dble((BLR_PANEL(I)%M+BLR_PANEL(I)%N)
-     &                         *BLR_PANEL(I)%K)
-            ELSE
-              FLOPLR = FLOPLR + 
-     &          2.0D0*dble(BLR_PANEL(I)%M*BLR_PANEL(I)%N) 
-            ENDIF
-          ENDIF
+        DO I = 1, NBBLOCKS
           IF (BLR_PANEL(I)%ISLR) THEN
             MRY = MRY + dble(BLR_PANEL(I)%M*BLR_PANEL(I)%N 
      &            - BLR_PANEL(I)%K*(BLR_PANEL(I)%M + BLR_PANEL(I)%N)) 

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -11,6 +11,23 @@ C  released under the CeCILL-C license
 C  (see doc/CeCILL-C_V1-en.txt, doc/CeCILL-C_V1-fr.txt, and
 C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html)
 C
+      SUBROUTINE MUMPS_FIND_UNIT(IUNIT)
+      IMPLICIT NONE
+      INTEGER :: IUNIT
+      INTEGER, PARAMETER :: UNIT_MIN = 10 
+      INTEGER, PARAMETER :: UNIT_MAX = 500
+      INTEGER :: I
+      LOGICAL :: BUSY
+      IUNIT = -1
+      DO I = UNIT_MIN, UNIT_MAX
+        INQUIRE(UNIT=I, OPENED=BUSY)
+        IF ( .NOT. BUSY ) THEN
+          IUNIT = I
+          RETURN
+        END IF
+      ENDDO
+      RETURN
+      END SUBROUTINE MUMPS_FIND_UNIT
       SUBROUTINE MUMPS_MAKE1ROOT( N, FRERE, FILS, NFSIZ, THEROOT )
       IMPLICIT NONE
       INTEGER, intent( in    )  :: N
@@ -501,6 +518,68 @@ C
       END DO
       RETURN
       END SUBROUTINE MUMPS_INIT_POOL_DIST_NA_BWD
+      SUBROUTINE MUMPS_INIT_POOL_DIST_NA_BWD_L0(N, MYROOT, MYID_NODES,
+     &           NA, LNA, KEEP, KEEP8, STEP, PROCNODE_STEPS,
+     &           IPOOL, LPOOL, L0_OMP_MAPPING )
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: N, MYID_NODES, LPOOL, LNA
+      INTEGER KEEP(500)
+      INTEGER(8) KEEP8(150)
+      INTEGER, INTENT(IN) :: STEP(N)
+      INTEGER, INTENT(IN) :: PROCNODE_STEPS(KEEP(28)), NA(LNA)
+      INTEGER, INTENT(IN) :: L0_OMP_MAPPING(KEEP(28))
+      INTEGER, INTENT(OUT) :: IPOOL(LPOOL)
+      INTEGER, INTENT(OUT) :: MYROOT
+      INTEGER, EXTERNAL :: MUMPS_PROCNODE
+      INTEGER :: NBLEAF, NBROOT, I, INODE
+      NBLEAF = NA(1)
+      NBROOT = NA(2)
+      MYROOT = 0
+      DO I = NBROOT, 1, -1
+        INODE = NA(NBLEAF+I+2)
+        IF (MUMPS_PROCNODE(PROCNODE_STEPS(STEP(INODE)),
+     &      KEEP(199)) .EQ. MYID_NODES) THEN
+          IF ( L0_OMP_MAPPING(STEP(INODE)).EQ.0 ) THEN
+            MYROOT = MYROOT + 1
+            IPOOL(MYROOT) = INODE
+          ENDIF
+        ENDIF
+      END DO
+      RETURN
+      END SUBROUTINE MUMPS_INIT_POOL_DIST_NA_BWD_L0
+      SUBROUTINE MUMPS_INIT_POOL_DIST_NA_BWDL0ES(N, MYROOT,
+     &           MYID_NODES,
+     &           NA, LNA, KEEP, KEEP8, STEP, PROCNODE_STEPS,
+     &           IPOOL, LPOOL, L0_OMP_MAPPING, TO_PROCESS )
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: N, MYID_NODES, LPOOL, LNA
+      INTEGER KEEP(500)
+      INTEGER(8) KEEP8(150)
+      INTEGER, INTENT(IN)  :: STEP(N)
+      INTEGER, INTENT(IN)  :: PROCNODE_STEPS(KEEP(28)), NA(LNA)
+      INTEGER, INTENT(IN)  :: L0_OMP_MAPPING(KEEP(28))
+      INTEGER, INTENT(OUT) :: IPOOL(LPOOL)
+      INTEGER, INTENT(OUT) :: MYROOT
+      LOGICAL, INTENT(IN)  :: TO_PROCESS( KEEP(28) )
+      INTEGER, EXTERNAL :: MUMPS_PROCNODE
+      INTEGER :: NBLEAF, NBROOT, I, INODE
+      NBLEAF = NA(1)
+      NBROOT = NA(2)
+      MYROOT = 0
+      DO I = NBROOT, 1, -1
+        INODE = NA(NBLEAF+I+2)
+        IF (MUMPS_PROCNODE(PROCNODE_STEPS(STEP(INODE)),
+     &      KEEP(199)) .EQ. MYID_NODES) THEN
+          IF ( L0_OMP_MAPPING(STEP(INODE)).EQ.0 ) THEN
+            IF ( TO_PROCESS( STEP(INODE) ) ) THEN
+              MYROOT = MYROOT + 1
+              IPOOL(MYROOT) = INODE
+            ENDIF
+          ENDIF
+        ENDIF
+      END DO
+      RETURN
+      END SUBROUTINE MUMPS_INIT_POOL_DIST_NA_BWDL0ES
       SUBROUTINE MUMPS_INIT_POOL_DIST(N, LEAF,
      &           MYID_NODES,
      &           K199, NA, LNA, KEEP,KEEP8, STEP,
@@ -699,9 +778,27 @@ C
       RETURN
       END SUBROUTINE MUMPS_SORT_INT8
       SUBROUTINE MUMPS_ABORT()
+#if defined(PRINT_BACKTRACE_ON_ABORT) 
+#if defined(__INTEL_COMPILER)
+      USE IFCORE
+#endif
       IMPLICIT NONE
       INCLUDE 'mpif.h'
       INTEGER IERR, IERRCODE
+#if defined(__GFORTRAN__)
+      CALL BACKTRACE()
+#endif
+#if defined(__INTEL_COMPILER)
+!$OMP CRITICAL(MUMPS_TRACEBACKQQ)
+      CALL TRACEBACKQQ("MUMPS_ABORT calls TRACEBACKQQ:",
+     &                 user_exit_code=-1)
+!$OMP END CRITICAL(MUMPS_TRACEBACKQQ)
+#endif
+#else
+      IMPLICIT NONE
+      INCLUDE 'mpif.h'
+      INTEGER IERR, IERRCODE
+#endif
       IERRCODE = -99
       CALL MPI_ABORT(MPI_COMM_WORLD, IERRCODE, IERR)
       RETURN
@@ -714,22 +811,6 @@ C
       KEEP12 = ICNTL14 
       RETURN
       END SUBROUTINE MUMPS_GET_PERLU
-#if defined(NOTUSED)
-      SUBROUTINE MUMPS_BCAST_I8( I8_VALUE, ROOT, MYID, COMM, IERR)
-      IMPLICIT NONE
-      INCLUDE 'mpif.h'
-      INTEGER ROOT, MYID, COMM, IERR
-      INTEGER(8) :: I8_VALUE
-      DOUBLE PRECISION :: DBLE_VALUE
-      IF (MYID .EQ. ROOT) THEN
-        DBLE_VALUE = dble(I8_VALUE)
-      ENDIF
-      CALL MPI_BCAST( DBLE_VALUE, 1, MPI_DOUBLE_PRECISION,
-     &                ROOT,  COMM, IERR )
-      I8_VALUE = int( DBLE_VALUE,8)
-      RETURN
-      END SUBROUTINE MUMPS_BCAST_I8
-#endif
       SUBROUTINE MUMPS_REDUCEI8( IN, OUT, MPI_OP, ROOT, COMM)
       IMPLICIT NONE
       INCLUDE 'mpif.h'
@@ -1229,3 +1310,496 @@ C
       DEALLOCATE( MAXNPIV )
       RETURN
       END SUBROUTINE MUMPS_NPIV_CRITICAL_PATH
+      SUBROUTINE MUMPS_LDLTPANEL_NBTARGET( NPIV, NB_TARGET, KEEP )
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: NPIV
+      INTEGER, INTENT(IN) :: KEEP(500)
+      INTEGER, INTENT(OUT) :: NB_TARGET
+      INTEGER :: NBPANELS, NBCOLMIN, NBPANELSMAX
+      IF (NPIV .EQ. 0) THEN
+        NB_TARGET = 0
+      ELSE
+        NBCOLMIN    = KEEP(460)
+        NBPANELSMAX = KEEP(459)
+        NBPANELS = min( (NPIV+NBCOLMIN-1) / NBCOLMIN, NBPANELSMAX  )
+        NB_TARGET = ( NPIV+NBPANELS-1 ) / NBPANELS
+      ENDIF
+      RETURN
+      END SUBROUTINE MUMPS_LDLTPANEL_NBTARGET
+      SUBROUTINE MUMPS_LDLTPANEL_STORAGE
+     &           ( NPIV, KEEP, IW, NB_ENTRIES )
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: NPIV 
+      INTEGER, INTENT(IN) :: KEEP(500), IW(*) 
+      INTEGER(8), INTENT(OUT) :: NB_ENTRIES 
+      INTEGER :: NB_TARGET, NBCOLS_PANEL, NBROWS_PANEL
+      INTEGER :: ICOL_BEG, ICOL_END, NBPANELS
+      CALL MUMPS_LDLTPANEL_NBTARGET( NPIV, NB_TARGET, KEEP )
+      NB_ENTRIES = 0_8
+      NBROWS_PANEL = NPIV
+      ICOL_BEG = 1
+      NBPANELS = 0
+      DO WHILE ( ICOL_BEG .LE. NPIV )
+        NBPANELS = NBPANELS + 1
+        ICOL_END = min(NB_TARGET * NBPANELS, NPIV)
+        IF (IW(1) .NE. 0) THEN
+          IF ( IW( ICOL_END ) < 0 ) THEN 
+            ICOL_END = ICOL_END + 1
+          ENDIF
+        ENDIF
+        NBCOLS_PANEL = ICOL_END - ICOL_BEG + 1
+        NB_ENTRIES = NB_ENTRIES + int(NBCOLS_PANEL,8) *
+     &                            int(NBROWS_PANEL,8)
+        NBROWS_PANEL = NBROWS_PANEL - NBCOLS_PANEL
+        ICOL_BEG = ICOL_END + 1
+      ENDDO
+      RETURN
+      END SUBROUTINE MUMPS_LDLTPANEL_STORAGE
+      SUBROUTINE MUMPS_LDLTPANEL_PANELINFOS( NPIV, KEEP, IW,
+     &       NB_TARGET, NBPANELS, PANEL_COL, PANEL_POS, PANEL_TABSIZE,
+     &       IGNORE_K459 )
+      IMPLICIT NONE
+      INTEGER,    INTENT(IN)  :: NPIV
+      INTEGER,    INTENT(IN)  :: IW( NPIV )
+      INTEGER,    INTENT(IN)  :: KEEP(500)
+      INTEGER,    INTENT(IN)  :: PANEL_TABSIZE
+      INTEGER,    INTENT(OUT) :: NB_TARGET, NBPANELS
+      INTEGER,    INTENT(OUT) :: PANEL_COL( PANEL_TABSIZE )
+      INTEGER(8), INTENT(OUT) :: PANEL_POS( PANEL_TABSIZE )
+      LOGICAL,    INTENT(IN)  :: IGNORE_K459
+      INTEGER :: IPANEL, ICOL_END, NBROWS_PANEL, NBCOLS_PANEL
+      IF ( IGNORE_K459 ) THEN
+        NB_TARGET = NPIV
+      ELSE
+        CALL MUMPS_LDLTPANEL_NBTARGET( NPIV, NB_TARGET, KEEP )
+      ENDIF
+      PANEL_POS(1) = 1_8
+      PANEL_COL(1) = 1
+      NBROWS_PANEL = NPIV
+      NBPANELS     = 1
+      IF ( KEEP(459) .GT. 1 .AND. KEEP(50) .NE. 0 .AND.
+     &   NB_TARGET.NE.NPIV ) THEN
+        NBPANELS = ( NPIV + NB_TARGET -1 ) / NB_TARGET
+        IF ( PANEL_TABSIZE .LT. NBPANELS + 1 ) THEN
+          WRITE(*,*) " Internal error in MUMPS_LDLTPANEL_PANELINFOS",
+     &    PANEL_TABSIZE, NBPANELS
+          CALL MUMPS_ABORT()
+        ENDIF
+        DO IPANEL=1, NBPANELS
+          ICOL_END = min(IPANEL*NB_TARGET, NPIV)
+          IF ( IW(ICOL_END) .LT. 0 ) THEN
+            ICOL_END = ICOL_END + 1
+          ENDIF
+          NBCOLS_PANEL = ICOL_END - PANEL_COL(IPANEL) + 1
+          PANEL_POS(IPANEL+1) = PANEL_POS(IPANEL) + 
+     &    int(NBROWS_PANEL,8)*int(NBCOLS_PANEL,8)
+          PANEL_COL(IPANEL+1) = PANEL_COL(IPANEL) + NBCOLS_PANEL
+          NBROWS_PANEL = NBROWS_PANEL - NBCOLS_PANEL
+        ENDDO
+      ELSE
+          PANEL_POS(2)  = int(NPIV,8)*int(NPIV,8)+1_8
+          PANEL_COL(2) = NPIV+1
+      ENDIF
+      END SUBROUTINE MUMPS_LDLTPANEL_PANELINFOS
+      SUBROUTINE MUMPS_LDLTPANEL_SIZES
+     &           ( NPIV, KEEP, IW, PANEL_SIZES, NBPANELS )
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: NPIV 
+      INTEGER, INTENT(IN) :: KEEP(500), IW(NPIV) 
+      INTEGER(8), INTENT(OUT) :: PANEL_SIZES( KEEP(459) ) 
+      INTEGER, INTENT(OUT) :: NBPANELS
+      INTEGER :: NB_TARGET
+      INTEGER :: ICOL_BEG, ICOL_END
+      NBPANELS = 0
+      CALL MUMPS_LDLTPANEL_NBTARGET( NPIV, NB_TARGET, KEEP )
+      ICOL_BEG = 1
+      NBPANELS = 0
+      DO WHILE ( ICOL_BEG .LE. NPIV )
+        NBPANELS = NBPANELS + 1
+        ICOL_END = min(NB_TARGET * NBPANELS, NPIV)
+        IF ( IW( ICOL_END ) < 0 ) THEN 
+          ICOL_END = ICOL_END + 1
+        ENDIF
+        PANEL_SIZES(NBPANELS) = ICOL_END-ICOL_BEG+1
+        ICOL_BEG = ICOL_END + 1
+      ENDDO
+      PANEL_SIZES(NBPANELS+1:KEEP(459))=0
+      RETURN
+      END SUBROUTINE MUMPS_LDLTPANEL_SIZES
+      SUBROUTINE MUMPS_BUILD_ARCH_NODE_COMM
+     &           ( COMM, NEWCOMM, NEWSIZE, NEWRANK )
+      IMPLICIT NONE
+      INCLUDE 'mpif.h'
+      INTEGER, INTENT(IN)  :: COMM
+      INTEGER, INTENT(OUT) :: NEWCOMM, NEWSIZE, NEWRANK
+      INTEGER :: SMALLEST_ID_ON_SAME_NODE, IPROC, MYID, IERR, NPROCS
+      INTEGER :: TMPNAME_LENGTH, MYNAME_LENGTH
+      CHARACTER(len=MPI_MAX_PROCESSOR_NAME) :: MYNAME, TMPNAME
+      SMALLEST_ID_ON_SAME_NODE = -1
+      CALL MPI_COMM_RANK( COMM, MYID, IERR )
+      CALL MPI_COMM_SIZE( COMM, NPROCS, IERR )
+      CALL MPI_GET_PROCESSOR_NAME(MYNAME, MYNAME_LENGTH, IERR )
+      DO IPROC = 0, NPROCS - 1
+        IF (MYID .EQ. IPROC) THEN
+          TMPNAME = MYNAME
+          TMPNAME_LENGTH = MYNAME_LENGTH
+        ENDIF
+        CALL MPI_BCAST( TMPNAME_LENGTH, 1, MPI_INTEGER,
+     &                  IPROC, COMM, IERR )
+        CALL MPI_BCAST( TMPNAME, TMPNAME_LENGTH, MPI_CHARACTER,
+     &                  IPROC, COMM, IERR)
+        IF (SMALLEST_ID_ON_SAME_NODE .LT. 0) THEN
+         IF ( TMPNAME_LENGTH .EQ. MYNAME_LENGTH ) THEN
+          IF ( TMPNAME(1:TMPNAME_LENGTH) .EQ. MYNAME(1:MYNAME_LENGTH) )
+     &    THEN
+            SMALLEST_ID_ON_SAME_NODE = IPROC
+          ENDIF
+         ENDIF
+        ENDIF
+      ENDDO
+      CALL MPI_COMM_SPLIT( COMM, SMALLEST_ID_ON_SAME_NODE, 0,
+     &                     NEWCOMM, IERR )
+      CALL MPI_COMM_RANK( NEWCOMM, NEWRANK, IERR )
+      CALL MPI_COMM_SIZE( NEWCOMM, NEWSIZE, IERR )
+      RETURN
+      END SUBROUTINE MUMPS_BUILD_ARCH_NODE_COMM
+      SUBROUTINE MUMPS_DESTROY_ARCH_NODE_COMM( ARCH_NODE_COMM )
+      IMPLICIT NONE
+      INTEGER :: ARCH_NODE_COMM, IERR
+      INCLUDE 'mpif.h'
+      CALL MPI_COMM_FREE( ARCH_NODE_COMM, IERR )
+      RETURN
+      END SUBROUTINE MUMPS_DESTROY_ARCH_NODE_COMM
+      SUBROUTINE  MUMPS_DM_FAC_UPD_DYN_MEMCNTS
+     &                    ( MEM_COUNT_ALLOCATED, ATOMIC_UPDATES, KEEP8,
+     &                      IFLAG, IERROR, K69UPD, K71UPD )
+      IMPLICIT NONE
+      INTEGER(8), INTENT(IN)        :: MEM_COUNT_ALLOCATED
+      INTEGER(8), INTENT(INOUT)     :: KEEP8(150)
+      LOGICAL, INTENT(IN)           :: ATOMIC_UPDATES
+      INTEGER, INTENT(INOUT)        :: IFLAG, IERROR
+      LOGICAL, INTENT(IN) :: K69UPD
+      LOGICAL, INTENT(IN) :: K71UPD
+      INTEGER(8) :: KEEP8TMPCOPY
+      IF (MEM_COUNT_ALLOCATED.GT.0) THEN
+           IF (ATOMIC_UPDATES ) THEN
+!$OMP        ATOMIC CAPTURE
+             KEEP8(73) = KEEP8(73) + MEM_COUNT_ALLOCATED
+             KEEP8TMPCOPY = KEEP8(73)
+!$OMP        END ATOMIC
+!$OMP        ATOMIC UPDATE
+             KEEP8(74) = max(KEEP8(74), KEEP8TMPCOPY)
+!$OMP        END ATOMIC
+           ELSE
+             KEEP8(73) = KEEP8(73) + MEM_COUNT_ALLOCATED
+             KEEP8TMPCOPY = KEEP8(73)
+             KEEP8(74) = max(KEEP8(74), KEEP8(73))
+           ENDIF
+           IF ( KEEP8TMPCOPY .GT. KEEP8(75) ) THEN
+             IFLAG = -19
+             CALL MUMPS_SET_IERROR(
+     &            (KEEP8TMPCOPY-KEEP8(75)), IERROR)
+           ENDIF
+           IF ( K69UPD ) THEN
+             IF ( ATOMIC_UPDATES ) THEN
+!$OMP          ATOMIC CAPTURE
+               KEEP8(69) = KEEP8(69) + MEM_COUNT_ALLOCATED
+               KEEP8TMPCOPY = KEEP8(69)
+!$OMP          END ATOMIC
+!$OMP          ATOMIC UPDATE
+               KEEP8(68) = max(KEEP8(68), KEEP8TMPCOPY)
+!$OMP          END ATOMIC
+             ELSE
+               KEEP8(69) = KEEP8(69) + MEM_COUNT_ALLOCATED
+               KEEP8(68) = max(KEEP8(69), KEEP8(68))
+             ENDIF
+           ENDIF
+           IF ( K71UPD ) THEN
+             IF ( ATOMIC_UPDATES ) THEN
+!$OMP          ATOMIC CAPTURE
+               KEEP8(71) = KEEP8(71) + MEM_COUNT_ALLOCATED
+               KEEP8TMPCOPY = KEEP8(71)
+!$OMP          END ATOMIC
+!$OMP          ATOMIC UPDATE
+               KEEP8(70) = max(KEEP8(70), KEEP8TMPCOPY)
+!$OMP          END ATOMIC
+             ELSE
+               KEEP8(71) = KEEP8(71) + MEM_COUNT_ALLOCATED
+               KEEP8(70) = max(KEEP8(71), KEEP8(70))
+             ENDIF
+           ENDIF
+      ELSE
+           IF (ATOMIC_UPDATES) THEN
+!$OMP ATOMIC UPDATE
+             KEEP8(73) = KEEP8(73) + MEM_COUNT_ALLOCATED
+!$OMP END ATOMIC
+             IF ( K69UPD ) THEN
+!$OMP ATOMIC UPDATE
+               KEEP8(69) = KEEP8(69) + MEM_COUNT_ALLOCATED
+!$OMP END ATOMIC
+             ENDIF
+             IF ( K71UPD ) THEN
+!$OMP ATOMIC UPDATE
+               KEEP8(71) = KEEP8(71) + MEM_COUNT_ALLOCATED
+!$OMP END ATOMIC
+             ENDIF
+           ELSE
+             KEEP8(73) = KEEP8(73) + MEM_COUNT_ALLOCATED
+             IF ( K69UPD ) THEN
+               KEEP8(69) = KEEP8(69) + MEM_COUNT_ALLOCATED
+             ENDIF
+             IF ( K71UPD ) THEN
+               KEEP8(71) = KEEP8(71) + MEM_COUNT_ALLOCATED
+             ENDIF
+           ENDIF
+      ENDIF
+      RETURN
+      END SUBROUTINE MUMPS_DM_FAC_UPD_DYN_MEMCNTS
+      SUBROUTINE MUMPS_SET_PARTI_REGULAR(
+     &     SLAVEF,
+     &     KEEP,KEEP8,
+     &     PROCS,
+     &     MEM_DISTRIB, NCB, NFRONT, NSLAVES_NODE,
+     &     TAB_POS, SLAVES_LIST, SIZE_SLAVES_LIST,MYID,INODE,
+     &     TAB_MAXS_ARG,SUP_PROC_ARG,MAX_SURF,NB_ROW_MAX
+     &     )
+      IMPLICIT NONE
+      INTEGER, intent(in) :: KEEP(500),SIZE_SLAVES_LIST
+      INTEGER(8) KEEP8(150)
+      INTEGER, intent(in) :: SLAVEF, NFRONT, NCB,MYID
+      INTEGER, intent(in) :: PROCS(SLAVEF+1)
+      INTEGER(8), intent(in) :: TAB_MAXS_ARG(0:SLAVEF-1)
+      INTEGER, intent(in) :: SUP_PROC_ARG(2)
+      INTEGER, intent(in) :: MEM_DISTRIB(0:SLAVEF-1),INODE
+      INTEGER, intent(out):: SLAVES_LIST(SIZE_SLAVES_LIST)
+      INTEGER, intent(out):: TAB_POS(SLAVEF+2)
+      INTEGER, intent(out):: NSLAVES_NODE,NB_ROW_MAX
+      INTEGER(8), intent(out):: MAX_SURF
+      LOGICAL :: FORCE_LDLTRegular_NIV2
+      INTEGER NSLAVES,ACC
+      INTEGER i,J,NELIM,NB_SUP,K50,NB_ROWS(PROCS(SLAVEF+1))
+      INTEGER TMP_NROW,X,K
+      LOGICAL SUP,MEM_CSTR
+      DOUBLE PRECISION MAX_LOAD,TOTAL_LOAD,VAR,TMP,A,B,C,DELTA,
+     &     LOAD_CORR
+      INTEGER IDWLOAD(SLAVEF)
+      INTEGER(8) MEM_CONSTRAINT(2)
+      K50=KEEP(50)
+      FORCE_LDLTRegular_NIV2 = .FALSE.
+      MAX_SURF=0
+      NB_ROW_MAX=0
+      NELIM=NFRONT-NCB
+      NB_SUP=0
+      TOTAL_LOAD=0.0D0
+      SUP=.FALSE.
+      IF(SUP_PROC_ARG(1).NE.
+     &     0)THEN
+         MEM_CONSTRAINT(1)=TAB_MAXS_ARG(PROCS(1))
+         TOTAL_LOAD=TOTAL_LOAD+dble(SUP_PROC_ARG(1))/100.0D0
+         NB_SUP=NB_SUP+1
+      ENDIF
+      IF(SUP_PROC_ARG(2).NE.
+     &     0)THEN
+         MEM_CONSTRAINT(2)=TAB_MAXS_ARG(PROCS(PROCS(SLAVEF+1)))
+         TOTAL_LOAD=TOTAL_LOAD+dble(SUP_PROC_ARG(2))/100.0D0
+         NB_SUP=NB_SUP+1
+      ENDIF
+      TOTAL_LOAD=TOTAL_LOAD+(PROCS(SLAVEF+1)-NB_SUP)
+      IF(K50.EQ.0)THEN
+         MAX_LOAD=dble( NELIM ) * dble ( NCB ) +
+     *        dble(NCB) * dble(NELIM)*dble(2*NFRONT-NELIM-1)
+      ELSE
+         MAX_LOAD=dble(NELIM) * dble ( NCB ) *
+     *        dble(NFRONT+1)
+      ENDIF
+      TMP=min(MAX_LOAD,MAX_LOAD/TOTAL_LOAD)
+      J=1
+      DO i=1,PROCS(SLAVEF+1)
+         IF((NB_SUP.GT.0).AND.(i.EQ.1))THEN
+            CYCLE
+         ELSEIF((NB_SUP.EQ.2).AND.(i.EQ.PROCS(SLAVEF+1)))THEN
+            CYCLE
+         ENDIF
+         IDWLOAD(J)=PROCS(i)
+         J=J+1
+      ENDDO
+      DO i=1,NB_SUP
+         IF(i.EQ.1)THEN
+            IDWLOAD(J)=PROCS(1)
+         ELSE
+            IDWLOAD(J)=PROCS(PROCS(SLAVEF+1))
+         ENDIF
+         J=J+1
+      ENDDO
+      IF ((K50.EQ.0).OR.FORCE_LDLTRegular_NIV2) THEN
+         ACC=0
+         J=PROCS(SLAVEF+1)-NB_SUP+1
+         DO i=1,NB_SUP
+            VAR=dble(SUP_PROC_ARG(i))/100.0D0
+            TMP_NROW=int(dble(MEM_CONSTRAINT(i))/dble(NFRONT))
+            NB_ROWS(J)=int(max((VAR*dble(TMP))/
+     &           (dble(NELIM)*dble(2*NFRONT-NELIM)),
+     &           dble(1)))
+            IF(NB_ROWS(J).GT.TMP_NROW)THEN
+               NB_ROWS(J)=TMP_NROW
+            ENDIF
+            IF(NCB-ACC.LT.NB_ROWS(J)) THEN 
+               NB_ROWS(J)=NCB-ACC
+               ACC=NCB
+               EXIT
+            ENDIF
+            ACC=ACC+NB_ROWS(J)
+            J=J+1
+         ENDDO
+         IF(ACC.EQ.NCB)THEN
+            GOTO 777
+         ENDIF
+         DO i=1,PROCS(SLAVEF+1)-NB_SUP
+            VAR=1.0D0
+            TMP_NROW=int((dble(TAB_MAXS_ARG(IDWLOAD(i))))/dble(NFRONT))
+            NB_ROWS(i)=int((dble(VAR)*dble(TMP))/
+     &           (dble(NELIM)*dble(2*NFRONT-NELIM)))
+            IF(NB_ROWS(i).GT.TMP_NROW)THEN
+               NB_ROWS(i)=TMP_NROW
+            ENDIF
+            IF(NCB-ACC.LT.NB_ROWS(i)) THEN 
+               NB_ROWS(i)=NCB-ACC
+               ACC=NCB
+               EXIT
+            ENDIF
+            ACC=ACC+NB_ROWS(i)
+         ENDDO
+         IF(ACC.NE.NCB)THEN
+            IF(PROCS(SLAVEF+1).EQ.NB_SUP)THEN
+               TMP_NROW=(NCB-ACC)/PROCS(SLAVEF+1)+1
+               DO i=1,PROCS(SLAVEF+1)
+                  NB_ROWS(i)=NB_ROWS(i)+TMP_NROW
+                  IF(ACC+TMP_NROW.GT.NCB)THEN
+                     NB_ROWS(i)=NB_ROWS(i)-TMP_NROW+NCB-ACC
+                     ACC=NCB
+                     EXIT
+                  ENDIF
+                  ACC=ACC+TMP_NROW
+               ENDDO
+            ELSE
+               TMP_NROW=(NCB-ACC)/(PROCS(SLAVEF+1)-NB_SUP)+1
+               DO i=1,PROCS(SLAVEF+1)-NB_SUP
+                  NB_ROWS(i)=NB_ROWS(i)+TMP_NROW
+                  ACC=ACC+TMP_NROW
+                  IF(ACC.GT.NCB) THEN 
+                     NB_ROWS(i)=NB_ROWS(i)-TMP_NROW+
+     &                    (NCB-(ACC-TMP_NROW))
+                     EXIT
+                  ENDIF
+               ENDDO
+            ENDIF
+         ENDIF
+      ELSE
+         ACC=0
+         i=PROCS(SLAVEF+1)-NB_SUP+1
+         X=NCB
+         LOAD_CORR=0.0D0
+         MEM_CSTR=.FALSE.
+         DO J=1,NB_SUP
+            VAR=DBLE(SUP_PROC_ARG(J))/DBLE(100)
+            A=1.0D0
+            B=dble(X+NELIM)
+            C=-dble(max(MEM_CONSTRAINT(J),0_8))
+            DELTA=((B*B)-(4*A*C))
+            TMP_NROW=int((-B+sqrt(DELTA))/(2*A))
+            A=dble(-NELIM)
+            B=dble(NELIM)*(dble(-NELIM)+dble(2*(X+NELIM)+1))
+            C=-(VAR*TMP)
+            DELTA=(B*B-(4*A*C))
+            NB_ROWS(i)=int((-B+sqrt(DELTA))/(2*A))
+            IF(NB_ROWS(i).GT.TMP_NROW)THEN
+               NB_ROWS(i)=TMP_NROW
+               MEM_CSTR=.TRUE.               
+            ENDIF
+            IF(ACC+NB_ROWS(i).GT.NCB)THEN
+               NB_ROWS(i)=NCB-ACC
+               ACC=NCB
+               X=0
+               EXIT
+            ENDIF
+            X=X-NB_ROWS(i)
+            ACC=ACC+NB_ROWS(i) 
+            LOAD_CORR=LOAD_CORR+(dble(NELIM) * dble (NB_ROWS(i)) *
+     *           dble(2*(X+NELIM) - NELIM - NB_ROWS(i) + 1))
+            i=i+1
+         ENDDO
+         IF(ACC.EQ.NCB)THEN
+            GOTO 777
+         ENDIF
+            IF((PROCS(SLAVEF+1).NE.NB_SUP).AND.MEM_CSTR)THEN
+               TMP=(MAX_LOAD-LOAD_CORR)/(PROCS(SLAVEF+1)-NB_SUP)
+            ENDIF
+         X=ACC
+         ACC=0
+         DO i=1,PROCS(SLAVEF+1)-NB_SUP
+            IF (KEEP(375) .EQ. 1) THEN 
+              VAR=1.0D0
+              A=dble(NELIM)
+              B=dble(NELIM)*(dble(NELIM)+dble(2*ACC+1))
+              C=-(VAR*TMP)
+            ELSE    
+              A=1.0D0
+              B=dble(ACC+NELIM)
+              C=-TMP
+            ENDIF
+            DELTA=((B*B)-(4*A*C))
+            NB_ROWS(i)=int((-B+sqrt(DELTA))/(2*A))
+            IF(NCB-ACC-X.LT.NB_ROWS(i))THEN
+               NB_ROWS(i)=NCB-ACC-X
+               ACC=NCB-X
+               EXIT
+            ENDIF
+            ACC=ACC+NB_ROWS(i)
+         ENDDO
+         ACC=ACC+X
+         IF(ACC.NE.NCB)THEN
+            IF(PROCS(SLAVEF+1).EQ.NB_SUP)THEN
+               TMP_NROW=(NCB-ACC)/PROCS(SLAVEF+1)+1
+               DO i=1,PROCS(SLAVEF+1)
+                  NB_ROWS(i)=NB_ROWS(i)+TMP_NROW
+                  IF(ACC+TMP_NROW.GT.NCB)THEN
+                     NB_ROWS(i)=NB_ROWS(i)-TMP_NROW+NCB-ACC
+                     ACC=NCB
+                     EXIT
+                  ENDIF
+                  ACC=ACC+TMP_NROW
+               ENDDO
+            ELSE
+               NB_ROWS(PROCS(SLAVEF+1)-NB_SUP)=
+     &              NB_ROWS(PROCS(SLAVEF+1)
+     &              -NB_SUP)+NCB-ACC
+            ENDIF
+         ENDIF
+      ENDIF
+ 777  CONTINUE
+      NSLAVES=0
+      ACC=1
+      J=1
+      K=1
+      DO i=1,PROCS(SLAVEF+1)
+         IF(NB_ROWS(i).NE.0)THEN
+            SLAVES_LIST(J)=IDWLOAD(i)
+            TAB_POS(J)=ACC
+            ACC=ACC+NB_ROWS(i)
+            NB_ROW_MAX=max(NB_ROW_MAX,NB_ROWS(i))
+            IF(K50.EQ.0)THEN
+               MAX_SURF=max(int(NB_ROWS(i),8)*int(NCB,8),int(0,8))
+            ELSE
+               MAX_SURF=max(int(NB_ROWS(i),8)*int(ACC,8),int(0,8))
+            ENDIF
+            NSLAVES=NSLAVES+1
+            J=J+1
+         ELSE
+            SLAVES_LIST(PROCS(SLAVEF+1)-K+1)=IDWLOAD(i)
+            K=K+1
+         ENDIF
+      ENDDO
+      TAB_POS(SLAVEF+2) = NSLAVES
+      TAB_POS(NSLAVES+1)= NCB+1
+      NSLAVES_NODE=NSLAVES
+      END SUBROUTINE MUMPS_SET_PARTI_REGULAR

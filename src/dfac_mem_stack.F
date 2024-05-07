@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -27,6 +27,7 @@ C
      &    ND, FRERE, LPTRAR, NELT, FRTPTR, FRTELT,
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE
      &               , LRGROUPS
+     &  , FLOP_ESTIM_ACC
      &    )
       USE DMUMPS_BUF
       USE DMUMPS_LOAD
@@ -69,6 +70,7 @@ C
       INTEGER BUFR( LBUFR )
       INTEGER NBFIN
       INTEGER NFRONT_ESTIM,NELIM_ESTIM
+      DOUBLE PRECISION FLOP_ESTIM_ACC
       INTEGER MUMPS_PROCNODE
       EXTERNAL MUMPS_PROCNODE
       INCLUDE 'mpif.h'
@@ -214,6 +216,9 @@ C
      &       KEEP(50),1,FLOP1)
       END IF
       FLOP1=-FLOP1
+      IF (KEEP(400).GT.0) THEN
+        FLOP_ESTIM_ACC = FLOP_ESTIM_ACC + FLOP1
+      ENDIF
       IF (SSARBR_ROOT) THEN
         CALL DMUMPS_LOAD_UPDATE(0,.FALSE.,FLOP1,KEEP,KEEP8)
       ELSE
@@ -224,6 +229,9 @@ C
      &       .AND. KEEP(201).NE.1 
      &    .AND. (.NOT.COMPRESS_PANEL.OR..NOT.LR_SOLVE)
      &       ) THEN
+          MUST_COMPACT_FACTORS = .TRUE.
+          GOTO 190 
+        ELSE IF ( KEEP(50) .NE. 0 .AND. KEEP(459).GT.1) THEN
           MUST_COMPACT_FACTORS = .TRUE.
           GOTO 190 
         ELSE
@@ -512,9 +520,10 @@ C
       IF ( KEEP(50).NE.0 .AND. TYPE .EQ. 1 
      &     .AND. MUST_COMPACT_FACTORS ) THEN
         POSELT = PTRFAC(STEP(INODE))
-        CALL DMUMPS_COMPACT_FACTORS(A(POSELT), LDA, 
-     &                         NPIV, NBROW, KEEP(50),
-     &                         int(LDA,8)*int(NBROW+NPIV,8))
+        CALL DMUMPS_COMPACT_FACTORS( A(POSELT), LDA, 
+     &             NPIV, NBROW, KEEP,
+     &             int(LDA,8)*int(NBROW+NPIV,8),
+     &             IW( PTLUST_S(STEP(INODE)) + H_INODE + NFRONT ) )
         MUST_COMPACT_FACTORS = .FALSE.
       ENDIF
       IF (COMPRESS_CB.AND.(LREQCB.EQ.0)) GOTO 190
@@ -580,16 +589,17 @@ C
  190  CONTINUE
       IF (MUST_COMPACT_FACTORS) THEN
        POSELT = PTRFAC(STEP(INODE))
-       CALL DMUMPS_COMPACT_FACTORS(A(POSELT), LDA, 
-     &                         NPIV, NBROW, KEEP(50),
-     &                         int(LDA,8)*int(NBROW+NPIV,8))
+       CALL DMUMPS_COMPACT_FACTORS( A(POSELT), LDA,
+     &             NPIV, NBROW, KEEP,
+     &             int(LDA,8)*int(NBROW+NPIV,8),
+     &             IW( PTLUST_S(STEP(INODE)) + H_INODE + NFRONT ) )
        MUST_COMPACT_FACTORS = .FALSE.
       ENDIF
       IOLDPS = PTLUST_S(STEP(INODE))
-      IW(IOLDPS+KEEP(IXSZ))     = NBCOL
-      IW(IOLDPS + 1+KEEP(IXSZ)) = NASS - NPIV
+      IW(IOLDPS+KEEP(IXSZ))     = NBCOL       
+      IW(IOLDPS + 1+KEEP(IXSZ)) = NASS - NPIV 
       IF (TYPE.EQ.2) THEN
-        IW(IOLDPS + 2+KEEP(IXSZ)) = NASS
+        IW(IOLDPS + 2+KEEP(IXSZ)) = NASS      
       ELSE
         IW(IOLDPS + 2+KEEP(IXSZ)) = NFRONT
       ENDIF

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -34,6 +34,7 @@ C
       LOGICAL T4_MASTER_CONCERNED, EARLYT3ROOTINS
       INTEGER(8) :: IPTRI, IPTRR
       EARLYT3ROOTINS = KEEP(200) .EQ. 0
+     & .OR. (KEEP(200) .LT. 0 .AND. KEEP(400) .EQ. 0)
       TYPE_PARALL = KEEP(46)
       I_AM_SLAVE = (KEEP(46).EQ.1 .OR. MYID.NE.0)
       KEEP8(26) = 0_8
@@ -231,8 +232,9 @@ C
      &        MUMPS_TYPESPLIT
       EXTERNAL MUMPS_PROCNODE, MUMPS_TYPENODE, numroc, 
      &        MUMPS_TYPESPLIT
-      COMPLEX VAL
+      COMPLEX VAL, VAL_SHR
       INTEGER IOLD,JOLD,ISEND,JSEND,DEST,I,IARR
+      INTEGER ISEND_SHR, JSEND_SHR, DEST_SHR
       INTEGER IPOSROOT, JPOSROOT
       INTEGER IROW_GRID, JCOL_GRID
       INTEGER INODE, ISTEP
@@ -244,7 +246,7 @@ C
       LOGICAL I_AM_CAND_LOC, I_AM_SLAVE
       INTEGER JARR, ILOCROOT, JLOCROOT
       INTEGER allocok, INIV2, TYPESPLIT, T4MASTER
-      INTEGER(8) ::  I1, IA, IS1, IS, IAS, ISHIFT, K
+      INTEGER(8) ::  I1, IA, IS1, IAS, ISHIFT, K
       INTEGER NCAND
       LOGICAL T4_MASTER_CONCERNED, EARLYT3ROOTINS
       COMPLEX ZERO
@@ -254,6 +256,7 @@ C
       INTEGER NOMP, NOMP_P, IOMP, P2
       ARROW_ROOT = 0
       EARLYT3ROOTINS = KEEP(200) .EQ. 0
+     & .OR. (KEEP(200) .LT. 0 .AND. KEEP(400) .EQ. 0)
       I_AM_SLAVE=(MYID.NE.0.OR.KEEP(46).EQ.1)
       IF ( KEEP(46) .eq. 0 ) THEN
         NBUFS = SLAVEF
@@ -264,6 +267,9 @@ C
           WRITE(*,*) 'Error allocating IW4'
           CALL MUMPS_ABORT()
         END IF
+#if defined(__ve__)
+!NEC$ IVDEP
+#endif
         DO I = 1, N
           I1 = PTRAIW( I )
           IA = PTRARW( I )
@@ -313,7 +319,7 @@ C
 !$OMP&          INIV2, NCAND, IROW_GRID, JCOL_GRID,
 !$OMP&          ILOCROOT, JLOCROOT, IPOSROOT, JPOSROOT,
 !$OMP&          TYPE_NODE, TYPESPLIT, MASTER_NODE,
-!$OMP&          IA, ISHIFT, IS1, IS, IAS, TAILLE, VAL,
+!$OMP&          IA, ISHIFT, IS1, IAS, TAILLE, VAL,
 !$OMP&          IARR, JARR, ISTEP, ISEND, JSEND,
 !$OMP&          IOLD, JOLD, IOMP, DOIT, P2, NOMP_P, OMP_FLAG_P)
 !$OMP& REDUCTION(+: ARROW_ROOT) IF (OMP_FLAG)
@@ -383,7 +389,7 @@ C
           CALL MUMPS_TYPEANDPROCNODE( TYPE_NODE, MASTER_NODE,
      &    PROCNODE_STEPS(ISTEP), KEEP(199) ) 
           I_AM_CAND_LOC          = .FALSE.
-          T4_MASTER_CONCERNED = .FALSE.
+          T4_MASTER_CONCERNED    = .FALSE.
           T4MASTER               = -9999
           IF ( TYPE_NODE .EQ. 1 ) THEN
             IF ( KEEP(46) .eq. 0 ) THEN
@@ -522,54 +528,56 @@ C
                 IF (KEEP(46).EQ.0.AND.(DEST.GE.0)) DEST=DEST+1
                 IF (DEST.LT.0) EXIT 
                 IF (I.EQ.NCAND+1) CYCLE
-                IF (DEST.NE.0)
-     &          CALL CMUMPS_ARROW_FILL_SEND_BUF( ISEND, JSEND, VAL,
-     &          DEST, BUFI, BUFR, NBRECORDS, NBUFS, 
-     &          LP, COMM, KEEP(46))
+                IF (DEST.NE.0) THEN
+                  ISEND_SHR=ISEND; JSEND_SHR=JSEND
+                  VAL_SHR=VAL; DEST_SHR=DEST
+                  CALL CMUMPS_ARROW_FILL_SEND_BUF()
+                ENDIF
               ENDDO
             ELSE
               DO I=1, NCAND
                 DEST=CANDIDATES(I,INIV2)
                 IF (KEEP(46).EQ.0) DEST=DEST+1
-                IF (DEST.NE.0)
-     &          CALL CMUMPS_ARROW_FILL_SEND_BUF( ISEND, JSEND, VAL,
-     &          DEST, BUFI, BUFR, NBRECORDS, NBUFS, 
-     &          LP, COMM, KEEP(46))
+                IF (DEST.NE.0) THEN
+                  ISEND_SHR=ISEND; JSEND_SHR=JSEND
+                  VAL_SHR=VAL; DEST_SHR=DEST
+                  CALL CMUMPS_ARROW_FILL_SEND_BUF()
+                ENDIF
               ENDDO
             ENDIF
             DEST = MASTER_NODE
             IF (KEEP(46).EQ.0) DEST=DEST+1
             IF ( DEST .NE. 0 ) THEN
-              CALL CMUMPS_ARROW_FILL_SEND_BUF( ISEND, JSEND, VAL,
-     &        DEST, BUFI, BUFR, NBRECORDS, NBUFS, 
-     &        LP, COMM, KEEP(46))
+              ISEND_SHR=ISEND; JSEND_SHR=JSEND
+              VAL_SHR=VAL; DEST_SHR=DEST
+              CALL CMUMPS_ARROW_FILL_SEND_BUF()
             ENDIF
             IF ((T4_MASTER_CONCERNED).AND.(T4MASTER.GT.0)) THEN 
-              CALL CMUMPS_ARROW_FILL_SEND_BUF( ISEND, JSEND, VAL,
-     &        T4MASTER, BUFI, BUFR, NBRECORDS, NBUFS, 
-     &        LP, COMM, KEEP(46))
+              ISEND_SHR=ISEND; JSEND_SHR=JSEND
+              VAL_SHR=VAL; DEST_SHR=T4MASTER
+              CALL CMUMPS_ARROW_FILL_SEND_BUF()
             ENDIF
           ELSE IF ( DEST .GT. 0 ) THEN
-            CALL CMUMPS_ARROW_FILL_SEND_BUF( ISEND, JSEND, VAL,
-     &      DEST, BUFI, BUFR, NBRECORDS, NBUFS, 
-     &      LP, COMM, KEEP(46))
+            ISEND_SHR=ISEND; JSEND_SHR=JSEND
+            VAL_SHR=VAL; DEST_SHR=DEST
+            CALL CMUMPS_ARROW_FILL_SEND_BUF()
             IF ( T4MASTER.GT.0 ) THEN
-              CALL CMUMPS_ARROW_FILL_SEND_BUF( ISEND, JSEND, VAL,
-     &        T4MASTER, BUFI, BUFR, NBRECORDS, NBUFS, 
-     &        LP, COMM, KEEP(46))
+              ISEND_SHR=ISEND; JSEND_SHR=JSEND
+              VAL_SHR=VAL; DEST_SHR=T4MASTER
+              CALL CMUMPS_ARROW_FILL_SEND_BUF()
             ENDIF
           ELSE IF ( T4MASTER.GT.0 ) THEN
-            CALL CMUMPS_ARROW_FILL_SEND_BUF( ISEND, JSEND, VAL,
-     &      T4MASTER, BUFI, BUFR, NBRECORDS, NBUFS, 
-     &      LP, COMM, KEEP(46))
+            ISEND_SHR=ISEND; JSEND_SHR=JSEND
+            VAL_SHR=VAL; DEST_SHR=T4MASTER
+            CALL CMUMPS_ARROW_FILL_SEND_BUF()
           ELSE IF ( DEST .EQ. -2 ) THEN
             DO I = 0, SLAVEF-1
               DEST = I
               IF (KEEP(46) .EQ. 0) DEST = DEST + 1
               IF (DEST .NE. 0) THEN
-                CALL CMUMPS_ARROW_FILL_SEND_BUF( ISEND, JSEND, VAL,
-     &          DEST, BUFI, BUFR, NBRECORDS, NBUFS, 
-     &          LP, COMM, KEEP(46))
+                ISEND_SHR=ISEND; JSEND_SHR=JSEND
+                VAL_SHR=VAL; DEST_SHR=DEST
+                CALL CMUMPS_ARROW_FILL_SEND_BUF()
               ENDIF
             ENDDO
           ENDIF
@@ -589,39 +597,63 @@ C
         DEALLOCATE( BUFR )
       ENDIF
       RETURN
-      END SUBROUTINE CMUMPS_FACTO_SEND_ARROWHEADS
-      SUBROUTINE CMUMPS_ARROW_FILL_SEND_BUF(ISEND, JSEND, VAL,
-     &   DEST, BUFI, BUFR, NBRECORDS, NBUFS, LP, COMM,
-     &   TYPE_PARALL )
+      CONTAINS
+      SUBROUTINE CMUMPS_ARROW_FILL_SEND_BUF()
       IMPLICIT NONE
-      INTEGER ISEND, JSEND, DEST, NBUFS, NBRECORDS, TYPE_PARALL
-      INTEGER BUFI( NBRECORDS * 2 + 1, NBUFS )
-      COMPLEX BUFR( NBRECORDS, NBUFS )
-      INTEGER COMM
-      INTEGER LP
-      COMPLEX VAL
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'
       INTEGER IERR
       INTEGER TAILLE_SENDI, TAILLE_SENDR, IREQ
-         IF (BUFI(1,DEST)+1.GT.NBRECORDS) THEN
-          TAILLE_SENDI = BUFI(1,DEST) * 2 + 1
-          TAILLE_SENDR = BUFI(1,DEST)
-          CALL MPI_SEND(BUFI(1,DEST),TAILLE_SENDI,
+         IF (BUFI(1,DEST_SHR)+1.GT.NBRECORDS) THEN
+          TAILLE_SENDI = BUFI(1,DEST_SHR) * 2 + 1
+          TAILLE_SENDR = BUFI(1,DEST_SHR)
+          CALL MPI_SEND(BUFI(1,DEST_SHR),TAILLE_SENDI,
      &                   MPI_INTEGER,
-     &                   DEST, ARROWHEAD, COMM, IERR )
-          CALL MPI_SEND( BUFR(1,DEST), TAILLE_SENDR,
-     &                   MPI_COMPLEX, DEST,
+     &                   DEST_SHR, ARROWHEAD, COMM, IERR )
+          CALL MPI_SEND( BUFR(1,DEST_SHR), TAILLE_SENDR,
+     &                   MPI_COMPLEX, DEST_SHR,
      &                   ARROWHEAD, COMM, IERR )
-          BUFI(1,DEST) = 0
+          BUFI(1,DEST_SHR) = 0
          ENDIF
-         IREQ = BUFI(1,DEST) + 1
-         BUFI(1,DEST) = IREQ
-         BUFI( IREQ * 2, DEST )     = ISEND
-         BUFI( IREQ * 2 + 1, DEST ) = JSEND
-         BUFR( IREQ, DEST )         = VAL
+         IREQ = BUFI(1,DEST_SHR) + 1
+         BUFI(1,DEST_SHR) = IREQ
+         BUFI( IREQ * 2, DEST_SHR )     = ISEND_SHR
+         BUFI( IREQ * 2 + 1, DEST_SHR ) = JSEND_SHR
+         BUFR( IREQ, DEST_SHR )         = VAL_SHR
       RETURN
       END SUBROUTINE CMUMPS_ARROW_FILL_SEND_BUF
+      END SUBROUTINE CMUMPS_FACTO_SEND_ARROWHEADS
+      SUBROUTINE CMUMPS_ARROW_FILL_SEND_BUF_ELT(
+     &   ISEND_SHR, JSEND_SHR, VAL_SHR,
+     &   DEST_SHR, BUFI, BUFR, NBRECORDS, NBUFS, LP, COMM )
+      IMPLICIT NONE
+      INTEGER, INTENT(in) :: ISEND_SHR, JSEND_SHR
+      COMPLEX, INTENT(in) :: VAL_SHR
+      INTEGER :: DEST_SHR, NBRECORDS, NBUFS, LP, COMM
+      INTEGER :: BUFI( NBRECORDS*2+1, NBUFS )
+      COMPLEX :: BUFR( NBRECORDS, NBUFS )
+      INCLUDE 'mpif.h'
+      INCLUDE 'mumps_tags.h'
+      INTEGER IERR
+      INTEGER TAILLE_SENDI, TAILLE_SENDR, IREQ
+         IF (BUFI(1,DEST_SHR)+1.GT.NBRECORDS) THEN
+          TAILLE_SENDI = BUFI(1,DEST_SHR) * 2 + 1
+          TAILLE_SENDR = BUFI(1,DEST_SHR)
+          CALL MPI_SEND(BUFI(1,DEST_SHR),TAILLE_SENDI,
+     &                   MPI_INTEGER,
+     &                   DEST_SHR, ARROWHEAD, COMM, IERR )
+          CALL MPI_SEND( BUFR(1,DEST_SHR), TAILLE_SENDR,
+     &                   MPI_COMPLEX, DEST_SHR,
+     &                   ARROWHEAD, COMM, IERR )
+          BUFI(1,DEST_SHR) = 0
+         ENDIF
+         IREQ = BUFI(1,DEST_SHR) + 1
+         BUFI(1,DEST_SHR) = IREQ
+         BUFI( IREQ * 2, DEST_SHR )     = ISEND_SHR
+         BUFI( IREQ * 2 + 1, DEST_SHR ) = JSEND_SHR
+         BUFR( IREQ, DEST_SHR )         = VAL_SHR
+      RETURN
+      END SUBROUTINE CMUMPS_ARROW_FILL_SEND_BUF_ELT
       SUBROUTINE CMUMPS_ARROW_FINISH_SEND_BUF(
      &   BUFI, BUFR, NBRECORDS, NBUFS, LP, COMM,
      &   TYPE_PARALL )
@@ -742,6 +774,7 @@ C
       TYPE_PARALL = KEEP(46)
       ARROW_ROOT=0
       EARLYT3ROOTINS = KEEP(200) .EQ. 0
+     & .OR. (KEEP(200) .LT. 0 .AND. KEEP(400) .EQ. 0)
       ALLOCATE( BUFI( NBRECORDS * 2 + 1 ), stat = allocok )
       IF ( allocok .GT. 0 ) THEN
         INFO1 = -13
@@ -770,6 +803,9 @@ C
         LOCAL_M = -19999; LOCAL_N = -29999; PTR_ROOT = -99999_8
       END IF
       FINI = .FALSE.
+#if defined(__ve__)
+!NEC$ IVDEP
+#endif
       DO I=1,N
        I18 = PTRAIW(I)
        IA8 = PTRARW(I)

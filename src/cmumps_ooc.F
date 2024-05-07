@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -13,7 +13,10 @@ C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html)
 C
       MODULE CMUMPS_OOC
       USE MUMPS_OOC_COMMON
+!$    USE OMP_LIB, ONLY : OMP_LOCK_KIND, OMP_SET_LOCK, OMP_UNSET_LOCK,
+!$   &                    OMP_INIT_LOCK, OMP_DESTROY_LOCK, OMP_TEST_LOCK
       IMPLICIT NONE
+!$     INTEGER(KIND=OMP_LOCK_KIND) :: LOCK_FOR_L0OMP
       INTEGER NOT_IN_MEM,BEING_READ,NOT_USED,PERMUTED,USED,
      &     USED_NOT_PERMUTED,ALREADY_USED
       PARAMETER (NOT_IN_MEM=0,BEING_READ=-1,NOT_USED=-2,
@@ -130,6 +133,9 @@ C
       ASYNC=0
       SOLVE=.FALSE.
       IERR=0
+      IF (id%KEEP(400).GT.0) THEN
+!$      CALL OMP_INIT_LOCK( LOCK_FOR_L0OMP )
+      ENDIF
       IF(allocated(IO_REQ))THEN
          DEALLOCATE(IO_REQ)
       ENDIF
@@ -457,6 +463,9 @@ C
       INTEGER, intent(out) :: IERR
       INTEGER I,SOLVE_OR_FACTO
       IERR=0
+      IF (id%KEEP(400).GT.0) THEN
+!$      CALL OMP_DESTROY_LOCK( LOCK_FOR_L0OMP )
+      ENDIF
       IF(WITH_BUF)THEN
          CALL CMUMPS_END_OOC_BUF()
       ENDIF
@@ -3045,6 +3054,19 @@ C
         WRITE_L =  (TYPEFile.EQ.TYPEF_BOTH_LU .OR. TYPEFile.EQ.TYPEF_L)
       ENDIF
       WRITE_U =  (TYPEFile.EQ.TYPEF_BOTH_LU .OR. TYPEFile.EQ.TYPEF_U)
+#if defined(_OPENMP)
+      IF (KEEP_OOC(400).GT.0 .AND. KEEP_OOC(405) .GT. 0) THEN
+        IF ( STRAT .EQ. STRAT_WRITE_MAX .OR. LAST_CALL ) THEN
+          CALL OMP_SET_LOCK(LOCK_FOR_L0OMP)
+#if defined(_WIN32)
+        ELSE
+#else
+        ELSE IF ( .NOT. OMP_TEST_LOCK(LOCK_FOR_L0OMP ))  THEN
+#endif
+          RETURN
+        ENDIF
+      ENDIF
+#endif
       DO_U_FIRST = .FALSE.
       IF ( TYPEFile.EQ.TYPEF_BOTH_LU ) THEN
          IF ( LNextPiv2beWritten .GT. UNextPiv2beWritten ) THEN
@@ -3091,6 +3113,11 @@ C
          IF (DO_U_FIRST) GOTO 100
       ENDIF
  300  CONTINUE
+#if defined(_OPENMP)
+      IF (KEEP_OOC(400).GT.0 .AND. KEEP_OOC(405) .GT. 0) THEN
+        CALL OMP_UNSET_LOCK(LOCK_FOR_L0OMP)
+      ENDIF
+#endif
       RETURN
       END SUBROUTINE CMUMPS_OOC_IO_LU_PANEL 
       SUBROUTINE CMUMPS_OOC_STORE_LorU( STRAT, TYPEF, 

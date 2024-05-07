@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -104,12 +104,12 @@ C
           LREQI=6+2*TOT_ROOT_SIZE+KEEP(IXSZ)
           LREQA=0_8
           IF ( IWPOS + LREQI - 1. GT. IWPOSCB ) THEN
-           CALL ZMUMPS_COMPRE_NEW( N, KEEP(28), IW, LIW, A, LA,
+           CALL ZMUMPS_COMPRE_NEW( N, KEEP, IW, LIW, A, LA,
      &           LRLU, IPTRLU,
      &           IWPOS, IWPOSCB, PTRIST, PTRAST,
-     &           STEP, PIMASTER, PAMASTER, KEEP(216),LRLUS,
+     &           STEP, PIMASTER, PAMASTER, LRLUS,
      &           KEEP(IXSZ),COMP,DKEEP(97),
-     &           MYID, SLAVEF, KEEP(199), PROCNODE_STEPS, DAD )
+     &           MYID, SLAVEF, PROCNODE_STEPS, DAD )
            IF ( LRLU .NE. LRLUS ) THEN
                   WRITE(*,*) 'PB1 compress root2slave:LRLU,LRLUS=',
      &            LRLU, LRLUS
@@ -171,10 +171,10 @@ C
         CALL ZMUMPS_GET_SIZE_NEEDED( 
      &           LREQI , LREQA, .FALSE.,
      &           KEEP(1), KEEP8(1),
-     &           N, KEEP(28), IW, LIW, A, LA,
+     &           N, IW, LIW, A, LA,
      &           LRLU, IPTRLU,
      &           IWPOS, IWPOSCB, PTRIST, PTRAST,
-     &           STEP, PIMASTER, PAMASTER, KEEP(216), LRLUS,
+     &           STEP, PIMASTER, PAMASTER, LRLUS,
      &           KEEP(IXSZ), COMP, DKEEP(97),
      &           MYID, SLAVEF, PROCNODE_STEPS, DAD, 
      &           IFLAG, IERROR )

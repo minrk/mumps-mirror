@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -344,7 +344,7 @@ C
      &     INFO(6), FILS, FRERE, IWtemp(1,3), NEMIN, 
      &     IW(L2),  KEEP(60), KEEP(20), KEEP(38),
      &     IW2,KEEP(104),IW(L2+N),KEEP(50),
-     &     ICNTL(13), KEEP(37), NSLAVES, KEEP(250).EQ.1,
+     &     ICNTL(13), KEEP(37), KEEP(197), NSLAVES, KEEP(250).EQ.1,
      &     .FALSE., IDUMMY, LIDUMMY)
 #endif
       DEALLOCATE(IW2)
@@ -741,6 +741,7 @@ C
       TYPE_PARALL = KEEP(46)
       PTRAIW( 1:NELT ) = 0_8
       EARLYT3ROOTINS = KEEP(200) .EQ.0
+     &        .OR.  ( KEEP(200) .LT. 0 .AND. KEEP(400) .EQ. 0 )
       DO I = 1, N
         IF (STEP(I).LT.0) CYCLE
         ITYPE = MUMPS_TYPENODE( PROCNODE(abs(STEP(I))), KEEP(199) )
@@ -817,6 +818,7 @@ C
       LOGICAL :: EARLYT3ROOTINS 
       INTEGER, EXTERNAL :: MUMPS_TYPENODE, MUMPS_PROCNODE
       EARLYT3ROOTINS = KEEP(200) .EQ.0
+     &        .OR.  ( KEEP(200) .LT. 0 .AND. KEEP(400) .EQ. 0 )
       DO ELT = 1, NELT
           I = ELTPROC(ELT)
           IF ( I .NE. 0) THEN

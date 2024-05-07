@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -1451,7 +1451,6 @@ C
       INTEGER, ALLOCATABLE :: POS_LIST(:), RANK_LIST(:)
       INTEGER(8) :: POSELT_BLOCK
       INTEGER :: MID_RANK, K_MAX, FRFR_UPDATES, NB_DEC
-      INTEGER :: FRONT_CB_BLR_SAVINGS
       LOGICAL :: BUILDQ, COMPRESSED_FR
       TYPE(LRB_TYPE), POINTER :: BLR_U(:), BLR_L(:)
       TYPE(LRB_TYPE), POINTER :: ACC_LRB, LRB
@@ -1465,7 +1464,6 @@ C
       PARAMETER (ONE = 1.0E0, MONE=-1.0E0)
       PARAMETER (ZERO=0.0E0)
       ACC_LRB => ACC_LUA(1)
-      FRONT_CB_BLR_SAVINGS = 0
 #if defined(BLR_MT)
       CHUNK = 1
 !$OMP DO SCHEDULE(DYNAMIC,CHUNK) 
@@ -1682,8 +1680,8 @@ C
               CALL ALLOC_LRB_FROM_ACC(ACC_LRB, LRB,
      &                       ACC_LRB%K, ACC_LRB%M, ACC_LRB%N, 0,
      &                       IFLAG, IERROR, KEEP8)
-              FRONT_CB_BLR_SAVINGS = FRONT_CB_BLR_SAVINGS + 
-     &                LRB%M*LRB%N - LRB%M*LRB%K - LRB%N*LRB%K
+              CALL UPD_MRY_CB_LRGAIN(LRB
+     &                              )
               ACC_LRB%K = 0
               IF (IFLAG.LT.0) GOTO 100
             ELSE
@@ -1737,20 +1735,15 @@ C
 #if defined(BLR_MT)
 !$OMP END DO 
 #endif
+#if defined(BLR_MT) 
+!$OMP MASTER
+#endif
       IF (COMPRESS_CB) THEN
-#if defined(BLR_MT)
-!$      OMP_NUM = OMP_GET_THREAD_NUM()
-!$      IF (OMP_NUM.EQ.0) THEN
-#endif
-        CALL UPD_MRY_CB(NFRONT-NASS, NFRONT-NASS, 0, 1,
-     &                        FRONT_CB_BLR_SAVINGS)
-#if defined(BLR_MT)
-!$      ELSE
-!$        CALL UPD_MRY_CB(0, 0, 0, 1,
-!$   &                        FRONT_CB_BLR_SAVINGS)
-!$      ENDIF
-#endif
+        CALL UPD_MRY_CB_FR(NFRONT-NASS, NFRONT-NASS, 0)
       ENDIF
+#if defined(BLR_MT) 
+!$OMP END MASTER
+#endif
       END SUBROUTINE SMUMPS_BLR_UPD_CB_LEFT
       SUBROUTINE SMUMPS_DECOMPRESS_PANEL(A, LA, POSELT, LDA11,
      &        LDA21, COPY_DENSE_BLOCKS,
@@ -1948,7 +1941,7 @@ C
      &        IWHANDLER, SYM, NIV, IFLAG, IERROR,
      &        TOLEPS, TOL_OPT, KPERCENT, K489, CB_LRB,
      &        WORK, TAU, JPVT, LWORK, RWORK, BLOCK,
-     &        MAXI_CLUSTER, KEEP8, 
+     &        MAXI_CLUSTER, KEEP8,
      &        NFS4FATHER, NPIV, NVSCHUR_K253, KEEP,
      &        M_ARRAY,
      &        NELIM, 
@@ -1975,7 +1968,7 @@ C
       REAL, OPTIONAL :: M_ARRAY(max(NFS4FATHER,1))
       INTEGER, intent(in), OPTIONAL :: NELIM
       INTEGER, intent(in), OPTIONAL :: NBROWSinF
-      INTEGER :: M, N, INFO, FRONT_CB_BLR_SAVINGS
+      INTEGER :: M, N, INFO
       INTEGER :: I, J, IBIS, IBIS_END, RANK, MAXRANK, II, JJ
       INTEGER(8) :: POSELT_BLOCK
       LOGICAL :: ISLR
@@ -2034,7 +2027,6 @@ C
 !$OMP END MASTER
 !$OMP BARRIER
 #endif
-      FRONT_CB_BLR_SAVINGS = 0
       OMP_NUM = 0 
       IF (SYM.EQ.0.OR.NIV.EQ.2) THEN
         IBIS_END = NB_ROWS*NB_COLS
@@ -2112,6 +2104,7 @@ C
             MAXRANK = 1
             RANK = MAXRANK+1
             INFO = 0
+            ISLR = .FALSE.
             GOTO 3800
         ENDIF
         DO II=1,M
@@ -2127,14 +2120,14 @@ C
      &       TAU_THR(1), 
      &       WORK_THR(1), N, 
      &       RWORK_THR(1), 
-     &       TOLEPS, TOL_OPT, RANK, MAXRANK, INFO)
+     &       TOLEPS, TOL_OPT, RANK, MAXRANK, INFO,
+     &       ISLR)
  3800 CONTINUE
         IF (INFO < 0) THEN
            WRITE(*,*) " PROBLEM IN ARGUMENT NUMBER ",INFO,
      &                 " OF TRUNCATED_RRQR WHILE COMPRESSING A CB BLOCK"
            CALL MUMPS_ABORT()
         END IF
-        ISLR = ((RANK.LE.MAXRANK).AND.(M.NE.0).AND.(N.NE.0))     
         CALL ALLOC_LRB(LRB, RANK, M, N, ISLR, IFLAG, IERROR, KEEP8)
         IF (IFLAG.LT.0) CYCLE
         IF (ISLR) THEN 
@@ -2165,8 +2158,8 @@ C
                  CALL UPD_FLOP_COMPRESS(LRB, CB_COMPRESS=.TRUE.)
                ENDIF
           END IF
-          FRONT_CB_BLR_SAVINGS = FRONT_CB_BLR_SAVINGS + 
-     &                (M-RANK)*(N-RANK)-RANK*RANK
+          CALL UPD_MRY_CB_LRGAIN(LRB
+     &                           )
         ELSE 
            DO II=1,M
              LRB%Q(II,1:N) =
@@ -2183,17 +2176,12 @@ C
 #if defined(BLR_MT)
 !$OMP END DO 
 #endif
-#if defined(BLR_MT)
-!$      OMP_NUM = OMP_GET_THREAD_NUM()
-!$      IF (OMP_NUM.EQ.0) THEN
+#if defined(BLR_MT) 
+!$OMP MASTER
 #endif
-        CALL UPD_MRY_CB(NROWS, NCOLS, SYM, NIV,
-     &                        FRONT_CB_BLR_SAVINGS)
-#if defined(BLR_MT)
-!$      ELSE
-!$        CALL UPD_MRY_CB(0, 0, SYM, NIV,
-!$   &                        FRONT_CB_BLR_SAVINGS)
-!$      ENDIF
+      CALL UPD_MRY_CB_FR(NROWS, NCOLS, SYM)
+#if defined(BLR_MT) 
+!$OMP END MASTER
 #endif
       END SUBROUTINE SMUMPS_COMPRESS_CB
       SUBROUTINE SMUMPS_COMPRESS_PANEL(
@@ -2204,8 +2192,8 @@ C
      &        LWORK, RWORK, BLOCK,
      &        MAXI_CLUSTER, NELIM, 
      &        LBANDSLAVE, NPIV, ISHIFT, NIV, KPERCENT, 
-     &        KEEP8, K480,
-     &        BEG_I_IN, END_I_IN, FRSWAP
+     &        KEEP8,
+     &        K480, BEG_I_IN, END_I_IN, FRSWAP
      &        )
 !$    USE OMP_LIB
       INTEGER(8), intent(in)       :: LA
@@ -2229,7 +2217,6 @@ C
       INTEGER                      :: MAXI_CLUSTER, LWORK, NELIM
       REAL,intent(in)              :: TOLEPS
       CHARACTER(len=1) :: DIR
-      INTRINSIC maxval
       INTEGER :: IP, NB_BLOCKS_PANEL, M, N, RANK, MAXRANK
       INTEGER :: INFO, I, J, IS, BEG_I, END_I
       INTEGER(8) :: POSELT_BLOCK
@@ -2337,6 +2324,7 @@ C
             MAXRANK = 1
             RANK = MAXRANK+1
             INFO = 0
+            ISLR = .FALSE.
             GOTO 3800
         ENDIF
         IF (DIR .eq. 'V') THEN
@@ -2360,18 +2348,20 @@ C
      &       TAU_THR(1), 
      &       WORK_THR(1), N, 
      &       RWORK_THR(1), 
-     &       TOLEPS, TOL_OPT, RANK, MAXRANK, INFO)
+     &       TOLEPS, TOL_OPT, RANK, MAXRANK, INFO,
+     &       ISLR)
  3800 CONTINUE
-      IF (INFO < 0) THEN
+        IF (INFO < 0) THEN
            WRITE(*,*) " PROBLEM IN ARGUMENT NUMBER ",INFO,
      &                 " OF TRUNCATED_RRQR WHILE COMPRESSING A BLOCK "
            CALL MUMPS_ABORT()
         END IF
-        ISLR = ((RANK.LE.MAXRANK).AND.(M.NE.0).AND.(N.NE.0))     
         CALL ALLOC_LRB(BLR_PANEL(IP-CURRENT_BLR), RANK,
      &                 M, N, ISLR, IFLAG, IERROR, KEEP8)
         IF (IFLAG.LT.0) CYCLE
-        IF ((M.EQ.0).OR.(N.EQ.0)) GOTO 3000
+        IF ((M.EQ.0).OR.(N.EQ.0)) THEN
+          GOTO 3000
+        ENDIF
         IF (ISLR) THEN 
            IF (RANK .EQ. 0) THEN 
            ELSE 
@@ -2433,6 +2423,7 @@ C
 #if defined(BLR_MT) 
 !$OMP END DO NOWAIT
 #endif
+      RETURN
       END SUBROUTINE SMUMPS_COMPRESS_PANEL
       SUBROUTINE SMUMPS_BLR_PANEL_LRTRSM(
      &                A,

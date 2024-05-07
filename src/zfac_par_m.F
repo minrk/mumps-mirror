@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -19,14 +19,17 @@ C
      & NMAXNPIV, NTOTPV, NOFFNEGPV, NB22T1, NB22T2, NBTINY, DET_EXP,
      & DET_MANT, DET_SIGN, PTRIST, PTRAST, PIMASTER, PAMASTER,
      & PTRARW, PTRAIW, ITLOC, RHS_MUMPS, IPOOL, LPOOL,
+     & L0_OMP_MAPPING, LL0_OMP_MAPPING,
+     & MUMPS_TPS_ARR, ZMUMPS_TPS_ARR, LTPS_ARR,
      & RINFO, POSFAC ,IWPOS, LRLU, IPTRLU, LRLUS, LEAF, NBROOT, NBRTOT,
+     & NBROOT_UNDER_L0, 
      & UU, ICNTL, PTLUST, PTRFAC, INFO, KEEP,KEEP8, PROCNODE_STEPS,
      & SLAVEF,MYID, COMM_NODES, MYID_NODES, BUFR, LBUFR, LBUFR_BYTES,
      & INTARR, DBLARR, root, PERM, NELT, FRTPTR, FRTELT, LPTRAR,
      & COMM_LOAD, ASS_IRECV, SEUIL, SEUIL_LDLT_NIV2, MEM_DISTRIB, NE,
      & DKEEP, PIVNUL_LIST, LPN_LIST, LRGROUPS )
 !$    USE OMP_LIB
-      USE ZMUMPS_DYNAMIC_MEMORY_M, ONLY : ZMUMPS_DM_CBSTATIC2DYNAMIC,
+      USE ZMUMPS_DYNAMIC_MEMORY_M, ONLY : 
      &                                    ZMUMPS_DM_FREEALLDYNAMICCB
       USE ZMUMPS_LOAD
       USE ZMUMPS_OOC
@@ -36,6 +39,9 @@ C
       USE ZMUMPS_FAC2_LDLT_M
       USE ZMUMPS_FAC1_LU_M
       USE ZMUMPS_FAC2_LU_M
+      USE OMP_LIB
+      USE MUMPS_TPS_M
+      USE ZMUMPS_TPS_M
       USE ZMUMPS_STRUC_DEF, ONLY : ZMUMPS_ROOT_STRUC
       IMPLICIT NONE
       TYPE (ZMUMPS_ROOT_STRUC) :: root
@@ -73,6 +79,7 @@ C
       INTEGER(8) :: PTRFAC(KEEP(28))
       INTEGER(8) :: POSFAC, LRLU, LRLUS, IPTRLU
       INTEGER IWPOS, LEAF, NBROOT, NBRTOT
+      INTEGER, INTENT(in) :: NBROOT_UNDER_L0
       INTEGER COMM_LOAD, ASS_IRECV
       DOUBLE PRECISION UU, SEUIL, SEUIL_LDLT_NIV2
       INTEGER NELT
@@ -86,6 +93,11 @@ C
       INTEGER PIVNUL_LIST(LPN_LIST)
       DOUBLE PRECISION DKEEP(230)
       INTEGER LRGROUPS(N)
+      INTEGER, INTENT( IN ) :: LTPS_ARR
+      TYPE (MUMPS_TPS_T), TARGET  :: MUMPS_TPS_ARR( LTPS_ARR )
+      TYPE (ZMUMPS_TPS_T), TARGET :: ZMUMPS_TPS_ARR( LTPS_ARR )
+      INTEGER, INTENT( IN ) :: LL0_OMP_MAPPING
+      INTEGER, INTENT( IN ) :: L0_OMP_MAPPING( LL0_OMP_MAPPING )
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'
       INTEGER :: STATUS(MPI_STATUS_SIZE)
@@ -97,7 +109,7 @@ C
       INTEGER MP, LP, DUMMY(1)
       INTEGER NBFIN, NBROOT_TRAITEES
       INTEGER NFRONT, IOLDPS, NASS, HF, XSIZE
-      INTEGER(8) NFRONT8
+      INTEGER(8) :: NFRONT8
       INTEGER(8) :: POSELT
       INTEGER IPOSROOT, IPOSROOTROWINDICES
       INTEGER GLOBK109
@@ -132,14 +144,35 @@ C
       INCLUDE 'mumps_headers.h'
       INTEGER MPA
       DOUBLE PRECISION  OPLAST_PRINTED
+      INTEGER:: ITH
+      DOUBLE PRECISION :: DUMMY_FLOP_ESTIM_ACC
+#if defined(multicore_profiling)
+      DOUBLE PRECISION :: LATIME, LFTIME, LSTIME
+      DOUBLE PRECISION :: GATIME, GFTIME, GSTIME
+      GATIME = 0
+      GFTIME = 0
+      GSTIME = 0
+#endif
+      DUMMY_FLOP_ESTIM_ACC = 0.0d0
       ITLOC(1:N+KEEP(253)) =0
       ASS_IRECV = MPI_REQUEST_NULL
       MP = ICNTL(2)
       LP = ICNTL(1)
       IWPOSCB = LIW
+      NULLIFY(BUFRX)
+      IS_BUFRX_ALLOCATED = .FALSE.
+      KEEP(143) = -1
+      IF ( INFO(1) .LT. 0 ) THEN
+        GOTO 640
+      ENDIF
       OPLAST_PRINTED = DONE
       MPA            = ICNTL(2)
       IF (ICNTL(4).LT.2) MPA=0
+      IF (MPA.GT.0)
+     &   CALL MUMPS_PRINT_STILL_ACTIVE (MYID_NODES, KEEP, 
+     &                        dble(DKEEP(17)), 
+     &                        OPELI,
+     &                        OPLAST_PRINTED, MPA)
       STACK_RIGHT_AUTHORIZED = .TRUE.
       CALL ZMUMPS_ALLOC_CB( .FALSE., 0_8,
      &     .FALSE., .FALSE., MYID_NODES, N, KEEP, KEEP8, DKEEP,
@@ -171,6 +204,19 @@ C
         ENDIF
         IF ( INFO(1) .LT. 0 ) GOTO 635
       END IF
+      IF (KEEP(400).GT.0) THEN
+        NBROOT_TRAITEES = NBROOT_UNDER_L0
+        IF (NBROOT_TRAITEES .GT.0) THEN
+          IF (NBROOT_TRAITEES.EQ.NBROOT) THEN
+            NBFIN = NBFIN - NBROOT
+            IF (SLAVEF .GT. 1) THEN
+               CALL ZMUMPS_MCAST2( NBROOT, 1, MPI_INTEGER,
+     &         MYID_NODES, COMM_NODES, RACINE, SLAVEF, KEEP )
+            ENDIF
+          ENDIF
+        ENDIF
+        IF (NBFIN .EQ. 0) GOTO 640
+      ENDIF
       KEEP(429)=0
  20   CONTINUE
       NIV1_FLAG=0
@@ -373,6 +419,8 @@ C
      &    BUFR, LBUFR, LBUFR_BYTES, NBFIN, IPOOL, LPOOL, LEAF,
      &    PERM, ISTEP_TO_INIV2, TAB_POS_IN_PERE
      &               , LRGROUPS
+     &    , MUMPS_TPS_ARR, ZMUMPS_TPS_ARR,
+     &    L0_OMP_MAPPING
      &    )
         ELSE
          JOBASS = 0
@@ -393,6 +441,8 @@ C
      &    PERM,
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE, JOBASS,ETATASS
      &               , LRGROUPS
+     &    , MUMPS_TPS_ARR, ZMUMPS_TPS_ARR,
+     &    L0_OMP_MAPPING
      &    )
         ENDIF
         IF (MPA.GT.0)
@@ -458,7 +508,7 @@ C
         POSELT = PTRAST(STEP(INODE))
         IF (PTRFAC(STEP(INODE)).NE.POSELT) THEN
           WRITE(*,*) "ERROR 2 in ZMUMPS_FAC_PAR", POSELT
-          CALL MUMPS_ABORT()
+          GOTO 635
         ENDIF
         CALL ZMUMPS_CHANGE_HEADER
      &       ( IW(PTLUST(STEP(INODE))+KEEP(IXSZ)), KEEP(253) )
@@ -472,7 +522,7 @@ C
       NASS   = iabs(IW(IOLDPS+2+XSIZE))
       AVOID_DELAYED = ( (FPERE .eq. KEEP(20) .OR. FPERE .eq. KEEP(38))
      &                   .AND. KEEP(60).ne.0 )
-        IF (KEEP(50).EQ.0) THEN
+      IF (KEEP(50).EQ.0) THEN
            CALL ZMUMPS_FAC1_LU ( 
      &               N, INODE, IW, LIW, A, LA,
      &               IOLDPS, POSELT,
@@ -486,6 +536,11 @@ C
      &           , PERM
      &           )
            IF (INFO(1).LT.0) GOTO 635
+#if defined(multicore_profiling)
+         LFTIME = MPI_WTIME() - LFTIME
+         GFTIME = GFTIME + LFTIME
+         WRITE(*,*)'FAC ',LFTIME
+#endif
       ELSE  
             IW( IOLDPS+4+KEEP(IXSZ) ) = 1
               CALL ZMUMPS_FAC1_LDLT( N, INODE,
@@ -504,6 +559,9 @@ C
           ENDIF 
           JOBASS = ETATASS          
           IF (JOBASS.EQ.1) THEN
+#if defined(multicore_profiling)
+              LATIME = MPI_WTIME()
+#endif
               CALL ZMUMPS_FAC_ASM_NIV1(COMM_LOAD, ASS_IRECV,
      &        N,INODE,IW,LIW,A,LA,
      &        INFO(1),ND,
@@ -522,6 +580,11 @@ C
      &        JOBASS,ETATASS
      &               , LRGROUPS
      &         )
+#if defined(multicore_profiling)
+         LATIME = MPI_WTIME() - LATIME
+         GATIME = GATIME + LATIME
+         WRITE(*,*)'ASS ',LATIME
+#endif
           ENDIF
           IF (MPA.GT.0)
      &    CALL MUMPS_PRINT_STILL_ACTIVE (MYID_NODES, KEEP, 
@@ -536,6 +599,9 @@ C
       ELSE
         TYPEF = -9999
       END IF
+#if defined(multicore_profiling)
+         LSTIME = MPI_WTIME()
+#endif
       CALL ZMUMPS_FAC_STACK( COMM_LOAD, ASS_IRECV,
      &       N,INODE,TYPE,TYPEF,LA,IW,LIW,A,
      &       INFO(1),INFO(2),OPELI,NELVA,NMAXNPIV,
@@ -551,7 +617,13 @@ C
      &       ND, FRERE, LPTRAR, NELT, FRTPTR, FRTELT,
      &       ISTEP_TO_INIV2, TAB_POS_IN_PERE
      &               , LRGROUPS
+     &       ,DUMMY_FLOP_ESTIM_ACC
      &       )
+#if defined(multicore_profiling)
+         LSTIME = MPI_WTIME() - LSTIME
+         GSTIME = GSTIME + LSTIME
+         WRITE(*,*)'STK ',LSTIME
+#endif
       IF (MPA.GT.0)
      &   CALL MUMPS_PRINT_STILL_ACTIVE (MYID_NODES, KEEP, 
      &                        dble(DKEEP(17)), 
@@ -562,7 +634,7 @@ C
       IF ( INODE .eq. KEEP(38) ) THEN
         WRITE(*,*) 'Error .. in ZMUMPS_FAC_PAR: ',
      &             ' INODE == KEEP(38)'
-        Stop
+        CALL MUMPS_ABORT()
       END IF
       IF ( FPERE.EQ.0 ) THEN
         NBROOT_TRAITEES = NBROOT_TRAITEES + 1
@@ -641,6 +713,20 @@ C
      &  IW, LIW, IWPOSCB, IWPOS,
      &  STEP, PTRAST, PAMASTER, PROCNODE_STEPS, DAD,
      &  .FALSE. ) 
+        IF (KEEP(400) .GT. 0) THEN
+!$OMP PARALLEL DO SCHEDULE(STATIC,1)
+            DO ITH = 1, KEEP(400)
+              IF (associated(MUMPS_TPS_ARR(ITH)%IW)) THEN
+                CALL ZMUMPS_DM_FREEALLDYNAMICCB_I( MYID, N, SLAVEF,
+     &          KEEP, KEEP8,
+     &          MUMPS_TPS_ARR(ITH)%IW(1), MUMPS_TPS_ARR(ITH)%LIW,
+     &          MUMPS_TPS_ARR(ITH)%IWPOSCB, MUMPS_TPS_ARR(ITH)%IWPOS,
+     &          STEP, PTRAST, PAMASTER, PROCNODE_STEPS, DAD,
+     &          .TRUE. ) 
+              ENDIF
+            ENDDO
+!$OMP END PARALLEL DO
+        ENDIF
       ENDIF
       IF ( INFO(1) .GE. 0 ) THEN
           IF( KEEP(38) .NE. 0 .OR. KEEP(20).NE.0) THEN
@@ -661,21 +747,21 @@ C
                ITMP8   = int(LOCAL_M,8)*int(LOCAL_N,8)
                LBUFRX = min(int(root%MBLOCK,8)*int(root%NBLOCK,8),
      &            int(root%TOT_ROOT_SIZE,8)*int(root%TOT_ROOT_SIZE,8) )
+               IS_BUFRX_ALLOCATED = .FALSE.
                IF ( LRLU .GT. LBUFRX ) THEN
                    BUFRX => A(POSFAC:POSFAC+LRLU-1_8)
                    LBUFRX=LRLU
-                   IS_BUFRX_ALLOCATED = .FALSE.
                ELSE
                    ALLOCATE( BUFRX( LBUFRX ), stat = IERR )
                    IF (IERR.gt.0) THEN
-                         INFO(1) = -9
+                         INFO(1) = -13
                          CALL MUMPS_SET_IERROR(LBUFRX, INFO(2) )
                          IF (LP > 0 )
      &                   write(LP,*) ' Error allocating, real array ',
      &                   'of size before ZMUMPS_FACTO_ROOT',  LBUFRX
                          CALL MUMPS_ABORT()
                    ENDIF
-                   IS_BUFRX_ALLOCATED = .FALSE.
+                   IS_BUFRX_ALLOCATED = .TRUE.
                ENDIF
                CALL ZMUMPS_FACTO_ROOT( 
      &               MPA, MYID_NODES, MASTER_ROOT,
@@ -687,6 +773,7 @@ C
      &               OPELI, DET_EXP, DET_MANT, DET_SIGN )
                IF (IS_BUFRX_ALLOCATED) DEALLOCATE ( BUFRX )
                NULLIFY(BUFRX)
+               IS_BUFRX_ALLOCATED = .FALSE.
                 IF ( MYID_NODES .eq. 
      &               MUMPS_PROCNODE(PROCNODE_STEPS(STEP(KEEP(38))),
      &                              KEEP(199))
@@ -809,7 +896,7 @@ C
                    NTOTPV = NTOTPV + NFRONT 
                    NMAXNPIV = max(NMAXNPIV,NFRONT)
                 END IF
-               IF (ROOT_OWNER.AND.KEEP(60).NE.0) THEN 
+                IF (ROOT_OWNER.AND.KEEP(60).NE.0) THEN 
                   ITMP8 = NFRONT8*NFRONT8
                   IF ( PTRFAC(STEP(KEEP(20))) .EQ. POSFAC -
      &                 ITMP8 ) THEN
@@ -820,10 +907,12 @@ C
                     CALL ZMUMPS_LOAD_MEM_UPDATE(.FALSE.,.FALSE.,
      &              LA-LRLUS,0_8,-ITMP8,KEEP,KEEP8,LRLUS)
                   ENDIF
-               ENDIF
+                ENDIF
             END IF
+            IF (INFO(1).LT.0) GOTO 500
           END IF  
        END IF 
+ 500   CONTINUE
        IF ( KEEP(38) .NE. 0 ) THEN
          IF (MYID_NODES.EQ. 
      &        MUMPS_PROCNODE(PROCNODE_STEPS(STEP(KEEP(38))),KEEP(199))

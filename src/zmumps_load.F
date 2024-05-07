@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -378,7 +378,7 @@ C
            TMP_ARRAY(1)=0
            TMP_ARRAY(2)=0
          ENDIF
-         CALL ZMUMPS_SET_PARTI_REGULAR(
+         CALL MUMPS_SET_PARTI_REGULAR(
      &        SLAVEF,
      &        KEEP,KEEP8,
      &        CAND_OF_NODE,
@@ -833,7 +833,7 @@ C
       INTEGER IERR
       DOUBLE PRECISION ZERO, SEND_MEM, SEND_LOAD,SBTR_TMP
       PARAMETER( ZERO=0.0d0 )
-      INTRINSIC max, abs
+      INTRINSIC max
       IF (.NOT. IS_MUMPS_LOAD_ENABLED) RETURN
       IF (INC_LOAD == 0.0D0) THEN
          IF(REMOVE_NODE_FLAG)THEN
@@ -2516,7 +2516,7 @@ C
       INTEGER NSLAVES_REF,NCB_FILS
       EXTERNAL MPI_WTIME,MUMPS_GETKMIN
       INTEGER MUMPS_GETKMIN
-      INTEGER POS_MIN_LOAD,SIZE_MY_SMP,WHAT,ADDITIONNAL_ROWS_SPECIAL
+      INTEGER POS_MIN_LOAD,SIZE_MY_SMP,WHAT
       LOGICAL HAVE_TYPE1_SON
       DOUBLE PRECISION MIN_LOAD,MAX_LOAD,TEMP_MAX_LOAD
       DOUBLE PRECISION MPI_WTIME
@@ -2943,7 +2943,6 @@ C
                           NB_ROWS=0
                           GOTO 323
                        ENDIF
-                       ADDITIONNAL_ROWS_SPECIAL=NCB-ACC
                        DO i=1,SMALL_SET
                           MAX_LOAD=TEMP_MAX_LOAD
                           ADDITIONNAL_ROWS=NCB-ACC
@@ -5560,251 +5559,3 @@ C
       ENDDO
       END SUBROUTINE ZMUMPS_LOAD_INIT_SBTR_STRUCT
       END MODULE ZMUMPS_LOAD 
-      SUBROUTINE ZMUMPS_SET_PARTI_REGULAR(
-     &     SLAVEF,
-     &     KEEP,KEEP8,
-     &     PROCS,
-     &     MEM_DISTRIB, NCB, NFRONT, NSLAVES_NODE,
-     &     TAB_POS, SLAVES_LIST, SIZE_SLAVES_LIST,MYID,INODE,
-     &     TAB_MAXS_ARG,SUP_PROC_ARG,MAX_SURF,NB_ROW_MAX
-     &     )
-      IMPLICIT NONE
-      INTEGER, intent(in) :: KEEP(500),SIZE_SLAVES_LIST
-      INTEGER(8) KEEP8(150)
-      INTEGER, intent(in) :: SLAVEF, NFRONT, NCB,MYID
-      INTEGER, intent(in) :: PROCS(SLAVEF+1)
-      INTEGER(8), intent(in) :: TAB_MAXS_ARG(0:SLAVEF-1)
-      INTEGER, intent(in) :: SUP_PROC_ARG(2)
-      INTEGER, intent(in) :: MEM_DISTRIB(0:SLAVEF-1),INODE
-      INTEGER, intent(out):: SLAVES_LIST(SIZE_SLAVES_LIST)
-      INTEGER, intent(out):: TAB_POS(SLAVEF+2)
-      INTEGER, intent(out):: NSLAVES_NODE,NB_ROW_MAX
-      INTEGER(8), intent(out):: MAX_SURF
-      LOGICAL :: FORCE_LDLTRegular_NIV2
-      INTEGER NSLAVES,ACC
-      INTEGER i,J,NELIM,NB_SUP,K50,NB_ROWS(PROCS(SLAVEF+1))
-      INTEGER TMP_NROW,X,K
-      LOGICAL SUP,MEM_CSTR
-      DOUBLE PRECISION MAX_LOAD,TOTAL_LOAD,VAR,TMP,A,B,C,DELTA,
-     &     LOAD_CORR
-      INTEGER IDWLOAD(SLAVEF)
-      INTEGER(8) MEM_CONSTRAINT(2)
-      K50=KEEP(50)
-      FORCE_LDLTRegular_NIV2 = .FALSE.
-      MAX_SURF=0
-      NB_ROW_MAX=0
-      NELIM=NFRONT-NCB
-      NB_SUP=0
-      TOTAL_LOAD=0.0D0
-      SUP=.FALSE.
-      IF(SUP_PROC_ARG(1).NE.
-     &     0)THEN
-         MEM_CONSTRAINT(1)=TAB_MAXS_ARG(PROCS(1))
-         TOTAL_LOAD=TOTAL_LOAD+dble(SUP_PROC_ARG(1))/100.0D0
-         NB_SUP=NB_SUP+1
-      ENDIF
-      IF(SUP_PROC_ARG(2).NE.
-     &     0)THEN
-         MEM_CONSTRAINT(2)=TAB_MAXS_ARG(PROCS(PROCS(SLAVEF+1)))
-         TOTAL_LOAD=TOTAL_LOAD+dble(SUP_PROC_ARG(2))/100.0D0
-         NB_SUP=NB_SUP+1
-      ENDIF
-      TOTAL_LOAD=TOTAL_LOAD+(PROCS(SLAVEF+1)-NB_SUP)
-      IF(K50.EQ.0)THEN
-         MAX_LOAD=dble( NELIM ) * dble ( NCB ) +
-     *        dble(NCB) * dble(NELIM)*dble(2*NFRONT-NELIM-1)
-      ELSE
-         MAX_LOAD=dble(NELIM) * dble ( NCB ) *
-     *        dble(NFRONT+1)
-      ENDIF
-      TMP=min(MAX_LOAD,MAX_LOAD/TOTAL_LOAD)
-      J=1
-      DO i=1,PROCS(SLAVEF+1)
-         IF((NB_SUP.GT.0).AND.(i.EQ.1))THEN
-            CYCLE
-         ELSEIF((NB_SUP.EQ.2).AND.(i.EQ.PROCS(SLAVEF+1)))THEN
-            CYCLE
-         ENDIF
-         IDWLOAD(J)=PROCS(i)
-         J=J+1
-      ENDDO
-      DO i=1,NB_SUP
-         IF(i.EQ.1)THEN
-            IDWLOAD(J)=PROCS(1)
-         ELSE
-            IDWLOAD(J)=PROCS(PROCS(SLAVEF+1))
-         ENDIF
-         J=J+1
-      ENDDO
-      IF ((K50.EQ.0).OR.FORCE_LDLTRegular_NIV2) THEN
-         ACC=0
-         J=PROCS(SLAVEF+1)-NB_SUP+1
-         DO i=1,NB_SUP
-            VAR=dble(SUP_PROC_ARG(i))/100.0D0
-            TMP_NROW=int(dble(MEM_CONSTRAINT(i))/dble(NFRONT))
-            NB_ROWS(J)=int(max((VAR*dble(TMP))/
-     &           (dble(NELIM)*dble(2*NFRONT-NELIM)),
-     &           dble(1)))
-            IF(NB_ROWS(J).GT.TMP_NROW)THEN
-               NB_ROWS(J)=TMP_NROW
-            ENDIF
-            IF(NCB-ACC.LT.NB_ROWS(J)) THEN 
-               NB_ROWS(J)=NCB-ACC
-               ACC=NCB
-               EXIT
-            ENDIF
-            ACC=ACC+NB_ROWS(J)
-            J=J+1
-         ENDDO
-         IF(ACC.EQ.NCB)THEN
-            GOTO 777
-         ENDIF
-         DO i=1,PROCS(SLAVEF+1)-NB_SUP
-            VAR=1.0D0
-            TMP_NROW=int((dble(TAB_MAXS_ARG(IDWLOAD(i))))/dble(NFRONT))
-            NB_ROWS(i)=int((dble(VAR)*dble(TMP))/
-     &           (dble(NELIM)*dble(2*NFRONT-NELIM)))
-            IF(NB_ROWS(i).GT.TMP_NROW)THEN
-               NB_ROWS(i)=TMP_NROW
-            ENDIF
-            IF(NCB-ACC.LT.NB_ROWS(i)) THEN 
-               NB_ROWS(i)=NCB-ACC
-               ACC=NCB
-               EXIT
-            ENDIF
-            ACC=ACC+NB_ROWS(i)
-         ENDDO
-         IF(ACC.NE.NCB)THEN
-            IF(PROCS(SLAVEF+1).EQ.NB_SUP)THEN
-               TMP_NROW=(NCB-ACC)/PROCS(SLAVEF+1)+1
-               DO i=1,PROCS(SLAVEF+1)
-                  NB_ROWS(i)=NB_ROWS(i)+TMP_NROW
-                  IF(ACC+TMP_NROW.GT.NCB)THEN
-                     NB_ROWS(i)=NB_ROWS(i)-TMP_NROW+NCB-ACC
-                     ACC=NCB
-                     EXIT
-                  ENDIF
-                  ACC=ACC+TMP_NROW
-               ENDDO
-            ELSE
-               TMP_NROW=(NCB-ACC)/(PROCS(SLAVEF+1)-NB_SUP)+1
-               DO i=1,PROCS(SLAVEF+1)-NB_SUP
-                  NB_ROWS(i)=NB_ROWS(i)+TMP_NROW
-                  ACC=ACC+TMP_NROW
-                  IF(ACC.GT.NCB) THEN 
-                     NB_ROWS(i)=NB_ROWS(i)-TMP_NROW+
-     &                    (NCB-(ACC-TMP_NROW))
-                     EXIT
-                  ENDIF
-               ENDDO
-            ENDIF
-         ENDIF
-      ELSE
-         ACC=0
-         i=PROCS(SLAVEF+1)-NB_SUP+1
-         X=NCB
-         LOAD_CORR=0.0D0
-         MEM_CSTR=.FALSE.
-         DO J=1,NB_SUP
-            VAR=DBLE(SUP_PROC_ARG(J))/DBLE(100)
-            A=1.0D0
-            B=dble(X+NELIM)
-            C=-dble(max(MEM_CONSTRAINT(J),0_8))
-            DELTA=((B*B)-(4*A*C))
-            TMP_NROW=int((-B+sqrt(DELTA))/(2*A))
-            A=dble(-NELIM)
-            B=dble(NELIM)*(dble(-NELIM)+dble(2*(X+NELIM)+1))
-            C=-(VAR*TMP)
-            DELTA=(B*B-(4*A*C))
-            NB_ROWS(i)=int((-B+sqrt(DELTA))/(2*A))
-            IF(NB_ROWS(i).GT.TMP_NROW)THEN
-               NB_ROWS(i)=TMP_NROW
-               MEM_CSTR=.TRUE.               
-            ENDIF
-            IF(ACC+NB_ROWS(i).GT.NCB)THEN
-               NB_ROWS(i)=NCB-ACC
-               ACC=NCB
-               X=0
-               EXIT
-            ENDIF
-            X=X-NB_ROWS(i)
-            ACC=ACC+NB_ROWS(i) 
-            LOAD_CORR=LOAD_CORR+(dble(NELIM) * dble (NB_ROWS(i)) *
-     *           dble(2*(X+NELIM) - NELIM - NB_ROWS(i) + 1))
-            i=i+1
-         ENDDO
-         IF(ACC.EQ.NCB)THEN
-            GOTO 777
-         ENDIF
-            IF((PROCS(SLAVEF+1).NE.NB_SUP).AND.MEM_CSTR)THEN
-               TMP=(MAX_LOAD-LOAD_CORR)/(PROCS(SLAVEF+1)-NB_SUP)
-            ENDIF
-         X=ACC
-         ACC=0
-         DO i=1,PROCS(SLAVEF+1)-NB_SUP
-            IF (KEEP(375) .EQ. 1) THEN 
-              VAR=1.0D0
-              A=dble(NELIM)
-              B=dble(NELIM)*(dble(NELIM)+dble(2*ACC+1))
-              C=-(VAR*TMP)
-            ELSE    
-              A=1.0D0
-              B=dble(ACC+NELIM)
-              C=-TMP
-            ENDIF
-            DELTA=((B*B)-(4*A*C))
-            NB_ROWS(i)=int((-B+sqrt(DELTA))/(2*A))
-            IF(NCB-ACC-X.LT.NB_ROWS(i))THEN
-               NB_ROWS(i)=NCB-ACC-X
-               ACC=NCB-X
-               EXIT
-            ENDIF
-            ACC=ACC+NB_ROWS(i)
-         ENDDO
-         ACC=ACC+X
-         IF(ACC.NE.NCB)THEN
-            IF(PROCS(SLAVEF+1).EQ.NB_SUP)THEN
-               TMP_NROW=(NCB-ACC)/PROCS(SLAVEF+1)+1
-               DO i=1,PROCS(SLAVEF+1)
-                  NB_ROWS(i)=NB_ROWS(i)+TMP_NROW
-                  IF(ACC+TMP_NROW.GT.NCB)THEN
-                     NB_ROWS(i)=NB_ROWS(i)-TMP_NROW+NCB-ACC
-                     ACC=NCB
-                     EXIT
-                  ENDIF
-                  ACC=ACC+TMP_NROW
-               ENDDO
-            ELSE
-               NB_ROWS(PROCS(SLAVEF+1)-NB_SUP)=
-     &              NB_ROWS(PROCS(SLAVEF+1)
-     &              -NB_SUP)+NCB-ACC
-            ENDIF
-         ENDIF
-      ENDIF
- 777  CONTINUE
-      NSLAVES=0
-      ACC=1
-      J=1
-      K=1
-      DO i=1,PROCS(SLAVEF+1)
-         IF(NB_ROWS(i).NE.0)THEN
-            SLAVES_LIST(J)=IDWLOAD(i)
-            TAB_POS(J)=ACC
-            ACC=ACC+NB_ROWS(i)
-            NB_ROW_MAX=max(NB_ROW_MAX,NB_ROWS(i))
-            IF(K50.EQ.0)THEN
-               MAX_SURF=max(int(NB_ROWS(i),8)*int(NCB,8),int(0,8))
-            ELSE
-               MAX_SURF=max(int(NB_ROWS(i),8)*int(ACC,8),int(0,8))
-            ENDIF
-            NSLAVES=NSLAVES+1
-            J=J+1
-         ELSE
-            SLAVES_LIST(PROCS(SLAVEF+1)-K+1)=IDWLOAD(i)
-            K=K+1
-         ENDIF
-      ENDDO
-      TAB_POS(SLAVEF+2) = NSLAVES
-      TAB_POS(NSLAVES+1)= NCB+1
-      NSLAVES_NODE=NSLAVES
-      END SUBROUTINE ZMUMPS_SET_PARTI_REGULAR

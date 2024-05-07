@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.4.1, released
-#  on Tue Aug  3 09:49:43 UTC 2021
+#  This file is part of MUMPS 5.5.0, released
+#  on Thu Apr 14 11:45:33 UTC 2022
 #
 #Begin orderings
 
@@ -36,8 +36,25 @@ LPORDDIR = $(topdir)/PORD/lib/
 IPORD    = -I$(topdir)/PORD/include/
 LPORD    = -L$(LPORDDIR) -lpord
 
-#LMETISDIR = /opt/metis-5.1.0/build/Linux-x86_64/libmetis
-#IMETIS    = /opt/metis-5.1.0/include
+#
+# The following section deals with Vector Host offloading of scalar code
+# like METIS or symbolic factorization. By default it is activated. If you
+# prefer run all code on the VE (not recommended), set WITH_VHOFFLOAD to no.
+# Activation is recommended for optimal performance.
+#
+# In case WITH_VHOFFLOAD is set to yes, Make.inc/Makefile.NEC.VH should
+# be edited (e.g. to provide the path to METIS library on the Vector Host)
+
+WITH_VHOFFLOAD := yes
+
+ifeq ($(WITH_VHOFFLOAD),yes)
+
+include $(topdir)/Make.inc/Makefile.NEC.VH
+
+else
+
+#LMETISDIR = -L/opt/metis-5.1.0/build/ve/libmetis
+#IMETIS    = -I/opt/metis-5.1.0/include
 
 # You have to choose one among the following two lines depending on
 # the type of analysis you want to perform. If you want to perform only
@@ -47,24 +64,29 @@ LPORD    = -L$(LPORDDIR) -lpord
 
 #LMETIS    = -L$(LMETISDIR) -lmetis
 #LMETIS    = -L$(LMETISDIR) -lparmetis -lmetis
+endif
 
 # The following variables will be used in the compilation process.
 # Please note that -Dptscotch and -Dparmetis imply -Dscotch and -Dmetis respectively.
 # If you want to use Metis 4.X or an older version, you should use -Dmetis4 instead of -Dmetis
 # or in addition with -Dparmetis (if you are using parmetis 3.X or older).
 #ORDERINGSF = -Dscotch -Dmetis -Dpord -Dptscotch -Dparmetis
-ORDERINGSF  = -Dpord
-ORDERINGSC  = $(ORDERINGSF)
+ORDERINGSF += -Dpord
+ORDERINGSC += $(ORDERINGSF)
 
-LORDERINGS = $(LMETIS) $(LPORD) $(LSCOTCH)
+LORDERINGS  = $(LMETIS) $(LPORD) $(LSCOTCH)
 IORDERINGSF = $(ISCOTCH)
 IORDERINGSC = $(IMETIS) $(IPORD) $(ISCOTCH)
 
 #End orderings
-########################################################################
 ################################################################################
 PLAT    =
 LIBEXT  = .a
+LIBEXT_SHARED  = .so
+FPIC_OPT = -fPIC
+# Adapt/uncomment RPATH_OPT to avoid modifying
+# LD_LIBRARY_PATH in case of shared libraries
+# RPATH_OPT = -Wl,-rpath,/path/to/MUMPS_x.y.z/lib/
 OUTC    = -o 
 OUTF    = -o 
 RM      = rm -f
@@ -90,15 +112,14 @@ CDEFS   = -DAdd_
 # Inline basics
 #
 STRIP_TOPDIR = $(strip $(topdir))
-MUMPS_INLINE_LIST = -finline-functions -finline-max-depth=5 -finline-max-function-size=500
+MUMPS_INLINE_LIST = -finline-functions -finline-max-depth=5 -finline-max-function-size=250
 #
 # Inline search on the whole directory
 #
 MUMPS_INLINE_LIST += -finline-directory=$(STRIP_TOPDIR)/src:$(STRIP_TOPDIR)/libseq
                         
-
 #Begin Optimization options
-OPTF   = -O2 -DGEMMT_AVAILABLE -fpp -fopenmp -Wobsolescent -Wextension -Wall -Woverflow $(MUMPS_INLINE_LIST)
+OPTF  += -O2 -fpp -fopenmp -Wobsolescent -Wextension -Wall -Woverflow $(MUMPS_INLINE_LIST) # -DGEMMT_AVAILABLE
 OPTL   = -O2 -fopenmp
 OPTC   = -O2 -fopenmp -Wall
 #End Optimization options

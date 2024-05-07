@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -15,6 +15,7 @@ C
       USE SMUMPS_OOC
       USE SMUMPS_STRUC_DEF
       USE SMUMPS_BUF
+      USE SMUMPS_FACSOL_L0OMP_M, ONLY: SMUMPS_FREE_L0_OMP_FACTORS
       IMPLICIT NONE
       include 'mpif.h'
       TYPE( SMUMPS_STRUC ) :: id
@@ -25,7 +26,7 @@ C
 C     Explicit needed because of pointer arguments
       INTERFACE
       SUBROUTINE SMUMPS_FREE_ID_DATA_MODULES(id_FDM_F_ENCODING,
-     &  id_BLRARRAY_ENCODING, KEEP8)
+     &  id_BLRARRAY_ENCODING, KEEP8, K34)
 #     if defined(MUMPS_F2003)
       CHARACTER, DIMENSION(:), POINTER, intent(inout) ::
      &                                            id_BLRARRAY_ENCODING
@@ -36,6 +37,7 @@ C     Explicit needed because of pointer arguments
       CHARACTER, DIMENSION(:), POINTER :: id_FDM_F_ENCODING
 #     endif
       INTEGER(8), intent(inout) :: KEEP8(150)
+      INTEGER, intent(in) :: K34
       END SUBROUTINE SMUMPS_FREE_ID_DATA_MODULES
       END INTERFACE
       I_AM_SLAVE = ( id%MYID .ne. MASTER .OR. id%KEEP(46) .NE. 0 )
@@ -70,6 +72,7 @@ C       old SP2 in Bonn.)
 C       Free communicator related to load messages.
         CALL MPI_COMM_FREE( id%COMM_LOAD, IERR )
       END IF
+      CALL MUMPS_DESTROY_ARCH_NODE_COMM( id%KEEP(411) )
 C     -----------------------------------
 C     Right-hand-side is always user data
 C     We do not free it.
@@ -356,7 +359,7 @@ c     ENDIF
         ENDIF
 !     ENDIF
       CALL SMUMPS_FREE_ID_DATA_MODULES(id%FDM_F_ENCODING,
-     &  id%BLRARRAY_ENCODING, id%KEEP8(1))
+     &  id%BLRARRAY_ENCODING, id%KEEP8(1), id%KEEP(34))
       IF (associated(id%MPITOOMP_PROCS_MAP)) THEN
         DEALLOCATE(id%MPITOOMP_PROCS_MAP)
         NULLIFY(id%MPITOOMP_PROCS_MAP)
@@ -435,10 +438,13 @@ C Mapping information used during solve
         DEALLOCATE(id%I8_L0_OMP)
         NULLIFY(id%I8_L0_OMP)
       END IF
+      IF (associated(id%L0_OMP_FACTORS)) THEN
+        CALL SMUMPS_FREE_L0_OMP_FACTORS(id%L0_OMP_FACTORS)
+      END IF
       RETURN
       END SUBROUTINE SMUMPS_END_DRIVER
       SUBROUTINE SMUMPS_FREE_ID_DATA_MODULES(id_FDM_F_ENCODING,
-     &  id_BLRARRAY_ENCODING, KEEP8)
+     &  id_BLRARRAY_ENCODING, KEEP8, K34)
       USE MUMPS_FRONT_DATA_MGT_M, only : MUMPS_FDM_STRUC_TO_MOD,
      &                                   MUMPS_FDM_END
       USE SMUMPS_LR_DATA_M, only : SMUMPS_BLR_STRUC_TO_MOD,
@@ -469,6 +475,7 @@ C
       CHARACTER, DIMENSION(:), POINTER :: id_FDM_F_ENCODING
 #     endif
       INTEGER(8), intent(inout) :: KEEP8(150)
+      INTEGER, intent(in) :: K34
 C
       IF (associated(id_FDM_F_ENCODING)) THEN
 C       Allow access to FDM_F data for BLR_END_MODULE
@@ -477,7 +484,7 @@ C       Allow access to FDM_F data for BLR_END_MODULE
 C         Pass id_BLRARRAY_ENCODING control to module
 C         and terminate BLR module of current instance
           CALL SMUMPS_BLR_STRUC_TO_MOD(id_BLRARRAY_ENCODING)
-          CALL SMUMPS_BLR_END_MODULE(0, KEEP8, 
+          CALL SMUMPS_BLR_END_MODULE(0, KEEP8, K34,
      &                               LRSOLVE_ACT_OPT=.TRUE.)
         ENDIF
 C       ---------------------------------------

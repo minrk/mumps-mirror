@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.4.1, released
- *  on Tue Aug  3 09:49:43 UTC 2021
+ *  This file is part of MUMPS 5.5.0, released
+ *  on Thu Apr 14 11:45:33 UTC 2022
  *
  *
- *  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -331,6 +331,7 @@ MUMPS_INT mumps_low_level_init_ooc_c_th(MUMPS_INT* async, MUMPS_INT* ierr){
       finished_requests_id[i]=-9999;
       finished_requests_inode[i]=-9999;
     }
+    ret_code=0;
     if(with_sem){
       switch(with_sem){
       case 2:

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -11,6 +11,11 @@ C  released under the CeCILL-C license
 C  (see doc/CeCILL-C_V1-en.txt, doc/CeCILL-C_V1-fr.txt, and
 C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html)
 C
+#if defined(__ve__)
+#if defined(VHOFFLOAD)
+#include 've.h'
+#endif
+#endif
       MODULE DMUMPS_ANA_AUX_M
       IMPLICIT NONE
       CONTAINS
@@ -94,7 +99,11 @@ C
 #if defined(pord)
       INTEGER TOTW
 #endif
-      INTEGER WEIGHTUSED, WEIGHTREQUESTED
+      INTEGER WEIGHTUSED 
+#if defined(scotch) || defined(ptscotch)
+      INTEGER WEIGHTREQUESTED
+#endif
+      LOGICAL SCOTCH_SYMBOLIC
       LOGICAL IDENT,SPLITROOT
       LOGICAL FREE_CENTRALIZED_MATRIX
       LOGICAL GCOMP_PROVIDED
@@ -136,6 +145,7 @@ C
          INFO( 2 ) = 3*N
          GOTO 90                
       ENDIF
+      SCOTCH_SYMBOLIC=(KEEP(270).EQ.0) 
       symmetry      = INFO(8)
       NBQD          = 0
       GCOMP_PROVIDED=.FALSE.
@@ -194,7 +204,7 @@ C
        FREE_CENTRALIZED_MATRIX = (
      &                    (KEEP(54).EQ.3).AND.
      &                    (KEEP(494).EQ.0).AND.
-     &                    (KEEP(106).NE.2)
+     &                    (KEEP(106).NE.3)
      &                          )
       ENDIF
       INPLACE64_GRAPH_COPY    = .FALSE.
@@ -329,9 +339,6 @@ C
             ELSE
                NEMIN = 2*KEEP(1)
             ENDIF
-            IF (PROK) 
-     &           WRITE(MP,*) 'Setting static pivoting ON, COMPRESS =',
-     &           COMPRESS
          ENDIF
       ENDIF
       IF(MTRANS .GT. 0 .AND. KEEP(50) .EQ. 2) THEN
@@ -597,7 +604,7 @@ C
      &              PARENT, IWFR8,
      &              PTRAR(1,2), IW, IWL1, IKEEP1,
      &              IKEEP2, NCMPA, INFO, LP, LPOK,
-     &              WEIGHTUSED, WEIGHTREQUESTED)
+     &              WEIGHTUSED, WEIGHTREQUESTED, SCOTCH_SYMBOLIC)
                 ENDIF
                ELSE IF (SCOTCH_INT_SIZE.EQ.64) THEN
                  CALL MUMPS_SCOTCH_MIXEDto64(NCMP, 
@@ -606,7 +613,7 @@ C
      &              PTRAR(1,2), IW, IWL1, IKEEP1,
      &              IKEEP2, NCMPA, INFO, LP, LPOK, KEEP(10),
      &              INPLACE64_GRAPH_COPY,
-     &              WEIGHTUSED, WEIGHTREQUESTED)
+     &              WEIGHTUSED, WEIGHTREQUESTED, SCOTCH_SYMBOLIC)
                ELSE
                  WRITE(*,*)
      &           "Internal error in SCOTCH wrappers, SCOTCH_INT_SIZE=",
@@ -614,7 +621,13 @@ C
                  CALL MUMPS_ABORT()
                ENDIF
                IF (INFO(1) .LT. 0) GOTO 90
-               IF ( (COMPRESS .EQ. 1)
+               IF (.NOT. SCOTCH_SYMBOLIC) THEN
+                 IF ( COMPRESS .EQ. 1 ) THEN
+                 CALL DMUMPS_EXPAND_PERMUTATION(N,NCMP,KEEP(94),
+     &           KEEP(93),PIV(1),IKEEP1(1),IKEEP2(1))
+                 COMPRESS = -1       
+                 ENDIF
+               ELSE IF ( (COMPRESS .EQ. 1)
      &             .OR. 
      &            ( (NORIG.NE.N).AND.present(SIZEOFBLOCKS).AND.
      &              (WEIGHTUSED.EQ.0) )
@@ -906,12 +919,13 @@ C
          ENDIF
       ENDIF
       IF (IORD.EQ.1 .OR. IORD.EQ.5 .OR. COMPRESS.EQ.-1 
+     &    .OR. ( (IORD.EQ.3).AND.(.NOT.SCOTCH_SYMBOLIC) ) 
      &    .OR.  
      &   ( (NORIG.NE.N).AND.present(SIZEOFBLOCKS) .AND.(IORD.EQ.3)
      &     .AND. (WEIGHTUSED.EQ.0)
      &   )
      &   ) THEN
-         IF ((KEEP(106).EQ.1).OR.(KEEP(106).EQ.3)
+         IF ((KEEP(106).EQ.1).OR.(KEEP(106).EQ.2).OR.(KEEP(106).EQ.4)
      &          .OR.(KEEP(60).NE.0)) THEN
             IF ( COMPRESS .EQ. -1 ) THEN
                ALLOCATE(IPQ8(N),stat=IERR)
@@ -928,7 +942,34 @@ C
                DEALLOCATE(IPQ8)
             ENDIF
             COMPRESS = 0
-           IF (KEEP(106).EQ.3.AND.KEEP(60).EQ.0) THEN
+           IF (KEEP(106).EQ.2) THEN
+             IF (PROK) THEN
+             WRITE(MP,*) " SYMBOLIC based on column counts "
+             ENDIF
+             IF (present(SIZEOFBLOCKS)) THEN
+               DO I=1, N
+                FRERE(I) = SIZEOFBLOCKS(I)
+               ENDDO
+             ELSE
+               FRERE(1) = -1
+             ENDIF
+                CALL MUMPS_WRAP_GINP94 (
+     &           N, IPE(1), IW(1), IWFR8,
+     &           IKEEP1(1), 
+     &           FRERE(1),
+     &          KEEP(60), LISTVAR_SCHUR(1), SIZE_SCHUR,
+     &          KEEP(378),
+     &           IWL1, PARENT, 
+     &           IKEEP2(1), IKEEP3(1), NFSIZ(1), 
+     &           PTRAR(1,1), PTRAR(1,2), PTRAR(1,3),
+     &           INFO )
+                 IF (INFO(1).LT.0) GOTO 90
+            ELSE IF ((KEEP(106).EQ.4).AND.(KEEP(60).EQ.0).AND.
+     &        (.NOT.present(SIZEOFBLOCKS) .OR. (NORIG.EQ.N))
+     &        ) THEN
+              WRITE(MP,*) " Undefined option for ICNTL(58) "
+              INFO(1)= -99998
+              GOTO 90
            ELSE
             ALLOCATE( WTEMP ( 2*N ), stat = IERR )
             IF ( IERR .GT. 0 ) THEN
@@ -941,11 +982,6 @@ C
                ITEMP = 0 
             ELSE
                ITEMP = SIZE_SCHUR
-               IF (KEEP(60)==1) THEN
-                  KEEP(20) = LISTVAR_SCHUR(1)
-               ELSE
-                  KEEP(38) = LISTVAR_SCHUR(1)
-               ENDIF
             ENDIF
             AGG6 =.FALSE.
             IF (present(SIZEOFBLOCKS)) THEN
@@ -978,15 +1014,15 @@ C
             CALL DMUMPS_ANA_K(N, IPE(1), IW(1), LIW8, IWFR8, IKEEP1(1),
      &              IKEEP2(1), IWL1,
      &              PTRAR, NCMPA, ITEMP, PARENT)
-            IF (KEEP(60) .EQ. 0) THEN
-               IF (KEEP(60) .EQ. 1) THEN
-                  KEEP(20) = LISTVAR_SCHUR(1)
-               ELSE
-                  KEEP(38) = LISTVAR_SCHUR(1)
-               ENDIF
-            ENDIF
          ENDIF                  
       ENDIF                     
+      IF (KEEP(60) .NE. 0) THEN
+        IF (KEEP(60)==1) THEN
+           KEEP(20) = LISTVAR_SCHUR(1)
+        ELSE
+           KEEP(38) = LISTVAR_SCHUR(1)
+        ENDIF
+      ENDIF
 #if defined(OLDDFS)
       CALL DMUMPS_ANA_L
      &     (N, PARENT, IWL1, IKEEP1(1), IKEEP2(1), IKEEP3(1),
@@ -1006,7 +1042,7 @@ C
      &     NFSIZ(1), PTRAR, INFO(6), FILS(1), FRERE(1), 
      &     PTRAR(1,3), NEMIN, WTEMP, KEEP(60),
      &     KEEP(20),KEEP(38),PTRAR(1,2),KEEP(104),IW(1),KEEP(50), 
-     &     ICNTL(13), KEEP(37), NSLAVES, KEEP(250).EQ.1 
+     &     ICNTL(13), KEEP(37), KEEP(197), NSLAVES, KEEP(250).EQ.1 
      &     , .TRUE. , SIZEOFBLOCKS, N
      &      )
       ELSE
@@ -1015,7 +1051,7 @@ C
      &     NFSIZ(1), PTRAR, INFO(6), FILS(1), FRERE(1), 
      &     PTRAR(1,3), NEMIN, WTEMP, KEEP(60),
      &     KEEP(20),KEEP(38),PTRAR(1,2),KEEP(104),IW(1),KEEP(50), 
-     &     ICNTL(13), KEEP(37), NSLAVES, KEEP(250).EQ.1 
+     &     ICNTL(13), KEEP(37), KEEP(197), NSLAVES, KEEP(250).EQ.1 
      &     , .FALSE., IDUMMY, LIDUMMY )
       ENDIF
       DEALLOCATE(WTEMP)
@@ -1131,9 +1167,6 @@ C
          IF (K.GT.0) WRITE (MP,99988) (FRERE(I),I=1,K)
       ENDIF
       GO TO 90
-      INFO(1) = -4
-      INFO(2) = K
-      GOTO 90 
  90   CONTINUE 
       IF (INFO(1) .NE. 0) THEN
         IF ((LP.GT.0).AND.(ICNTL(4).GE.1)) 
@@ -2372,7 +2405,7 @@ C
      &               NODE, NSTEPS,
      &               FILS, FRERE, ND, NEMIN, SUBORD, KEEP60, 
      &               KEEP20, KEEP38, NAMALG,NAMALGMAX,
-     &               CUMUL,KEEP50, ICNTL13, KEEP37, NSLAVES,
+     &               CUMUL,KEEP50, ICNTL13, KEEP37, KEEP197, NSLAVES,
      &               ALLOW_AMALG_TINY_NODES 
      &               , BLKON, SIZEOFBLOCKS, LSIZEOFBLOCKS
      &               )
@@ -2388,6 +2421,7 @@ C
      &                  FLOPS_AVANT, FLOPS_APRES
       INTEGER ICNTL13, KEEP37, NSLAVES
       LOGICAL ALLOW_AMALG_TINY_NODES
+      INTEGER KEEP197
       LOGICAL, INTENT(IN) :: BLKON
       INTEGER, INTENT(IN) :: LSIZEOFBLOCKS
       INTEGER, INTENT(IN) :: SIZEOFBLOCKS(LSIZEOFBLOCKS) 
@@ -2544,7 +2578,11 @@ C
      &           ( (NODE(I).LE.NEMIN.and. NODE(DADI).GT. MAXNODE)
      &     .OR.(NODE(DADI).LE.NEMIN .and. NODE(I).GT.MAXNODE)))
            AMALG_TO_father_OK = ( AMALG_TO_father_OK .AND.
-     &       ( PERCENT_FILL < dble(NEMIN) ) )
+     &     ( PERCENT_FILL < dble(NEMIN) ) )
+           IF (KEEP197 .EQ. 1 ) THEN
+            AMALG_TO_father_OK = AMALG_TO_father_OK.OR.
+     &       ( NODE(I).LE.2*NEMIN .AND. NODE(DADI).LT.4*NEMIN)
+           ENDIF
            AMALG_TO_father_OK = ( AMALG_TO_father_OK .AND.
      &     ( ACCU / SIZE_DADI_AMALGAMATED .LE. dble(NEMIN)) )
            IF (AMALG_TO_father_OK) THEN
@@ -2818,26 +2856,32 @@ C
       RETURN
       END SUBROUTINE DMUMPS_ANA_R
       SUBROUTINE DMUMPS_DIAG_ANA
-     &( MYID, COMM, KEEP,KEEP8, INFO, INFOG, RINFO, RINFOG, ICNTL )
+     &( MYID, COMM, KEEP,KEEP8, INFO, INFOG, RINFO, RINFOG, ICNTL,
+     &  SIZE_SCHUR )
       IMPLICIT NONE
-      INTEGER COMM, MYID, KEEP(500), INFO(80), ICNTL(60), INFOG(80)
-      INTEGER(8) KEEP8(150)
-      DOUBLE PRECISION RINFO(40), RINFOG(40)
+      INTEGER, INTENT(IN)    :: COMM, MYID, KEEP(500), INFO(80), 
+     &                          ICNTL(60), INFOG(80), SIZE_SCHUR
+      INTEGER(8), INTENT(IN) :: KEEP8(150)
+      DOUBLE PRECISION, INTENT(IN)       :: RINFO(40), RINFOG(40)
       INCLUDE 'mpif.h'
       INTEGER MASTER, MPG
+      INTEGER ITMP
       PARAMETER( MASTER = 0 )
       MPG = ICNTL(3)
       IF ( MYID.eq.MASTER.and.MPG.GT.0.AND.ICNTL(4).GE.2) THEN
+       ITMP = KEEP(13)
+       IF (ICNTL(15).EQ.0) ITMP = 0
        WRITE(MPG, 99992) INFO(1), INFO(2),
      &  KEEP8(109), KEEP8(111), INFOG(4),
      &  INFOG(5), KEEP(28), INFOG(32), INFOG(7), KEEP(23), 
      &  ICNTL(7), KEEP(12), 
+     &  ITMP,
      &  ICNTL(18),
      &  KEEP(56), KEEP(61), RINFOG(1)
        IF (KEEP(95).GT.1)             
      &      WRITE(MPG, 99993) KEEP(95) 
        IF (KEEP(54).GT.0) WRITE(MPG, 99994) KEEP(54)
-       IF (KEEP(60).GT.0) WRITE(MPG, 99995) KEEP(60)
+       IF (KEEP(60).GT.0) WRITE(MPG, 99995) KEEP(60), SIZE_SCHUR
        IF (KEEP(253).GT.0)  WRITE(MPG, 99996) KEEP(253)
       ENDIF
       RETURN
@@ -2854,6 +2898,7 @@ C
      &       ' ICNTL (6) Maximum transversal option           =',I16/
      &       ' ICNTL (7) Pivot order option                   =',I16/
      &       ' ICNTL(14) Percentage of memory relaxation      =',I16/
+     &       ' ICNTL(15) Analysis by block effectively used   =',I16/
      &       ' ICNTL(18) Distributed input matrix (on if >0)  =',I16/
      &       ' Number of level 2 nodes                        =',I16/
      &       ' Number of split nodes                          =',I16/
@@ -2861,7 +2906,8 @@ C
      &                                                        1PD10.3)
 99993 FORMAT(' Ordering compressed/constrained (ICNTL(12))    =',I16)
 99994 FORMAT(' Distributed matrix entry format (ICNTL(18))    =',I16)
-99995 FORMAT(' Effective Schur option (ICNTL(19))             =',I16)
+99995 FORMAT(' Effective Schur option (ICNTL(19))             =',I16/
+     &       ' Size of Schur (SIZE_SCHUR)                     =',I16)
 99996 FORMAT(' Forward solution during factorization, NRHS    =',I16)
       END SUBROUTINE DMUMPS_DIAG_ANA
       SUBROUTINE DMUMPS_CUTNODES

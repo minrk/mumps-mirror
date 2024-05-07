@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -14,6 +14,9 @@ C
       SUBROUTINE SMUMPS_SOLVE_DRIVER(id)
       USE SMUMPS_STRUC_DEF
       USE SMUMPS_SOL_ES
+C     Lock Initialization (_LI) and Desruction (_LD)
+      USE SMUMPS_SOL_L0OMP_M, ONLY: SMUMPS_SOL_L0OMP_LI,
+     &                              SMUMPS_SOL_L0OMP_LD
 C
 C  Purpose
 C  =======
@@ -32,6 +35,7 @@ C
       USE MUMPS_FRONT_DATA_MGT_M, only : MUMPS_FDM_STRUC_TO_MOD,
      &                                   MUMPS_FDM_MOD_TO_STRUC
       USE SMUMPS_SAVE_RESTORE
+!$    USE OMP_LIB
       IMPLICIT NONE
 C     -------------------
 C     Explicit interfaces
@@ -153,6 +157,7 @@ C         on all procs (of size id%NRHS orginal)
 C         PERM_RHS(k) = i means that i is the kth column to be processed
 C         Note that PERM_RHS will be used also in case of interleaving
 C     ------------------------------------
+      INTEGER :: NOMP
       REAL ONE
       REAL ZERO
       PARAMETER( ONE = 1.0E0 )
@@ -571,6 +576,10 @@ C
             KEEP(485) = 0 ! FR solve
           ENDIF
       ENDIF
+C     Bcast id%KEEP(401) strategy (which
+C     may be switched off or on during solve)
+      CALL MPI_BCAST( id%KEEP(401), 1, MPI_INTEGER, MASTER, id%COMM,
+     &                  IERR )
       CALL MPI_BCAST(MTYPE,1,MPI_INTEGER,MASTER,
      &               id%COMM,IERR)
       CALL MPI_BCAST( id%KEEP(111), 1, MPI_INTEGER, MASTER, id%COMM,
@@ -1768,8 +1777,6 @@ C       Compute an upperbound of message size
 C       for SMUMPS_GATHER_SOLUTION. Except
 C       possibly on the non working host, it
 C       should be smaller than MSG_MAX_BYTES_SOLVE
-#if defined(MPI_TO_K_OMPP)
-#endif
 C       ------------------------------------------
         IF (KEEP(237).EQ.0) THEN
 C         Note that for SMUMPS_GATHER_SOLUTION LBUFR buffer should
@@ -2561,6 +2568,32 @@ C          to permute the null column pivot list)
      &            MPI_INTEGER,
      &            MASTER, id%COMM,IERR)
       ENDIF
+C   L0-threads to be activated iff KEEP(401)>0 and KEEP(400)>0
+          IF (KEEP(401) .GT. 0) THEN
+C          L0-threads was requested for solve phase
+C          and will be effective only if KEEP(400) >0 
+C          which indicates that L0-threads was 
+C          performed during analysis+factorization
+           IF ( KEEP(400) .GT. 0 ) THEN
+C           Check if number of threads is consistent with
+C           the one used during factorization
+C{
+            NOMP = 1
+!$          NOMP=omp_get_max_threads()
+              IF (KEEP(400).NE.NOMP) THEN
+C               NOMP should be the one from analysis
+                id%INFO(1) = -58
+                id%INFO(2) = KEEP(400)
+            IF (LPOK) WRITE(LP,'(A,A,I5,A,I5)')
+     &" FAILURE DETECTED IN SOLVE: #threads for KEEP(401)",
+     &" changed from",KEEP(400)," at analysis to", NOMP
+              ENDIF
+           ENDIF
+C}
+          ENDIF
+      IF (KEEP(400) .GT. 0) THEN
+        CALL SMUMPS_SOL_L0OMP_LI(KEEP(400))
+      ENDIF
 C     ==============================
 C     BLOCKING ON the number of RHS
 C      We work on  a maximum of NBRHS at a time.
@@ -2575,6 +2608,7 @@ C  We only have to be sure that the size of each partition
 C  is smaller than NBRHS.
       BEG_RHS=1
       DO WHILE (BEG_RHS.LE.NRHS_NONEMPTY)
+C     {
 C       ==========================
 C       -- NBRHS     : Original block size
 C       -- BEG_RHS   : Column index of the first RHS in the list of
@@ -4005,6 +4039,11 @@ C
      & id%POSINRHSCOMP_ROW(1), id%POSINRHSCOMP_COL(1)
      & , 1, 1, 1, 1, IDUMMY, 1, JDUMMY, KDUMMY, 1, LDUMMY, 1, MDUMMY
      & , 1, 1, NBSPARSE_LOC, PTR_RHS_BOUNDS(1), LPTR_RHS_BOUNDS
+     & , id%IPOOL_B_L0_OMP(1), id%LPOOL_B_L0_OMP, id%IPOOL_A_L0_OMP(1),
+     & id%LPOOL_A_L0_OMP, id%L_VIRT_L0_OMP, id%VIRT_L0_OMP(1),
+     & id%L_PHYS_L0_OMP, id%PHYS_L0_OMP(1), id%PERM_L0_OMP(1),
+     & id%PTR_LEAFS_L0_OMP(1), id%L0_OMP_MAPPING(1), id%LL0_OMP_MAPPING,
+     & id%L0_OMP_FACTORS(1), id%LL0_OMP_FACTORS
      &    )
           ELSE
 C           Exploit sparsity of the RHS (all cases)
@@ -4027,7 +4066,11 @@ C
      & id%KEEP(28),IRHS_SPARSE_COPY(1),IRHS_PTR_COPY(1), size(PERM_RHS),
      & PERM_RHS, size(UNS_PERM_INV), UNS_PERM_INV, NB_FS_RHSCOMP_F,
      & NB_FS_RHSCOMP_TOT,NBSPARSE_LOC,PTR_RHS_BOUNDS(1),LPTR_RHS_BOUNDS
-     &       )
+     & ,id%IPOOL_B_L0_OMP(1),id%LPOOL_B_L0_OMP,id%IPOOL_A_L0_OMP(1),
+     & id%LPOOL_A_L0_OMP,id%L_VIRT_L0_OMP,id%VIRT_L0_OMP(1),
+     & id%L_PHYS_L0_OMP, id%PHYS_L0_OMP(1), id%PERM_L0_OMP(1),
+     & id%PTR_LEAFS_L0_OMP(1), id%L0_OMP_MAPPING(1), id%LL0_OMP_MAPPING,
+     & id%L0_OMP_FACTORS(1), id%LL0_OMP_FACTORS )
           ENDIF   ! end of exploit sparsity (pruning nodes of the tree)
         END IF
 C       -----------------
@@ -4476,11 +4519,13 @@ C                 assembled matrix
                   IF ( MTYPE .eq. 1 ) THEN
                     CALL SMUMPS_SOL_X
      &              ( id%A(1), id%KEEP8(28), id%N, id%IRN(1), id%JCN(1),
-     &              R_W(id%N+1), KEEP(1),KEEP8(1))
+     &              R_W(id%N+1), KEEP(1),KEEP8(1),
+     &              0, id%SYM_PERM(1) )
                   ELSE
                     CALL SMUMPS_SOL_X
      &              ( id%A(1), id%KEEP8(28), id%N, id%JCN(1), id%IRN(1),
-     &              R_W(id%N+1), KEEP(1),KEEP8(1))
+     &              R_W(id%N+1), KEEP(1),KEEP8(1),
+     &              0, id%SYM_PERM(1) )
                   END IF
                 ENDIF
               ENDIF
@@ -4494,12 +4539,14 @@ C             ---------------------
                   CALL SMUMPS_SOL_X(id%A_loc(1),
      &            id%KEEP8(29), id%N,
      &            id%IRN_loc(1), id%JCN_loc(1),
-     &            R_LOCWK54, id%KEEP(1),id%KEEP8(1) )
+     &            R_LOCWK54, id%KEEP(1),id%KEEP8(1), 
+     &            0, id%SYM_PERM(1) )
                 ELSE
                   CALL SMUMPS_SOL_X(id%A_loc(1),
      &            id%KEEP8(29), id%N,
      &            id%JCN_loc(1), id%IRN_loc(1),
-     &            R_LOCWK54, id%KEEP(1),id%KEEP8(1) )
+     &            R_LOCWK54, id%KEEP(1),id%KEEP8(1),
+     &            0, id%SYM_PERM(1) )
                 END IF
               ELSE
                 R_LOCWK54 = RZERO
@@ -5103,9 +5150,13 @@ C     blocking for multiple RHS (END OF DO WHILE (BEG_RHS.LE.NBRHS)
         ELSE
           BEG_RHS = BEG_RHS + NBRHS
         ENDIF
+C     }
       ENDDO
-C     DO WHILE (BEG_RHS.LE.id%NRHS)
-C     ==========================
+C     END DO WHILE (BEG_RHS.LE.id%NRHS)
+C     =================================
+      IF (KEEP(400) .GT. 0) THEN
+        CALL SMUMPS_SOL_L0OMP_LD(KEEP(400))
+      ENDIF
 C
 C     ========================================================
 C     Reset RHS to zero for all remaining columns that
@@ -5127,7 +5178,6 @@ C     ========================================================
      &                     = ZERO
               ENDDO
               JBEG_NEW = JBEG_NEW +1
-              CYCLE
            ENDDO
         ELSE
           DO WHILE ( JBEG_NEW.LE. id%NRHS)
@@ -5710,6 +5760,11 @@ C      Next 3 arguments are not used in this call
      & LD_RHSCOMP,PTR_POSINRHSCOMP_FWD(1),PTR_POSINRHSCOMP_BWD(1),
      & 1,1,1,1, IDUMMY, 1, JDUMMY, KDUMMY, 1, LDUMMY, 1, MDUMMY, 1,1,
      & NBSPARSE_LOC, PTR_RHS_BOUNDS(1), LPTR_RHS_BOUNDS
+     & , id%IPOOL_B_L0_OMP(1), id%LPOOL_B_L0_OMP, id%IPOOL_A_L0_OMP(1),
+     & id%LPOOL_A_L0_OMP, id%L_VIRT_L0_OMP, id%VIRT_L0_OMP(1),
+     & id%L_PHYS_L0_OMP, id%PHYS_L0_OMP(1), id%PERM_L0_OMP(1),
+     & id%PTR_LEAFS_L0_OMP(1), id%L0_OMP_MAPPING(1), id%LL0_OMP_MAPPING,
+     & id%L0_OMP_FACTORS(1), id%LL0_OMP_FACTORS
      &    )
         END IF
 C       ------------------

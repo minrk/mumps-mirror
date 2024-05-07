@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -27,7 +27,8 @@ C                                           2=LowRank factors/panels only
 C                                           3=LowRank CB+factor/panel)
 C     XXEBF  ->  End of Blocfacto (0=not yet, 1=finished)  
 C     XXD    ->  dynamic data size
-C     XXG    ->  GPU information (currently number of pinned rows NFRONT-NBROWS_CPU)
+C     XXG    ->  GPU information (currently number of pinned rows NFRONT-NBROWS_CPU
+C                for type 1 nodes, pinning status for type 2 strips)
 C REMARK: .h file could be replaced by a module with functions to get node status
 C          added in the module.
 C 
@@ -78,3 +79,7 @@ C     -------------------------------------------------------
      &  S_ROOTBAND_INIT
          PARAMETER(S_ROOT2SON_CALLED=-341,S_REC_CONTSTATIC=1,
      &             S_ROOTBAND_INIT=0)
+          INTEGER, PARAMETER :: MemNotPinned = -1
+          INTEGER, PARAMETER :: MemPinned = -2
+          INTEGER, PARAMETER :: PinningOnTheWay = -3
+          INTEGER, PARAMETER :: UnpinningOnTheWay = -4

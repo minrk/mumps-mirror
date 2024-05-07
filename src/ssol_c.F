@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -23,10 +23,17 @@ C
      & IRHS_SPARSE, IRHS_PTR, SIZE_PERM_RHS, PERM_RHS,
      & SIZE_UNS_PERM_INV, UNS_PERM_INV, NB_FS_IN_RHSCOMP_F,
      & NB_FS_IN_RHSCOMP_TOT, DO_NBSPARSE , RHS_BOUNDS, LRHS_BOUNDS
+     &  ,IPOOL_B_L0_OMP, LPOOL_B_L0_OMP, IPOOL_A_L0_OMP, LPOOL_A_L0_OMP,
+     &  L_VIRT_L0_OMP, VIRT_L0_OMP, L_PHYS_L0_OMP, PHYS_L0_OMP,
+     &  PERM_L0_OMP, PTR_LEAFS_L0_OMP, L0_OMP_MAPPING, LL0_OMP_MAPPING,
+     &  L0_OMP_FACTORS, LL0_OMP_FACTORS
      & )
       USE SMUMPS_OOC
       USE SMUMPS_SOL_ES
+      USE SMUMPS_SOL_L0OMP_M, ONLY : SMUMPS_SOL_L0OMP_R,
+     &                               SMUMPS_SOL_L0OMP_S
       USE SMUMPS_STRUC_DEF, ONLY : SMUMPS_ROOT_STRUC
+     & , SMUMPS_L0OMPFAC_T
       IMPLICIT NONE
 #if defined(V_T)
       INCLUDE 'VT.inc'
@@ -73,10 +80,26 @@ C
       LOGICAL, intent(in)  :: DO_NBSPARSE  
       INTEGER, intent(in)     :: LRHS_BOUNDS
       INTEGER, intent(inout)  :: RHS_BOUNDS (LRHS_BOUNDS) 
+      INTEGER, INTENT (IN) :: LPOOL_B_L0_OMP
+      INTEGER, INTENT (IN) :: IPOOL_B_L0_OMP( LPOOL_B_L0_OMP )
+      INTEGER, INTENT (IN) :: LPOOL_A_L0_OMP
+      INTEGER, INTENT (IN) :: IPOOL_A_L0_OMP( LPOOL_A_L0_OMP )
+      INTEGER, INTENT (IN) :: L_PHYS_L0_OMP
+      INTEGER, INTENT (INOUT) :: PHYS_L0_OMP( L_PHYS_L0_OMP )
+      INTEGER, INTENT (IN) :: L_VIRT_L0_OMP
+      INTEGER, INTENT (IN) :: VIRT_L0_OMP( L_VIRT_L0_OMP )
+      INTEGER, INTENT (IN) :: PERM_L0_OMP( L_PHYS_L0_OMP )
+      INTEGER, INTENT (IN) :: PTR_LEAFS_L0_OMP( L_PHYS_L0_OMP + 1)
+      INTEGER, INTENT (IN) :: LL0_OMP_MAPPING
+      INTEGER, INTENT (IN) :: L0_OMP_MAPPING( LL0_OMP_MAPPING )
+      INTEGER, INTENT (IN) :: LL0_OMP_FACTORS
+      TYPE (SMUMPS_L0OMPFAC_T), INTENT(IN) ::
+     &                        L0_OMP_FACTORS(LL0_OMP_FACTORS)
       INTEGER MP, LP, LDIAG
       INTEGER K,I,II
       INTEGER allocok
       INTEGER LPOOL,MYLEAF,MYROOT,NBROOT,LPANEL_POS
+      INTEGER MYLEAF_NOT_PRUNED
       INTEGER NSTK_S,IPOOL,IPANEL_POS,PTRICB
       INTEGER MTYPE_LOC
       INTEGER MODE_RHS_BOUNDS 
@@ -89,12 +112,14 @@ C
       INTEGER soln_c_class, forw_soln, back_soln, root_soln
 #endif
       LOGICAL DOFORWARD, DOROOT, DOBACKWARD
+      LOGICAL :: DO_L0OMP_FWD, DO_L0OMP_BWD
       LOGICAL I_WORKED_ON_ROOT, SPECIAL_ROOT_REACHED
       INTEGER IROOT
       LOGICAL DOROOT_FWD_OOC, DOROOT_BWD_PANEL
       LOGICAL SWITCH_OFF_ES
       LOGICAL DUMMY_BOOL
       INTEGER :: IDUMMY
+      INTEGER :: NBROOT_UNDER_L0
       REAL, PARAMETER :: ZERO = 0.0E0
       INCLUDE 'mumps_headers.h'
       INTEGER, DIMENSION(:), ALLOCATABLE ::  nodes_RHS
@@ -108,6 +133,7 @@ C
       INTEGER                            :: SIZE_TO_PROCESS
       LOGICAL, DIMENSION(:), ALLOCATABLE :: TO_PROCESS
       INTEGER ISTEP, INODE_PRINC
+      INTEGER :: INODE, ICHILD
       LOGICAL AM1, DO_PRUN
       LOGICAL Exploit_Sparsity
       LOGICAL DO_NBSPARSE_BWD, PRUN_BELOW_BWD
@@ -182,6 +208,12 @@ C
           CALL MUMPS_ABORT()
         ENDIF
       ENDIF
+      DO_L0OMP_FWD= ( (KEEP(401).GT.0).AND.(KEEP(400).GT.0)
+     &             .AND.DOFORWARD )
+      DO_L0OMP_FWD = DO_L0OMP_FWD .AND. KEEP(201).EQ.0
+      DO_L0OMP_BWD = ( (KEEP(401).GT.0).AND.(KEEP(400).GT.0)
+     &              .AND.DOBACKWARD )
+      DO_L0OMP_BWD = DO_L0OMP_BWD .AND. KEEP(201).EQ.0
       IF ( DO_PRUN ) THEN
          ALLOCATE (Pruned_SONS(KEEP(28)), stat=I)
          IF(I.GT.0) THEN
@@ -192,6 +224,7 @@ C
          IF(INFO(1).LT.0) GOTO 500
       ENDIF
       IF ( DO_PRUN 
+     &     .OR. DO_L0OMP_BWD
      &   ) THEN
          SIZE_TO_PROCESS = KEEP(28)
       ELSE
@@ -326,7 +359,7 @@ C
          ENDIF
          CALL SMUMPS_CHAIN_PRUN_NODES_STATS(
      &        MYID_NODES, N, KEEP(28), KEEP(201), KEEP(485), 
-     &        KEEP8(31), 
+     &        KEEP8(31)+KEEP8(64), 
      &        STEP, Pruned_List, nb_prun_nodes, OOC_FCT_TYPE_TMP
      &   )
          IF (DO_NBSPARSE) THEN
@@ -401,6 +434,72 @@ C
             IW1(NSTK_S+ISTEP-1) = Pruned_SONS(ISTEP)
           ENDDO
         ENDIF
+        IF ( DO_L0OMP_FWD ) THEN
+          CALL SMUMPS_SOL_L0OMP_R( N, MTYPE_LOC, NRHS, LIW, IW,
+     &    IW1(PTRICB), RHSCOMP, LRHSCOMP, POSINRHSCOMP_FWD,
+     &    STEP, FRERE, DAD, FILS, IW1(NSTK_S), 
+     &    PTRIST, PTRFAC, INFO,
+     &    KEEP, KEEP8, DKEEP, PROCNODE_STEPS, SLAVEF,
+     &    COMM_NODES, MYID_NODES,
+     &    BUFR, LBUFR, LBUFR_BYTES,
+     &    RHS_ROOT, LRHS_ROOT,     
+     &    ISTEP_TO_INIV2, TAB_POS_IN_PERE, 
+     &    RHS_BOUNDS, LRHS_BOUNDS, DO_NBSPARSE,
+     &    FROM_PP,
+     &    NBROOT_UNDER_L0,
+     &    LPOOL_B_L0_OMP, IPOOL_B_L0_OMP,
+     &    L_VIRT_L0_OMP, VIRT_L0_OMP,
+     &    L_PHYS_L0_OMP, PHYS_L0_OMP,
+     &    PERM_L0_OMP, PTR_LEAFS_L0_OMP,
+     &    L0_OMP_MAPPING, LL0_OMP_MAPPING,
+     &    L0_OMP_FACTORS, LL0_OMP_FACTORS,
+     &    DO_PRUN, TO_PROCESS
+     &    )
+          MYROOT = MYROOT - NBROOT_UNDER_L0
+          IF ( DO_PRUN ) THEN
+            MYLEAF_NOT_PRUNED = IPOOL_A_L0_OMP(LPOOL_A_L0_OMP)
+            DO I=1, MYLEAF_NOT_PRUNED
+              IF ( TO_PROCESS( STEP( IPOOL_A_L0_OMP(I) ))) THEN
+                IW1(IPOOL+MYLEAF-1) = IPOOL_A_L0_OMP(I)
+                IW1(NSTK_S+STEP(IPOOL_A_L0_OMP(I))-1) = -99
+              ENDIF
+            ENDDO
+            DO I = 1, nb_prun_leaves
+              INODE = Pruned_Leaves(I)
+              IF ( MUMPS_PROCNODE(PROCNODE_STEPS(STEP(INODE)),KEEP(199))
+     &         .EQ. MYID_NODES ) THEN
+                IF (L0_OMP_MAPPING( STEP(INODE) ) .EQ. 0) THEN
+                     IW1(NSTK_S+STEP(INODE)-1) = -99
+                ENDIF
+              ENDIF
+            ENDDO
+            DO I = 1, L_PHYS_L0_OMP
+              INODE = DAD(STEP(PHYS_L0_OMP(I)))
+              IF (INODE .NE. 0) THEN
+                IF ( TO_PROCESS( STEP( INODE ))) THEN
+                  IF ( IW1(NSTK_S+STEP(INODE)-1) .EQ. 0 ) THEN
+                       IW1(NSTK_S+STEP(INODE)-1) = -99
+                  ENDIF
+                ENDIF
+              ENDIF
+            ENDDO
+            MYLEAF = 0
+            DO ISTEP = KEEP(28), 1, -1
+              INODE=Step2Node(ISTEP)
+                IF (IW1(NSTK_S+STEP(INODE)-1).EQ.-99) THEN
+                  MYLEAF = MYLEAF + 1
+                  IW1(IPOOL+MYLEAF-1) = INODE
+                  IW1(NSTK_S+STEP(INODE)-1) = 0
+                ENDIF
+            ENDDO
+            DEALLOCATE(Pruned_Leaves)
+          ELSE
+            MYLEAF = IPOOL_A_L0_OMP(LPOOL_A_L0_OMP)
+            DO I=1, MYLEAF
+              IW1(IPOOL+I-1) = IPOOL_A_L0_OMP(I)
+            ENDDO
+          ENDIF
+        ELSE
           IF ( DO_PRUN ) THEN
             CALL MUMPS_INIT_POOL_DIST_NONA( N, MYLEAF, MYID_NODES,
      &            nb_prun_leaves, Pruned_Leaves, KEEP, KEEP8,
@@ -413,6 +512,7 @@ C
      &             PROCNODE_STEPS, IW1(IPOOL), LPOOL )
             MYLEAF = MYLEAF - 1 
           ENDIF
+        ENDIF
         CALL SMUMPS_SOL_R(N, A(1), LA, IW(1), LIW, W(1),
      &       LWC, NRHS,
      &       IW1(PTRICB), IWCB, LIWW,
@@ -427,6 +527,8 @@ C
      &       
      &       ISTEP_TO_INIV2, TAB_POS_IN_PERE
      &       , RHS_BOUNDS, LRHS_BOUNDS, DO_NBSPARSE, FROM_PP
+     &          , L0_OMP_MAPPING, LL0_OMP_MAPPING,
+     &            L0_OMP_FACTORS, LL0_OMP_FACTORS
      &       )
         IF (DO_PRUN) THEN
           MYLEAF = -1
@@ -452,11 +554,13 @@ C
       IF (DO_PRUN.AND.SWITCH_OFF_ES) THEN
          DO_PRUN          = .FALSE.
          Exploit_Sparsity = .FALSE.
+         IF (.NOT. DO_L0OMP_BWD ) THEN
            IF ( allocated(TO_PROCESS) .AND. SIZE_TO_PROCESS.NE.1 ) THEN
              DEALLOCATE (TO_PROCESS)
              SIZE_TO_PROCESS = 1
              ALLOCATE(TO_PROCESS(SIZE_TO_PROCESS),stat=I)
            ENDIF
+         ENDIF
       ENDIF
       IF ( DOBACKWARD .AND. DO_PRUN )  THEN
          nb_prun_leaves = 0
@@ -555,7 +659,7 @@ C
            ENDIF
            CALL SMUMPS_TREE_PRUN_NODES_STATS(
      &          MYID_NODES, N, KEEP(28), KEEP(201),
-     &        KEEP8(31), 
+     &        KEEP8(31)+KEEP8(64), 
      &          STEP,
      &          Pruned_List,
      &          nb_prun_nodes, OOC_FCT_TYPE_TMP)
@@ -672,6 +776,7 @@ C
           DO_NBSPARSE_BWD = DO_NBSPARSE
         ENDIF
         PRUN_BELOW_BWD = AM1
+        PRUN_BELOW_BWD = PRUN_BELOW_BWD .OR. DO_L0OMP_BWD
         IF ( AM1 ) THEN
           CALL SMUMPS_CHAIN_PRUN_NODES( 
      &        .FALSE.,
@@ -772,6 +877,24 @@ C
          ENDDO
         ENDIF
         IF ( .NOT. DO_PRUN ) THEN
+           IF ( .NOT. DO_L0OMP_BWD ) THEN
+             IF (DO_L0OMP_FWD) THEN
+               MYLEAF = -1
+             ENDIF
+           ENDIF
+           IF ( DO_L0OMP_BWD ) THEN
+             TO_PROCESS(:) = .TRUE.
+             DO I=1, L_PHYS_L0_OMP
+               TO_PROCESS( STEP(PHYS_L0_OMP( I )))
+     &         = .FALSE.
+             ENDDO
+             IF (MYLEAF .EQ. -1) THEN
+               MYLEAF = IPOOL_A_L0_OMP(LPOOL_A_L0_OMP)
+             ENDIF
+             CALL MUMPS_INIT_POOL_DIST_NA_BWD_L0( N, MYROOT, MYID_NODES,
+     &          NA, LNA, KEEP, KEEP8, STEP, PROCNODE_STEPS,
+     &          IW1(IPOOL), LPOOL, L0_OMP_MAPPING )
+           ELSE
              CALL MUMPS_INIT_POOL_DIST_NA_BWD( N, MYROOT, MYID_NODES,
      &          NA, LNA, KEEP, KEEP8, STEP, PROCNODE_STEPS,
      &          IW1(IPOOL), LPOOL )
@@ -782,7 +905,50 @@ C
      &         MYLEAF, MYID_NODES, SLAVEF, KEEP, STEP,
      &         PROCNODE_STEPS )
              ENDIF
+           ENDIF
         ELSE 
+          IF ( DO_L0OMP_BWD ) THEN
+             DO I=1, L_PHYS_L0_OMP
+               IF ( TO_PROCESS( STEP(PHYS_L0_OMP( I ))) ) THEN
+                 TO_PROCESS( STEP(PHYS_L0_OMP( I ))) = .FALSE.
+                 PHYS_L0_OMP( I ) = -PHYS_L0_OMP( I )
+               ENDIF
+             ENDDO
+             MYLEAF=0
+             DO ISTEP = 1, KEEP(28)
+               IF ( MUMPS_PROCNODE(PROCNODE_STEPS(ISTEP),KEEP(199))
+     &              .NE. MYID_NODES ) THEN
+                  CYCLE
+               ENDIF
+               IF ( L0_OMP_MAPPING( ISTEP ) .NE. 0 ) THEN
+                 CYCLE
+               ENDIF
+               IF ( .NOT. TO_PROCESS( ISTEP ) ) THEN
+                 CYCLE
+               ENDIF
+               I      = Step2Node( ISTEP )
+               ICHILD = FILS     ( I )
+               DO WHILE ( ICHILD .GT. 0 )
+                 ICHILD = FILS( ICHILD )
+               END DO
+               IF ( ICHILD .LT. 0 ) THEN
+                 ICHILD = -ICHILD
+                 DO WHILE ( ICHILD .GT. 0 )
+                   IF ( L0_OMP_MAPPING( STEP( ICHILD ) ) .EQ. 0 .AND.
+     &                  TO_PROCESS(STEP( ICHILD )) ) THEN
+                     GOTO 10
+                   ENDIF
+                   ICHILD = FRERE( STEP( ICHILD ) )
+                 ENDDO
+               ENDIF
+               MYLEAF = MYLEAF + 1
+ 10            CONTINUE
+             ENDDO
+             CALL MUMPS_INIT_POOL_DIST_NA_BWDL0ES( N, MYROOT,
+     &          MYID_NODES,
+     &          NA, LNA, KEEP, KEEP8, STEP, PROCNODE_STEPS,
+     &          IW1(IPOOL), LPOOL, L0_OMP_MAPPING, TO_PROCESS )
+          ELSE
             CALL MUMPS_INIT_POOL_DIST_BWD(N, nb_prun_roots,
      &      Pruned_Roots,
      &      MYROOT, MYID_NODES, KEEP, KEEP8, STEP, PROCNODE_STEPS,
@@ -791,6 +957,13 @@ C
      &       nb_prun_leaves, Pruned_Leaves,
      &       MYLEAF, MYID_NODES, SLAVEF, KEEP, STEP,
      &       PROCNODE_STEPS )
+          ENDIF
+        ENDIF
+        IF ( DO_L0OMP_BWD
+     &     ) THEN
+          KEEP(31) =  1
+        ELSE
+          KEEP(31) = 0
         ENDIF
         IF (KEEP(31) .EQ. 1) THEN
           DO I = 1, KEEP(28)
@@ -798,7 +971,9 @@ C
      &      MYID_NODES) THEN
               IF ( .NOT. MUMPS_IN_OR_ROOT_SSARBR(PROCNODE_STEPS(I),
      &        KEEP(199)) ) THEN
+                IF ( L0_OMP_MAPPING(I) .EQ. 0 ) THEN
                   IF ( DO_PRUN
+     &                 .OR. DO_L0OMP_BWD 
      &               ) THEN
                     IF ( TO_PROCESS(I) ) THEN
                       KEEP(31) = KEEP(31) + 1
@@ -806,6 +981,7 @@ C
                   ELSE
                     KEEP(31) = KEEP(31) + 1
                   ENDIF
+                ENDIF
               ENDIF
             ENDIF
           ENDDO
@@ -825,7 +1001,37 @@ C
      &          LPANEL_POS, PRUN_BELOW_BWD, TO_PROCESS, SIZE_TO_PROCESS
      &        , RHS_BOUNDS, LRHS_BOUNDS, DO_NBSPARSE_BWD
      &         , FROM_PP
+     &          , L0_OMP_MAPPING, LL0_OMP_MAPPING,
+     &            L0_OMP_FACTORS, LL0_OMP_FACTORS
      &          )
+        IF ( DO_L0OMP_BWD .AND. DO_PRUN ) THEN
+          DO I = 1, L_PHYS_L0_OMP
+            IF ( PHYS_L0_OMP( I ) .LT. 0 ) THEN
+              PHYS_L0_OMP( I ) = -PHYS_L0_OMP( I )
+              TO_PROCESS(STEP(PHYS_L0_OMP( I ) )) = .TRUE.
+            ENDIF
+          ENDDO
+        ENDIF
+        IF (DO_L0OMP_BWD .AND. INFO(1) .GE. 0) THEN
+          KEEP(31) = 0
+          PRUN_BELOW_BWD = AM1
+          CALL SMUMPS_SOL_L0OMP_S(N, MTYPE_LOC, NRHS, LIW, IW,
+     &      IW1(PTRICB), PTRACB, RHSCOMP, LRHSCOMP, POSINRHSCOMP_BWD,
+     &      STEP, FRERE, FILS, NE_STEPS, PTRIST, PTRFAC, INFO,
+     &      KEEP, KEEP8, DKEEP, PROCNODE_STEPS, SLAVEF,
+     &      COMM_NODES, MYID_NODES, BUFR, LBUFR, LBUFR_BYTES, 
+     &      RHS_ROOT, LRHS_ROOT, ISTEP_TO_INIV2, TAB_POS_IN_PERE, 
+     &      IW1(IPANEL_POS), LPANEL_POS,
+     &      PRUN_BELOW_BWD, TO_PROCESS, SIZE_TO_PROCESS,
+     &      RHS_BOUNDS, LRHS_BOUNDS, DO_NBSPARSE_BWD,
+     &      FROM_PP,
+     &    LPOOL_B_L0_OMP,
+     &    L_VIRT_L0_OMP, VIRT_L0_OMP,
+     &    L_PHYS_L0_OMP, PHYS_L0_OMP,
+     &    PERM_L0_OMP, PTR_LEAFS_L0_OMP,
+     &    L0_OMP_MAPPING, LL0_OMP_MAPPING,
+     &    L0_OMP_FACTORS, LL0_OMP_FACTORS )
+        ENDIF
         CALL SMUMPS_CLEAN_PENDING( INFO(1), KEEP,
      &     BUFR, LBUFR,LBUFR_BYTES,
      &     COMM_NODES, IDUMMY,       
@@ -907,12 +1113,12 @@ C
       INTEGER POS_BUF, N2SEND, IPOSINRHSCOMP
       INTEGER :: JCOL_RHS
       INTEGER :: K242
-!$    LOGICAL :: OMP_FLAG
+      LOGICAL :: OMP_FLAG
 !$    INTEGER :: CHUNK, NOMP
       INTEGER, PARAMETER :: FIN = -1
       REAL ZERO
       PARAMETER( ZERO = 0.0E0 )
-      INTEGER, ALLOCATABLE, DIMENSION(:) :: IROWlist(:)
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: IROWlist
       INCLUDE 'mumps_headers.h'
       INTEGER, EXTERNAL :: MUMPS_PROCNODE
       TYPE_PARAL = KEEP(46)  
@@ -924,104 +1130,109 @@ C
       ENDIF
       IF (NSLAVES.EQ.1 .AND. TYPE_PARAL.EQ.1) THEN
            IF (LSCAL) THEN 
+             OMP_FLAG = .FALSE.
              IF (KEEP(350).EQ.2) THEN
-             K242 = KEEP(242)
-!$           NOMP = OMP_GET_MAX_THREADS()
-!$           OMP_FLAG = .FALSE.
-!$           CHUNK = max(N/2,1)
-!$           IF (int(NRHS,8) * int(N,8) .GE. int(KEEP(363),8)) THEN
-!$             OMP_FLAG = .TRUE.
-!$         CHUNK=int((int(N,8)*int(NRHS,8)+int(NOMP-1,8))/int(NOMP,8))
-!$             CHUNK = min(CHUNK,(N+KEEP(362)-1)/KEEP(362))
-!$             CHUNK = max(KEEP(363)/2,CHUNK)
-!$           ENDIF
+               K242 = KEEP(242)
+!$             NOMP = OMP_GET_MAX_THREADS()
+!$             CHUNK = max(N/2,1)
+!$             IF (int(NRHS,8) * int(N,8) .GE. int(KEEP(363),8)) THEN
+!$               OMP_FLAG = .TRUE.
+!$           CHUNK=int((int(N,8)*int(NRHS,8)+int(NOMP-1,8))/int(NOMP,8))
+!$               CHUNK = min(CHUNK,(N+KEEP(362)-1)/KEEP(362))
+!$               CHUNK = max(KEEP(363)/2,CHUNK)
+!$             ENDIF
+             ENDIF
+             IF (OMP_FLAG) THEN
 !$OMP PARALLEL FIRSTPRIVATE(JBEG_RHS,N,K242)
-!$OMP&  PRIVATE(IPOSINRHSCOMP,I,JCOL_RHS) IF (OMP_FLAG)
-             DO J=1, NRHS
-               IF (K242.EQ.0) THEN
-                 JCOL_RHS = J+JBEG_RHS-1
-               ELSE
-                 JCOL_RHS = PERM_RHS(J+JBEG_RHS-1)
-               ENDIF
-!$OMP DO SCHEDULE(DYNAMIC,CHUNK)
-               DO I=1, N
-                 IPOSINRHSCOMP = POSINRHSCOMP(I)
-                 IF (IPOSINRHSCOMP.GT.0) THEN 
-                   RHS(I,JCOL_RHS) =
-     &                 RHSCOMP(IPOSINRHSCOMP,J)*SCALING(I)
+!$OMP&  PRIVATE(J,IPOSINRHSCOMP,I,JCOL_RHS)
+               DO J=1, NRHS
+                 IF (K242.EQ.0) THEN
+                   JCOL_RHS = J+JBEG_RHS-1
                  ELSE
-                   RHS(I,JCOL_RHS) = ZERO
+                   JCOL_RHS = PERM_RHS(J+JBEG_RHS-1)
                  ENDIF
-               ENDDO
+!$OMP DO SCHEDULE(DYNAMIC,CHUNK)
+                 DO I=1, N
+                   IPOSINRHSCOMP = POSINRHSCOMP(I)
+                   IF (IPOSINRHSCOMP.GT.0) THEN 
+                     RHS(I,JCOL_RHS) =
+     &                   RHSCOMP(IPOSINRHSCOMP,J)*SCALING(I)
+                   ELSE
+                    RHS(I,JCOL_RHS) = ZERO
+                  ENDIF
+                 ENDDO
 !$OMP END DO NOWAIT
-             ENDDO
+               ENDDO
 !$OMP END PARALLEL
              ELSE
-             DO J=1, NRHS
-               IF (KEEP(242).EQ.0) THEN
-                 JCOL_RHS = J+JBEG_RHS-1
-               ELSE
-                 JCOL_RHS = PERM_RHS(J+JBEG_RHS-1)
-               ENDIF
-               DO I=1, N
-                 IPOSINRHSCOMP = POSINRHSCOMP(I)
-                 IF (IPOSINRHSCOMP.GT.0) THEN 
-                   RHS(I,JCOL_RHS) =
-     &                 RHSCOMP(IPOSINRHSCOMP,J)*SCALING(I)
+               DO J=1, NRHS
+                 IF (KEEP(242).EQ.0) THEN
+                   JCOL_RHS = J+JBEG_RHS-1
                  ELSE
-                   RHS(I,JCOL_RHS) = ZERO
+                   JCOL_RHS = PERM_RHS(J+JBEG_RHS-1)
                  ENDIF
+                 DO I=1, N
+                   IPOSINRHSCOMP = POSINRHSCOMP(I)
+                   IF (IPOSINRHSCOMP.GT.0) THEN 
+                     RHS(I,JCOL_RHS) =
+     &                   RHSCOMP(IPOSINRHSCOMP,J)*SCALING(I)
+                   ELSE
+                     RHS(I,JCOL_RHS) = ZERO
+                   ENDIF
+                 ENDDO
                ENDDO
-             ENDDO
              ENDIF
            ELSE
+             OMP_FLAG = .FALSE.
              IF (KEEP(350).EQ.2) THEN
-             K242 = KEEP(242)
-!$           NOMP = OMP_GET_MAX_THREADS()
-!$           OMP_FLAG = .FALSE.
-!$           CHUNK = max(N/2,1)
-!$           IF (NRHS * N .GE. KEEP(363)) THEN
-!$             OMP_FLAG = .TRUE.
+               K242 = KEEP(242)
+!$             NOMP = OMP_GET_MAX_THREADS()
+!$             OMP_FLAG = .FALSE.
+!$             CHUNK = max(N/2,1)
+!$             IF (NRHS * N .GE. KEEP(363)) THEN
+!$               OMP_FLAG = .TRUE.
 !$         CHUNK=int((int(N,8)*int(NRHS,8)+int(NOMP-1,8))/int(NOMP,8))
-!$             CHUNK = min(CHUNK,(N+KEEP(362)-1)/KEEP(362))
-!$             CHUNK = max(KEEP(363)/2,CHUNK)
-!$           ENDIF
+!$               CHUNK = min(CHUNK,(N+KEEP(362)-1)/KEEP(362))
+!$               CHUNK = max(KEEP(363)/2,CHUNK)
+!$             ENDIF
+             ENDIF
+             IF (OMP_FLAG) THEN
 !$OMP PARALLEL FIRSTPRIVATE(JBEG_RHS,N,K242)
 !$OMP&  PRIVATE(IPOSINRHSCOMP,I,JCOL_RHS) IF (OMP_FLAG)
-             DO J=1, NRHS
-               IF (K242.EQ.0) THEN
-                 JCOL_RHS = J+JBEG_RHS-1
-               ELSE
-                 JCOL_RHS = PERM_RHS(J+JBEG_RHS-1)
-               ENDIF
-!$OMP DO SCHEDULE(DYNAMIC,CHUNK)
-               DO I=1, N
-                 IPOSINRHSCOMP = POSINRHSCOMP(I)
-                 IF (IPOSINRHSCOMP.GT.0) THEN
-                   RHS(I,JCOL_RHS) = RHSCOMP(IPOSINRHSCOMP,J)
+               DO J=1, NRHS
+                 IF (K242.EQ.0) THEN
+                   JCOL_RHS = J+JBEG_RHS-1
                  ELSE
-                   RHS(I,JCOL_RHS) = ZERO
+                   JCOL_RHS = PERM_RHS(J+JBEG_RHS-1)
                  ENDIF
-               ENDDO
+!$OMP DO SCHEDULE(DYNAMIC,CHUNK)
+                 DO I=1, N
+                   IPOSINRHSCOMP = POSINRHSCOMP(I)
+                   IF (IPOSINRHSCOMP.GT.0) THEN
+                     RHS(I,JCOL_RHS) = RHSCOMP(IPOSINRHSCOMP,J)
+                   ELSE
+                     RHS(I,JCOL_RHS) = ZERO
+                   ENDIF
+                 ENDDO
 !$OMP END DO NOWAIT
-             ENDDO
+               ENDDO
 !$OMP END PARALLEL
              ELSE
-             DO J=1, NRHS
-               IF (KEEP(242).EQ.0) THEN
-                 JCOL_RHS = J+JBEG_RHS-1
-               ELSE
-                 JCOL_RHS = PERM_RHS(J+JBEG_RHS-1)
-               ENDIF
-               DO I=1, N
-                 IPOSINRHSCOMP = POSINRHSCOMP(I)
-                 IF (IPOSINRHSCOMP.GT.0) THEN
-                   RHS(I,JCOL_RHS) = RHSCOMP(IPOSINRHSCOMP,J)
+               DO J=1, NRHS
+                 IF (KEEP(242).EQ.0) THEN
+                   JCOL_RHS = J+JBEG_RHS-1
                  ELSE
-                   RHS(I,JCOL_RHS) = ZERO
+                   JCOL_RHS = PERM_RHS(J+JBEG_RHS-1)
                  ENDIF
+                 DO I=1, N
+                   IPOSINRHSCOMP = POSINRHSCOMP(I)
+                   IF (IPOSINRHSCOMP.GT.0) THEN
+                     RHS(I,JCOL_RHS) = RHSCOMP(IPOSINRHSCOMP,J)
+                   ELSE
+                     RHS(I,JCOL_RHS) = ZERO
+                   ENDIF
+                 ENDDO
                ENDDO
-             ENDDO
              ENDIF
            ENDIF
         RETURN

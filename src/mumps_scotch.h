@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.4.1, released
- *  on Tue Aug  3 09:49:43 UTC 2021
+ *  This file is part of MUMPS 5.5.0, released
+ *  on Thu Apr 14 11:45:33 UTC 2022
  *
  *
- *  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -28,6 +28,21 @@ MUMPS_INT esmumpsv( const MUMPS_INT n, const MUMPS_INT iwlen, MUMPS_INT * const 
 MUMPS_INT esmumps( const MUMPS_INT n, const MUMPS_INT iwlen, MUMPS_INT * const pe, const MUMPS_INT pfree,
              MUMPS_INT * const len, MUMPS_INT * const iw, MUMPS_INT * const nv, MUMPS_INT * const elen,
              MUMPS_INT * const last);
+#define MUMPS_SCOTCH_ORD        \
+    F_SYMBOL(scotch_ord,SCOTCH_ORD)
+void MUMPS_CALL
+MUMPS_SCOTCH_ORD( const MUMPS_INT * const  n,
+              const MUMPS_INT * const  iwlen,
+              MUMPS_INT * const        petab,
+              const MUMPS_INT * const  pfree,
+              MUMPS_INT * const        lentab,
+              MUMPS_INT * const        iwtab,
+              MUMPS_INT * const        nvtab,
+              MUMPS_INT * const        elentab,
+              MUMPS_INT * const        lasttab,
+              MUMPS_INT * const        ncmpa, 
+              MUMPS_INT * const        weightused,
+              MUMPS_INT * const        weightrequested );
 #define MUMPS_SCOTCH        \
     F_SYMBOL(scotch,SCOTCH)
 void MUMPS_CALL
@@ -43,6 +58,18 @@ MUMPS_SCOTCH( const MUMPS_INT * const  n,
               MUMPS_INT * const        ncmpa, 
               MUMPS_INT * const        weightused,
               MUMPS_INT * const        weightrequested );
+#define MUMPS_SCOTCH_VERSION        \
+    F_SYMBOL(scotch_version,SCOTCH_VERSION)
+void MUMPS_CALL
+MUMPS_SCOTCH_VERSION(MUMPS_INT *version);
+#define MUMPS_SCOTCH_GET_PTHREAD_NUMBER        \
+    F_SYMBOL(scotch_get_pthread_number,SCOTCH_GET_PTHREAD_NUMBER)
+void MUMPS_CALL
+MUMPS_SCOTCH_GET_PTHREAD_NUMBER (MUMPS_INT *PTHREAD_NUMBER);
+#define MUMPS_SCOTCH_SET_PTHREAD_NUMBER        \
+    F_SYMBOL(scotch_set_pthread_number,SCOTCH_SET_PTHREAD_NUMBER)
+void MUMPS_CALL
+MUMPS_SCOTCH_SET_PTHREAD_NUMBER (MUMPS_INT *PTHREAD_NUMBER);
 #endif /*scotch or ptscotch*/
 #if defined(ptscotch)
 #include "mpi.h"

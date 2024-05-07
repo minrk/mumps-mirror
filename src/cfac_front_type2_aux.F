@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -63,13 +63,13 @@ C
       INTEGER(8) :: POSPV1,POSPV2,OFFDAG,APOSJ
       INTEGER JMAX
       INTEGER :: IPIVNUL, HF 
-      REAL RMAX,AMAX,TMAX,RMAX_NORELAX
+      REAL RMAX,AMAX,TMAX,RMAX_NORELAX,MAX_PREV_in_PARPIV
       REAL MAXPIV, ABS_PIVOT
       REAL RMAX_NOSLAVE, TMAX_NOSLAVE
       COMPLEX PIVOT,DETPIV
       REAL    ABSDETPIV
       INCLUDE 'mumps_headers.h'
-      INTEGER(8) :: APOSMAX
+      INTEGER(8) :: APOSMAX, APOSROW
       INTEGER(8) :: APOS
       INTEGER(8) :: J1, J2, JJ, KK
       REAL       :: GROWTH, RSWOP
@@ -127,10 +127,11 @@ C
         IF(INOPV .EQ. -1) THEN
            APOS = POSELT + LDAFS8*int(NPIVP1-1,8) + int(NPIV,8)
            POSPV1 = APOS
+           ABS_PIVOT = abs(PIVOT)
            CALL CMUMPS_UPDATE_MINMAX_PIVOT 
-     &           ( abs(A(APOS)),
+     &           ( ABS_PIVOT,
      &             DKEEP, KEEP, .TRUE.)
-           IF(abs(A(APOS)).LT.SEUIL) THEN
+           IF(ABS_PIVOT.LT.SEUIL) THEN
               IF(real(A(APOS)) .GE. RZERO) THEN
                  A(APOS) = CSEUIL
               ELSE
@@ -196,11 +197,24 @@ C
             PIVOT     = A(POSPV1)
             ABS_PIVOT = abs(PIVOT)
             IF (UULOC.EQ.RZERO.OR.PIVOT_OPTION.EQ.0) THEN 
-              IF (ABS_PIVOT.EQ.RZERO) GO TO 630 
-              CALL CMUMPS_UPDATE_MINMAX_PIVOT 
-     &           ( abs(A(APOS)), DKEEP, KEEP, .FALSE.)
-              IF (KEEP(258) .NE. 0) THEN
-                CALL CMUMPS_UPDATEDETER(A(APOS), DET_MANTW, DET_EXPW )
+              IF(ABS_PIVOT.LT.SEUIL) THEN
+                CALL CMUMPS_UPDATE_MINMAX_PIVOT 
+     &               ( ABS_PIVOT,
+     &                 DKEEP, KEEP, .TRUE.)
+                IF(real(PIVOT) .GE. RZERO) THEN
+                    A(POSPV1) = CSEUIL
+                ELSE
+                    A(POSPV1) = -CSEUIL
+                ENDIF
+                NBTINYW = NBTINYW + 1
+              ELSE IF (ABS_PIVOT.EQ.RZERO) THEN
+                    GO TO 630 
+              ELSE
+                CALL CMUMPS_UPDATE_MINMAX_PIVOT 
+     &           ( ABS_PIVOT, DKEEP, KEEP, .FALSE.)
+                IF (KEEP(258) .NE. 0) THEN
+                 CALL CMUMPS_UPDATEDETER(PIVOT, DET_MANTW, DET_EXPW )
+                ENDIF
               ENDIF
               GO TO 420
             ENDIF
@@ -261,6 +275,24 @@ C
             RMAX_NOSLAVE = max(RMAX_NORELAX,RMAX_NOSLAVE)
             RMAX         = max(RMAX,RMAX_NOSLAVE)
             IF (max(AMAX,RMAX,ABS_PIVOT).LE.PIVNUL) THEN
+               IF ((K219.NE.0)
+     &             .AND.(K219.NE.-1)
+     &             .AND.(RMAX_NORELAX.LT.0)
+     &             .AND.(IPIV.GT.1)) THEN
+                 MAX_PREV_in_PARPIV = RZERO
+                 DO JJ=1,IPIV-1
+                  MAX_PREV_in_PARPIV= max ( MAX_PREV_in_PARPIV, 
+     &                real(A(APOSMAX+int(JJ,8))) )
+                 ENDDO
+                 IF (MAX_PREV_in_PARPIV.GT.PIVNUL) THEN
+                   APOSROW = POSELT + LDAFS8*int(IPIV-1,8)
+                   DO JJ=1,IPIV-1
+                     IF (abs(A(APOSROW+JJ-1)).GT.PIVNUL) THEN
+                       GOTO 460
+                     ENDIF
+                   ENDDO
+                 ENDIF
+               ENDIF
                CALL CMUMPS_UPDATE_MINMAX_PIVOT 
      &           ( abs(A(POSPV1)), DKEEP, KEEP, .TRUE.)
                KEEP(109) = KEEP(109) + 1
@@ -287,7 +319,8 @@ C
                PIVOT = A(POSPV1)
                ABS_PIVOT = abs(PIVOT)
                GO TO 415
-         ENDIF
+            ENDIF
+             RMAX         = max(RMAX,abs(RMAX_NORELAX))
         IF (ABS_PIVOT.GE.UULOC*max(RMAX,AMAX)
      &      .AND. ABS_PIVOT .GT. max(SEUIL, tiny(RMAX))) THEN
           CALL CMUMPS_UPDATE_MINMAX_PIVOT 
@@ -353,7 +386,9 @@ C
                ENDDO
             ENDIF 
             IF (K219.NE.0) THEN
-             TMAX = max(SEUIL*UULOCM1,real(A(APOSMAX+int(JMAX,8))))
+             TMAX = max(SEUIL*UULOCM1,
+     &                   abs(real(A(APOSMAX+int(JMAX,8))))
+     &                  )
             ELSE    
              TMAX = SEUIL*UULOCM1
             ENDIF

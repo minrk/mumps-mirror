@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -99,8 +99,10 @@ C
       INTEGER(8) :: IACHK, SIZFR8, DYN_SIZE
       COMPLEX(kind=8), DIMENSION(:), POINTER :: DYNPTR
       INTEGER    :: NSLAVES, NFRONT, NASS1, IOLDPS, PARPIV_T1
+      INTEGER    :: NB_POSTPONED
       LOGICAL    :: LR_ACTIVATED
       INTEGER(8) :: POSELT
+      INTEGER    :: XXG_STATUS
       INCLUDE 'mumps_headers.h'
       POSITION = 0
       CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION, INODE, 1,
@@ -160,10 +162,10 @@ C
          CALL ZMUMPS_GET_SIZE_NEEDED(
      &           LREQI, LREQA, .FALSE.,
      &           KEEP(1), KEEP8(1), 
-     &           N, KEEP(28), IW, LIW, A, LA,
+     &           N, IW, LIW, A, LA,
      &           LRLU, IPTRLU,
      &           IWPOS, IWPOSCB, PTRIST, PTRAST,
-     &           STEP, PIMASTER, PAMASTER, KEEP(216),LRLUS,
+     &           STEP, PIMASTER, PAMASTER, LRLUS,
      &           KEEP(IXSZ), COMP, DKEEP(97),
      &           MYID, SLAVEF, PROCNODE_STEPS, DAD, 
      &           IFLAG, IERROR )
@@ -239,10 +241,13 @@ C
                 LRB => BLR_CB(I)
                 CALL ZMUMPS_MPI_UNPACK_LRB(BUFR, LBUFR, 
      &             LBUFR_BYTES, POSITION, LRB, KEEP8, 
-     &             COMM, IFLAG, IERROR)
+     &             COMM, IFLAG, IERROR
+     &             )
               ENDDO
               NBROWS_PACKET_2PACK = max(NBROWS_PACKET,BLR_CB(1)%M)
               LA_TEMP = NBROWS_PACKET_2PACK*LROW
+              CALL MUMPS_DM_FAC_UPD_DYN_MEMCNTS(LA_TEMP,
+     &        .FALSE., KEEP8, IFLAG, IERROR, .TRUE., .TRUE.)
               allocate(A_TEMP(LA_TEMP),stat=allocok)
               IF (allocok.GT.0) THEN
                 CALL MUMPS_SETI8TOI4(LA_TEMP,IERROR)
@@ -279,8 +284,11 @@ C
      &              FILS, ICNTL, KEEP,KEEP8, MYID, IS_ofType5or6, 
      &              LROW)
               ENDDO
-              CALL DEALLOC_BLR_PANEL(BLR_CB, NB_BLR_COLS, KEEP8)
+              CALL DEALLOC_BLR_PANEL(BLR_CB, NB_BLR_COLS, KEEP8,
+     &                               KEEP(34))
               deallocate(A_TEMP, BLR_CB)
+              CALL MUMPS_DM_FAC_UPD_DYN_MEMCNTS(-LA_TEMP,
+     &        .FALSE., KEEP8, IFLAG, IERROR, .TRUE., .TRUE.)
               GOTO 200
             ENDIF
             DO I=1,NBROWS_PACKET
@@ -330,10 +338,13 @@ C
                 LRB => BLR_CB(I)
                 CALL ZMUMPS_MPI_UNPACK_LRB(BUFR, LBUFR, 
      &             LBUFR_BYTES, POSITION, LRB, KEEP8, 
-     &             COMM, IFLAG, IERROR)
+     &             COMM, IFLAG, IERROR
+     &             )
               ENDDO
               NBROWS_PACKET_2PACK = max(NBROWS_PACKET,BLR_CB(1)%M)
               LA_TEMP = NBROWS_PACKET_2PACK*LROW
+              CALL MUMPS_DM_FAC_UPD_DYN_MEMCNTS(LA_TEMP,
+     &        .FALSE., KEEP8, IFLAG, IERROR, .TRUE., .TRUE.)
               allocate(A_TEMP(LA_TEMP),stat=allocok)
               IF (allocok.GT.0) THEN
                 CALL MUMPS_SETI8TOI4(LA_TEMP,IERROR)
@@ -371,8 +382,11 @@ C
      &              IS_ofType5or6, LROW
      &          )
               ENDDO
-              CALL DEALLOC_BLR_PANEL(BLR_CB, NB_BLR_COLS, KEEP8)
+              CALL DEALLOC_BLR_PANEL(BLR_CB, NB_BLR_COLS, KEEP8,
+     &                               KEEP(34))
               deallocate(A_TEMP, BLR_CB)
+              CALL MUMPS_DM_FAC_UPD_DYN_MEMCNTS(-LA_TEMP,
+     &        .FALSE., KEEP8, IFLAG, IERROR, .TRUE., .TRUE.)
               GOTO 300
             ENDIF
             DO I=1,NBROWS_PACKET
@@ -456,13 +470,15 @@ C
      &              PAMASTER(STEP(ISON)), IW(ISTCHK+XXD),
      &              IW(ISTCHK+XXR), DYNPTR, IACHK, SIZFR8)
                CALL MUMPS_GETI8(DYN_SIZE, IW(ISTCHK+XXD))
+               XXG_STATUS = IW(ISTCHK+XXG)
                CALL ZMUMPS_FREE_BLOCK_CB_STATIC(
      &              .FALSE., MYID, N, ISTCHK,
      &              IW, LIW, LRLU, LRLUS, IPTRLU, IWPOSCB,
      &              LA, KEEP,KEEP8, .FALSE.
      &              )
                IF ( DYN_SIZE .GT. 0_8 ) THEN
-                 CALL ZMUMPS_DM_FREE_BLOCK( DYNPTR, DYN_SIZE,
+                 CALL ZMUMPS_DM_FREE_BLOCK( XXG_STATUS,
+     &                                      DYNPTR, DYN_SIZE,
      &                                      KEEP(405).EQ.1, KEEP8 )
                ENDIF
             ENDIF
@@ -475,10 +491,12 @@ C
                POSELT = PTRAST(STEP(INODE))
                PARPIV_T1 = -999 
                LR_ACTIVATED = (IW(IOLDPS+XXLR).GT.0)
+               NB_POSTPONED = max(NFRONT - ND(STEP(INODE)),0)
                CALL ZMUMPS_PARPIVT1_SET_NVSCHUR_and_MAX (
      &           N, INODE, IW, LIW, A, LA, KEEP, PERM,
      &            IOLDPS, POSELT, 
-     &            NFRONT, NASS1, LR_ACTIVATED, PARPIV_T1)
+     &            NFRONT, NASS1, LR_ACTIVATED, PARPIV_T1, 
+     &            NB_POSTPONED)
              ENDIF
                CALL ZMUMPS_INSERT_POOL_N( N, IPOOL, LPOOL,
      &              PROCNODE_STEPS,

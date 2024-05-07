@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -207,7 +207,7 @@ C
       END SUBROUTINE MUMPS_AB_LOCALCLEAN_LMAT
       SUBROUTINE MUMPS_AB_LMAT_TO_LUMAT( 
      &     LMAT, LUMAT, INFO, ICNTL )
-      USE MUMPS_ANA_BLK_M, ONLY : LMATRIX_T, COMPACT_GRAPH_T
+      USE MUMPS_ANA_BLK_M, ONLY : LMATRIX_T
       IMPLICIT NONE
       TYPE(LMATRIX_T)        :: LMAT, LUMAT
       INTEGER, INTENT(IN)    :: ICNTL(60)
@@ -643,9 +643,9 @@ C
       INTEGER, INTENT(IN) :: SIZESTEP
       INTEGER, INTENT(IN) :: STEP(SIZESTEP)
       INTEGER, INTENT(INOUT) ::  INFO(80)
-      TYPE(LMATRIX_T), INTENT(IN)  :: LMAT
-      INTEGER, INTENT(INOUT)       :: MAPCOL(SIZEMAPCOL)
-      TYPE(LMATRIX_T), INTENT(OUT) :: LUMAT
+      TYPE(LMATRIX_T), INTENT(INOUT)  :: LMAT
+      INTEGER, INTENT(INOUT)          :: MAPCOL(SIZEMAPCOL)
+      TYPE(LMATRIX_T), INTENT(OUT)    :: LUMAT
       INTEGER ::      NBLKloc, IERR, JB, IB, LP, NB, I,
      &                NBRECORDS
       INTEGER(8)  ::  NNZ, NZ_locMAX8, NSEND8, NLOCAL8
@@ -688,7 +688,7 @@ C
       IF (MAPCOLonLUMAT) THEN
        NNZ = 0_8
        DO I=1, NBLK
-        NNZ=NNZ+WNBINCOL(I)
+        NNZ=NNZ+int(WNBINCOL(I),8)
        ENDDO
        CALL  MUMPS_AB_COMPUTE_MAPCOL (OPTION, INFO, ICNTL,
      &     MYID, NNZ, WNBINCOL(1), NBLK, 
@@ -730,7 +730,7 @@ C
            INFO(1)  = -7
            INFO(2)  = NB
            IF ( LPOK ) THEN
-              WRITE(LP, *) " ERROR allocate of LMAT%COL"
+              WRITE(LP, *) " ERROR allocate of LUMAT%COL"
            END IF
            EXIT
          ENDIF
@@ -990,7 +990,7 @@ C
      &     PROCNODE_STEPS, NSTEPS, STEP,
      &     ICNTL, INFO, KEEP, 
      &     MAPCOL, LUMAT)
-      USE MUMPS_ANA_BLK_M, ONLY: LMATRIX_T, COMPACT_GRAPH_T
+      USE MUMPS_ANA_BLK_M, ONLY: LMATRIX_T
       IMPLICIT NONE
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'

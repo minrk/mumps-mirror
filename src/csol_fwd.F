@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -26,9 +26,12 @@ C
      &
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE
      &    , RHS_BOUNDS, LRHS_BOUNDS, DO_NBSPARSE, FROM_PP
+     &    , L0_OMP_MAPPING, LL0_OMP_MAPPING,
+     &    L0_OMP_FACTORS, LL0_OMP_FACTORS
      &    )
       USE CMUMPS_STATIC_PTR_M, ONLY : CMUMPS_SET_STATIC_PTR,
      &                                CMUMPS_GET_TMP_PTR
+      USE CMUMPS_STRUC_DEF, ONLY : CMUMPS_L0OMPFAC_T
       IMPLICIT NONE
       INTEGER MTYPE
       INTEGER(8), INTENT(IN) :: LA, LWCB
@@ -59,12 +62,17 @@ C
       INTEGER, intent(in) ::  POSINRHSCOMP_FWD(N), LRHSCOMP 
       COMPLEX, intent(inout) :: RHSCOMP(LRHSCOMP,NRHS)
       LOGICAL, intent(in) :: FROM_PP
+      INTEGER, INTENT( in ) :: LL0_OMP_MAPPING, LL0_OMP_FACTORS
+      INTEGER, INTENT( in ) :: L0_OMP_MAPPING( LL0_OMP_MAPPING )
+      TYPE (CMUMPS_L0OMPFAC_T), INTENT(IN) ::
+     &                        L0_OMP_FACTORS(LL0_OMP_FACTORS)
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'
       INTEGER DUMMY(1)
       LOGICAL FLAG
       COMPLEX, DIMENSION(:), POINTER :: A_PTR
       INTEGER(8) :: LA_PTR
+      INTEGER :: UNDERL0MAP 
       INTEGER NBFIN, MYROOT_LEFT
       INTEGER POSIWCB
       INTEGER(8) :: POSWCB, PLEFTWCB
@@ -123,9 +131,19 @@ C
       ENDIF                     
       GOTO 50
  60   CONTINUE
+      IF (KEEP(400) .GT. 0 ) THEN
+        UNDERL0MAP = L0_OMP_MAPPING(STEP(INODE))
+      ELSE
+        UNDERL0MAP = 0
+      ENDIF
+      IF (UNDERL0MAP .EQ. 0 .OR. KEEP(201).GT.0) THEN
         CALL CMUMPS_SET_STATIC_PTR(A)
         CALL CMUMPS_GET_TMP_PTR(A_PTR)
         LA_PTR = LA
+      ELSE
+        A_PTR => L0_OMP_FACTORS(UNDERL0MAP)%A
+        LA_PTR = L0_OMP_FACTORS(UNDERL0MAP)%LA
+      ENDIF
       CALL CMUMPS_SOLVE_NODE_FWD( INODE,
      &        huge(INODE), huge(INODE), 
      &        BUFR, LBUFR, LBUFR_BYTES,

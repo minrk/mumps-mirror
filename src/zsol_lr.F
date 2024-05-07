@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -13,6 +13,7 @@ C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html)
 C
       MODULE ZMUMPS_SOL_LR
       USE ZMUMPS_LR_TYPE
+      USE ZMUMPS_LR_CORE
       USE ZMUMPS_LR_STATS
       USE ZMUMPS_LR_DATA_M, only: BLR_ARRAY
       IMPLICIT NONE
@@ -25,10 +26,11 @@ C
      &     PPIV_INIT, PCB_INIT, 
      &     RHSCOMP, LRHSCOMP, NRHS, 
      &     POSINRHSCOMP_FWD, JBDEB, JBFIN, 
-     &     MTYPE, KEEP, OOCWRITE_COMPATIBLE_WITH_BLR,
+     &     MTYPE, KEEP, KEEP8, OOCWRITE_COMPATIBLE_WITH_BLR,
      &     IFLAG, IERROR )
        INTEGER, INTENT(IN) :: INODE, N, IWHDLR, NPIV_GLOBAL, NSLAVES
        INTEGER, INTENT(IN) :: MTYPE, LIELL, KEEP(500)
+       INTEGER(8), INTENT(IN) :: KEEP8(150)
        INTEGER, INTENT(IN) :: LIW, IPOS_INIT, LRHSCOMP
        INTEGER, INTENT(IN) :: IW(LIW), POSINRHSCOMP_FWD(N)
        INTEGER(8), INTENT(IN) :: LWCB, PPIV_INIT, PCB_INIT
@@ -158,10 +160,10 @@ C
      &        NRHS_B, NPIV_GLOBAL,
      &        BLR_PANEL, LAST_BLR, I,
      &        BLR_ARRAY(IWHDLR)%BEGS_BLR_STATIC,
-     &        .FALSE.,   
+     &        KEEP8, KEEP(34), KEEP(450), .FALSE.,   
      &        IFLAG, IERROR)
         IF (IFLAG.LT.0) RETURN
-        CALL ZMUMPS_SOLVE_LD_AND_RELOAD (
+        CALL ZMUMPS_SOLVE_LD_AND_RELOAD_PANEL (
      &  INODE, N, DIAGSIZ_DYN, LIELL, NELIM, NSLAVES,
      &  PPIV,
      &  IW, IPOS, LIW, 
@@ -169,7 +171,8 @@ C
      &  WCB, LWCB, LD_WCBPIV, 
      &  RHSCOMP, LRHSCOMP, NRHS, 
      &  POSINRHSCOMP_FWD, JBDEB, JBFIN, 
-     &  MTYPE, KEEP, OOCWRITE_COMPATIBLE_WITH_BLR
+     &  MTYPE, KEEP, OOCWRITE_COMPATIBLE_WITH_BLR,
+     &  .TRUE.  
      &  )
         PPIV = PPIV +  int(DIAGSIZ_DYN,8)
         IPOS = IPOS + DIAGSIZ_DYN
@@ -182,9 +185,10 @@ C
      &     LDX, LDY,
      &     PTRX_INIT, PTRY_INIT, 
      &     JBDEB, JBFIN, 
-     &     MTYPE, KEEP, IFLAG, IERROR )
+     &     MTYPE, KEEP, KEEP8, IFLAG, IERROR )
        INTEGER, INTENT(IN) :: INODE, IWHDLR, NPIV_GLOBAL
        INTEGER, INTENT(IN) :: MTYPE, KEEP(500)
+       INTEGER(8), INTENT(IN) :: KEEP8(150)
        INTEGER(8), INTENT(IN) :: LWCB, PTRX_INIT, PTRY_INIT
        INTEGER, INTENT(IN) :: LDX, LDY, JBDEB, JBFIN
        COMPLEX(kind=8), INTENT(INOUT) :: WCB(LWCB)
@@ -218,7 +222,7 @@ C
      &          NRHS_B, NPIV_GLOBAL,
      &          BLR_PANEL, NB_BLR, 0, 
      &          BLR_ARRAY(IWHDLR)%BEGS_BLR_STATIC(2:NB_BLR+2),
-     &          .TRUE., IFLAG, IERROR )
+     &          KEEP8, KEEP(34), KEEP(450), .TRUE., IFLAG, IERROR )
           ELSE 
             CALL ZMUMPS_SOL_BWD_BLR_UPDATE (
      &          WCB, LWCB, 1, LDY, -99999_8, 1,
@@ -227,7 +231,7 @@ C
      &          NRHS_B, NPIV_GLOBAL,
      &          BLR_PANEL, NB_BLR, 0, 
      &          BLR_ARRAY(IWHDLR)%BEGS_BLR_STATIC(2:NB_BLR+2),
-     &          .TRUE., IFLAG, IERROR )
+     &          KEEP8, KEEP(34), KEEP(450), .TRUE., IFLAG, IERROR )
           ENDIF
           IF (MTYPE .EQ. 1) THEN
             PTRX = PTRX + BLR_PANEL(1)%N
@@ -246,18 +250,19 @@ C
      &        NRHS_B, NPIV,
      &        BLR_PANEL, LAST_BLR,
      &        CURRENT_BLR, BEGS_BLR_STATIC,
-     &        IS_T2_SLAVE, IFLAG, IERROR )
+     &        KEEP8, K34, K450, IS_T2_SLAVE, IFLAG, IERROR )
 !$    USE OMP_LIB
       INTEGER(8), INTENT(IN) :: LPIV, LCB, POSPIV, POSCB, POSDIAG
       INTEGER, INTENT(IN)    :: LPIVCOL, POSPIVCOL
       COMPLEX(kind=8), INTENT(INOUT) :: ARRAYPIV(LPIV,LPIVCOL)
       COMPLEX(kind=8), INTENT(INOUT) :: ARRAYCB(LCB)
       INTEGER, INTENT(IN)    :: LAST_BLR, NRHS_B,  LDPIV, LDCB,
-     &                          CURRENT_BLR, NPIV
+     &                          CURRENT_BLR, NPIV, K34, K450
       TYPE(LRB_TYPE), TARGET,INTENT(IN) ::
      &                           BLR_PANEL(:)
       INTEGER :: BEGS_BLR_STATIC(:)
       LOGICAL, INTENT(IN) :: IS_T2_SLAVE
+      INTEGER(8), INTENT(IN) :: KEEP8(150)
       INTEGER, INTENT(INOUT) :: IFLAG, IERROR
       INTEGER :: I, K, M, N, IBEG_BLOCK, IEND_BLOCK
       INTEGER :: KMAX
@@ -268,15 +273,12 @@ C
       COMPLEX(kind=8) :: ONE, MONE, ZERO
       PARAMETER (ONE=(1.0D0,0.0D0), MONE=(-1.0D0,0.0D0))
       PARAMETER (ZERO=(0.0D0,0.0D0))
-#if defined(BLR_MT)
-      INTEGER :: CHUNK
-#endif
       KMAX = -1
       DO I = CURRENT_BLR+1, LAST_BLR
         KMAX = max(KMAX, BLR_PANEL(I-CURRENT_BLR)%K)
       ENDDO
 #if defined(BLR_MT)
-!$OMP PARALLEL PRIVATE(TEMP_BLOCK, allocok, CHUNK)
+!$OMP PARALLEL PRIVATE(TEMP_BLOCK, allocok)
 #endif 
       IF (KMAX.GT.0) THEN
         allocate(TEMP_BLOCK(KMAX*NRHS_B), stat=allocok )
@@ -292,8 +294,7 @@ C
 !$OMP BARRIER
 #endif 
 #if defined(BLR_MT) 
-        CHUNK = 1
-!$OMP DO SCHEDULE(DYNAMIC,CHUNK)
+!$OMP DO SCHEDULE(DYNAMIC,1)
 !$OMP& PRIVATE(IBEG_BLOCK, IEND_BLOCK, LRB, K, M, N,
 !$OMP&         POSBLOCK)
 #endif
@@ -380,10 +381,11 @@ C
      &     LIELL, WCB, LWCB, NRHS_B, PTWCB,
      &     RHSCOMP, LRHSCOMP, NRHS,
      &     IPOSINRHSCOMP, JBDEB, 
-     &     MTYPE, KEEP,
+     &     MTYPE, KEEP, KEEP8,
      &     IFLAG, IERROR )
        INTEGER, INTENT(IN) :: INODE, IWHDLR, NPIV_GLOBAL, NSLAVES
        INTEGER, INTENT(IN) :: MTYPE, LIELL, KEEP(500)
+       INTEGER(8), INTENT(IN) :: KEEP8(150)
        INTEGER, INTENT(IN) :: IPOSINRHSCOMP, JBDEB, LRHSCOMP, NRHS
        INTEGER(8), INTENT(IN) :: LWCB, PTWCB
        INTEGER, INTENT(IN) ::  NRHS_B
@@ -453,7 +455,7 @@ C
      &        NRHS_B, NPIV_GLOBAL,
      &        BLR_PANEL, LAST_BLR,
      &        I, BLR_ARRAY(IWHDLR)%BEGS_BLR_STATIC,
-     &        .FALSE., IFLAG, IERROR)
+     &        KEEP8, KEEP(34), KEEP(450), .FALSE., IFLAG, IERROR)
         IF (IFLAG.LT.0) RETURN
          DIAG =>  BLR_ARRAY(IWHDLR)%DIAG_BLOCKS(I)%DIAG_BLOCK
          IF (NELIM_PANEL.GT.0) THEN
@@ -530,7 +532,7 @@ C
      &        NRHS_B, NPIV,
      &        BLR_PANEL, LAST_BLR, CURRENT_BLR,
      &        BEGS_BLR_STATIC,
-     &        IS_T2_SLAVE,
+     &        KEEP8, K34, K450, IS_T2_SLAVE,
      &        IFLAG, IERROR)
 !$    USE OMP_LIB
       INTEGER(8), INTENT(IN) :: LPIV, LCB, POSPIV, POSCB, POSDIAG
@@ -538,9 +540,10 @@ C
       COMPLEX(kind=8), INTENT(INOUT) :: ARRAYPIV(LPIV,LPIVCOL)
       COMPLEX(kind=8), INTENT(INOUT) :: ARRAYCB(LCB)
       INTEGER, INTENT(IN)    :: LAST_BLR, NRHS_B,  LDPIV, LDCB,
-     &                          CURRENT_BLR, NPIV
+     &                          CURRENT_BLR, NPIV, K34, K450
       TYPE(LRB_TYPE), TARGET,INTENT(IN) ::
      &                          BLR_PANEL(:)
+      INTEGER(8), INTENT(IN) :: KEEP8(150)
       LOGICAL, INTENT(IN)    :: IS_T2_SLAVE
       INTEGER :: BEGS_BLR_STATIC(:)
       INTEGER, INTENT(INOUT) :: IFLAG, IERROR
@@ -554,9 +557,6 @@ C
       COMPLEX(kind=8) :: ONE, MONE, ZERO
       PARAMETER (ONE=(1.0D0,0.0D0), MONE=(-1.0D0,0.0D0))
       PARAMETER (ZERO=(0.0D0,0.0D0))
-#if defined(BLR_MT)
-      INTEGER :: CHUNK
-#endif
       KMAX = -1
       DO I = CURRENT_BLR+1, LAST_BLR
         KMAX = max(KMAX, BLR_PANEL(I-CURRENT_BLR)%K)
@@ -574,7 +574,7 @@ C
       ENDIF
       DEST_ARRAY = ZERO
 #if defined(BLR_MT)
-!$OMP PARALLEL PRIVATE(TEMP_BLOCK,allocok,CHUNK)
+!$OMP PARALLEL PRIVATE(TEMP_BLOCK,allocok)
 #endif 
       IF (KMAX.GT.0) THEN
         allocate(TEMP_BLOCK(KMAX*NRHS_B), stat=allocok )
@@ -590,8 +590,7 @@ C
 !$OMP BARRIER
 #endif 
 #if defined(BLR_MT) 
-        CHUNK = 1
-!$OMP DO SCHEDULE(DYNAMIC,CHUNK)
+!$OMP DO SCHEDULE(DYNAMIC,1)
 !$OMP& PRIVATE(IBEG_BLOCK, IEND_BLOCK, LRB, K, M,
 !$OMP&         POSBLOCK)
 !$OMP& REDUCTION(+:DEST_ARRAY)

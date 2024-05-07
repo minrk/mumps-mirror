@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -53,7 +53,7 @@ C
 #endif
       INTEGER COMP, IFLAG, IERROR
       INTEGER INODE, NBPROCFILS, NCOL, NROW, NASS, NSLAVES
-      INTEGER NSLAVES_RECU, NFRONT
+      INTEGER NSLAVES_HDR, NFRONT
       INTEGER LREQ
       INTEGER :: IBUFR
       INTEGER(8) :: LREQCB
@@ -69,16 +69,20 @@ C
       INTEGER :: LRSTATUS
       INTEGER :: ESTIM_NFS4FATHER_ATSON
       LOGICAL :: LR_ACTIVATED, COMPRESS_CB
+      COMPLEX(kind=8), POINTER, DIMENSION(:) :: DYNAMIC_CB
+      INTEGER(8) :: TMP_ADDRESS
+      INTEGER :: allocok
       INODE = BUFR( 2 )
       NBPROCFILS = BUFR( 3 )
-      NROW = BUFR( 4 )
-      NCOL = BUFR( 5 )
-      NASS = BUFR( 6 )
-      NFRONT = BUFR( 7 )
-      NSLAVES_RECU = BUFR( 8 )
-      LRSTATUS =  BUFR( 9 )
-      ESTIM_NFS4FATHER_ATSON = BUFR(10)
-      IBUFR    = 11
+      NROW        = BUFR( 4 )
+      NCOL        = BUFR( 5 )
+      NASS        = BUFR( 6 )
+      NFRONT      = BUFR( 7 )
+      NSLAVES_HDR = BUFR( 8 )
+      NSLAVES     = BUFR( 9 )
+      LRSTATUS    = BUFR(10 )
+      ESTIM_NFS4FATHER_ATSON = BUFR(11)
+      IBUFR    = 12
 #if ! defined(NO_FDM_DESCBAND)
       IWHANDLER_LOC = IWHANDLER_IN
       IF ((IWHANDLER_IN .LE. 0) .AND.
@@ -103,22 +107,64 @@ C
       END IF
       CALL ZMUMPS_LOAD_UPDATE(1,.TRUE.,FLOP1, KEEP,KEEP8)
       IF ( KEEP(50) .eq. 0 ) THEN
-        NSLAVES = NSLAVES_RECU + XTRA_SLAVES_UNSYM
+        NSLAVES = NSLAVES_HDR + XTRA_SLAVES_UNSYM
       ELSE
-        NSLAVES = NSLAVES_RECU + XTRA_SLAVES_SYM   
+        NSLAVES = NSLAVES_HDR + XTRA_SLAVES_SYM   
       END IF
       LREQ   = NROW + NCOL + 6 + NSLAVES + KEEP(IXSZ)
       LREQCB = int(NCOL,8) * int(NROW,8)
-      CALL ZMUMPS_ALLOC_CB(.FALSE., 0_8, .FALSE.,.TRUE.,
-     &   MYID,N, KEEP, KEEP8, DKEEP, IW, LIW, A, LA,
-     &   LRLU, IPTRLU,IWPOS,IWPOSCB, SLAVEF, PROCNODE_STEPS, DAD,
-     &   PTRIST,PTRAST, STEP, PIMASTER,PAMASTER,
-     &   LREQ, LREQCB, INODE, S_ACTIVE, .TRUE.,
-     &   COMP, LRLUS, KEEP8(67), IFLAG, IERROR
+      IF ( LREQCB .GT. LRLUS .AND. KEEP(101) .EQ. 0 .AND.
+     &     KEEP8(73) + LREQCB .LE. KEEP8(75) ) THEN
+        CALL ZMUMPS_ALLOC_CB(.FALSE., 0_8, .FALSE.,.TRUE.,
+     &       MYID,N, KEEP, KEEP8, DKEEP, IW, LIW, A, LA,
+     &       LRLU, IPTRLU,IWPOS,IWPOSCB, SLAVEF, PROCNODE_STEPS, DAD,
+     &       PTRIST,PTRAST, STEP, PIMASTER,PAMASTER,
+     &       LREQ, 0_8, 
+     &       INODE, S_ACTIVE, .TRUE.,
+     &       COMP, LRLUS, KEEP8(67), IFLAG, IERROR
      &     )
-      IF ( IFLAG .LT. 0 ) RETURN
-      PTRIST(STEP(INODE)) = IWPOSCB + 1
-      PTRAST(STEP(INODE)) = IPTRLU  + 1_8
+        IF ( IFLAG .LT. 0 ) RETURN
+#if defined(MUMPS_ALLOC_FROM_C)
+        CALL MUMPS_MALLOC_C( TMP_ADDRESS,
+     &      LREQCB * int(KEEP(35),8) )
+        IF (TMP_ADDRESS .EQ. 0_8) THEN
+          allocok=1 
+        ELSE 
+          allocok=0
+        ENDIF
+#else
+        ALLOCATE(DYNAMIC_CB(LREQCB), stat=allocok)
+#endif
+        IF (allocok .GT. 0) THEN
+          CALL ZMUMPS_FREE_BLOCK_CB_STATIC( .FALSE., MYID, N,
+     &    IWPOSCB + 1, IW, LIW, LRLU, LRLUS, IPTRLU, IWPOSCB,
+     &    LA, KEEP, KEEP8, .FALSE. )
+        ELSE
+          CALL MUMPS_DM_FAC_UPD_DYN_MEMCNTS( LREQCB,
+     &    KEEP(405).EQ.1, 
+     &    KEEP8, IFLAG, IERROR,
+     &    .TRUE., 
+     &    .FALSE. ) 
+#if ! defined(MUMPS_ALLOC_FROM_C)
+          CALL MUMPS_ADDR_C( DYNAMIC_CB(1), TMP_ADDRESS )
+#endif
+          CALL MUMPS_STOREI8(LREQCB, IW(IWPOSCB+1+XXD))
+          PTRIST(STEP(INODE)) = IWPOSCB + 1
+          PTRAST(STEP(INODE)) = TMP_ADDRESS
+        ENDIF
+      ENDIF
+      IF ( PTRIST(STEP(INODE)) .EQ. 0 ) THEN
+        CALL ZMUMPS_ALLOC_CB(.FALSE., 0_8, .FALSE.,.TRUE.,
+     &     MYID,N, KEEP, KEEP8, DKEEP, IW, LIW, A, LA,
+     &     LRLU, IPTRLU,IWPOS,IWPOSCB, SLAVEF, PROCNODE_STEPS, DAD,
+     &     PTRIST,PTRAST, STEP, PIMASTER,PAMASTER,
+     &     LREQ, LREQCB, INODE, S_ACTIVE, .TRUE.,
+     &     COMP, LRLUS, KEEP8(67), IFLAG, IERROR
+     &     )
+        IF ( IFLAG .LT. 0 ) RETURN
+        PTRIST(STEP(INODE)) = IWPOSCB + 1
+        PTRAST(STEP(INODE)) = IPTRLU  + 1_8
+      ENDIF
 #     if ! defined(NO_FDM_DESCBAND)
  555  CONTINUE
 #     endif
@@ -138,11 +184,11 @@ C
       IW( IWPOSCB + 6+KEEP(IXSZ) ) = NSLAVES
       IW( IWPOSCB + 7+KEEP(IXSZ)+NSLAVES : 
      &           IWPOSCB + 6+KEEP(IXSZ)+NSLAVES + NROW + NCOL )
-     &= BUFR( IBUFR + NSLAVES_RECU :
-     &        IBUFR + NSLAVES_RECU + NROW + NCOL - 1 )
+     &= BUFR( IBUFR + NSLAVES_HDR :
+     &        IBUFR + NSLAVES_HDR + NROW + NCOL - 1 )
       IF ( KEEP(50) .eq. 0 ) THEN
         IW( IWPOSCB + 7+KEEP(IXSZ) ) = S_ROOTBAND_INIT
-        IF (NSLAVES_RECU.GT.0) THEN
+        IF (NSLAVES_HDR.GT.0) THEN
           write(6,*) " Internal error in ZMUMPS_PROCESS_DESC_BANDE "
           CALL MUMPS_ABORT()
         ENDIF
@@ -151,8 +197,8 @@ C
         IW( IWPOSCB + 8+KEEP(IXSZ) ) = NFRONT
         IW( IWPOSCB + 9+KEEP(IXSZ) ) = S_ROOTBAND_INIT
         IW( IWPOSCB + 7+XTRA_SLAVES_SYM+KEEP(IXSZ):
-     &      IWPOSCB + 6+XTRA_SLAVES_SYM+KEEP(IXSZ)+NSLAVES_RECU ) =
-     &       BUFR( IBUFR: IBUFR - 1 + NSLAVES_RECU )
+     &      IWPOSCB + 6+XTRA_SLAVES_SYM+KEEP(IXSZ)+NSLAVES_HDR ) =
+     &       BUFR( IBUFR: IBUFR - 1 + NSLAVES_HDR )
       END IF
       IW(IWPOSCB+1+XXNBPR)=NBPROCFILS
       IW(IWPOSCB+1+XXLR)=LRSTATUS

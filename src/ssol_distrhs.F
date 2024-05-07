@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -49,7 +49,7 @@ C
       INTEGER(8), INTENT(OUT):: NB_BYTES_LOC
       INCLUDE 'mpif.h'
       INTEGER :: IERR_MPI
-!$    LOGICAL :: OMP_FLAG
+      LOGICAL :: OMP_FLAG
 !$    INTEGER :: CHUNK, NOMP
 !$    INTEGER(8) :: CHUNK8
       INTEGER :: allocok
@@ -230,8 +230,10 @@ C
             ILASTNOTTOUCHED=max(ILASTNOTTOUCHED,I)
           ENDIF
         ENDDO
+        OMP_FLAG = .FALSE.
 !$      OMP_FLAG = ( NRHS_COL.GE.KEEP(362) .AND.
 !$   &               NRHS_COL*NBRECORDS .GE. KEEP(363)/2)
+        IF (OMP_FLAG) THEN
 !$OMP PARALLEL DO PRIVATE(I,IRHSCOMP) IF (OMP_FLAG)
         DO K = 1, NRHS_COL
           DO I = IFIRSTNOTTOUCHED, ILASTNOTTOUCHED
@@ -247,6 +249,21 @@ C
           ENDDO
         ENDDO
 !$OMP END PARALLEL DO
+        ELSE
+        DO K = 1, NRHS_COL
+          DO I = IFIRSTNOTTOUCHED, ILASTNOTTOUCHED
+            IRHSCOMP=BUFRECI_ARG(I)
+            IF (.NOT. TOUCHED(IRHSCOMP)) THEN
+              RHSCOMP(IRHSCOMP,K)=ZERO
+            ENDIF
+          ENDDO
+          DO I = 1, NBRECORDS
+            IRHSCOMP=BUFRECI_ARG(I)
+            RHSCOMP(IRHSCOMP,K) = RHSCOMP(IRHSCOMP,K) +
+     &                            BUFRECR_ARG(I,K)
+          ENDDO
+        ENDDO
+        ENDIF
         DO I = 1, NBRECORDS
           IRHSCOMP = BUFRECI_ARG(I)
           IF (.NOT. TOUCHED(IRHSCOMP)) THEN

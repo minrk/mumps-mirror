@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -20,48 +20,43 @@ C
         LOGICAL :: ISLR
       END TYPE LRB_TYPE
       CONTAINS
-      SUBROUTINE DEALLOC_LRB(LRB_OUT,KEEP8)
+      SUBROUTINE DEALLOC_LRB(LRB_OUT, KEEP8, K34
+     &                       )
         TYPE(LRB_TYPE), INTENT(INOUT) :: LRB_OUT
         INTEGER(8) :: KEEP8(150)
-        INTEGER :: MEM
+        INTEGER :: K34
+        INTEGER :: MEM, IDUMMY, JDUMMY
         IF (LRB_OUT%M.EQ.0) RETURN
         IF (LRB_OUT%N.EQ.0) RETURN
         MEM = 0
-        IF (LRB_OUT%ISLR) THEN
-           IF(associated(LRB_OUT%Q)) MEM = MEM + size(LRB_OUT%Q)
-           IF(associated(LRB_OUT%R)) MEM = MEM + size(LRB_OUT%R)
-        ELSE
-           IF(associated(LRB_OUT%Q)) MEM = MEM + size(LRB_OUT%Q)
-        ENDIF
-!$OMP   ATOMIC UPDATE
-        KEEP8(69) = KEEP8(69) - int(MEM,8)
-!$OMP   END ATOMIC
-!$OMP   ATOMIC UPDATE
-        KEEP8(71) = KEEP8(71) - int(MEM,8)
-!$OMP   END ATOMIC
-!$OMP   ATOMIC UPDATE
-        KEEP8(73) = KEEP8(73) - int(MEM,8)
-!$OMP   END ATOMIC
-        IF (LRB_OUT%ISLR) THEN
-          IF (associated(LRB_OUT%Q)) THEN
-            DEALLOCATE (LRB_OUT%Q)
-            NULLIFY(LRB_OUT%Q)
+          IF (LRB_OUT%ISLR) THEN
+            IF (associated(LRB_OUT%Q)) THEN
+              MEM = MEM + size(LRB_OUT%Q)
+              DEALLOCATE (LRB_OUT%Q)
+              NULLIFY(LRB_OUT%Q)
+            ENDIF
+            IF (associated(LRB_OUT%R)) THEN
+              MEM = MEM + size(LRB_OUT%R)
+              DEALLOCATE (LRB_OUT%R)
+              NULLIFY(LRB_OUT%R)
+            ENDIF
+          ELSE
+            IF (associated(LRB_OUT%Q)) THEN
+              MEM = MEM + size(LRB_OUT%Q)
+              DEALLOCATE (LRB_OUT%Q)
+              NULLIFY(LRB_OUT%Q)
+            ENDIF
           ENDIF
-          IF (associated(LRB_OUT%R)) THEN
-            DEALLOCATE (LRB_OUT%R)
-            NULLIFY(LRB_OUT%R)
-          ENDIF
-        ELSE
-          IF (associated(LRB_OUT%Q)) THEN
-            DEALLOCATE (LRB_OUT%Q)
-            NULLIFY(LRB_OUT%Q)
-          ENDIF
-        ENDIF
+        CALL MUMPS_DM_FAC_UPD_DYN_MEMCNTS(-int(MEM,8),
+     &        .TRUE., KEEP8, 
+     &        IDUMMY, JDUMMY,    
+     &        .TRUE., .TRUE.)
       END SUBROUTINE DEALLOC_LRB
-      SUBROUTINE DEALLOC_BLR_PANEL(BLR_PANEL, IEND, KEEP8, IBEG_IN)
+      SUBROUTINE DEALLOC_BLR_PANEL(BLR_PANEL, IEND, KEEP8, K34, IBEG_IN)
         INTEGER, INTENT(IN)           :: IEND
         TYPE(LRB_TYPE), INTENT(INOUT) :: BLR_PANEL(:)
         INTEGER(8) :: KEEP8(150)
+        INTEGER, INTENT(IN) :: K34
         INTEGER, INTENT(IN), OPTIONAL :: IBEG_IN
         INTEGER :: I, IBEG
         IF (present(IBEG_IN)) THEN
@@ -72,7 +67,7 @@ C
         IF (IEND.GE.IBEG) THEN
           IF (BLR_PANEL(1)%M.NE.0) THEN
             DO I=IBEG, IEND
-              CALL DEALLOC_LRB(BLR_PANEL(I), KEEP8)
+              CALL DEALLOC_LRB(BLR_PANEL(I), KEEP8, K34)
             ENDDO
           ENDIF
         ENDIF

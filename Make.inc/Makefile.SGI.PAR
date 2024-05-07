@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.4.1, released
-#  on Tue Aug  3 09:49:43 UTC 2021
+#  This file is part of MUMPS 5.5.0, released
+#  on Thu Apr 14 11:45:33 UTC 2022
 #
 #Begin orderings
 
@@ -66,6 +66,11 @@ IORDERINGSC = $(IMETIS) $(IPORD) $(ISCOTCH)
 
 PLAT    =
 LIBEXT  = .a
+LIBEXT_SHARED  = .so
+FPIC_OPT = -fPIC
+# Adapt/uncomment RPATH_OPT to avoid modifying
+# LD_LIBRARY_PATH in case of shared libraries
+# RPATH_OPT = -Wl,-rpath,/path/to/MUMPS_x.y.z/lib/
 OUTC    = -o 
 OUTF    = -o 
 RM      = /bin/rm -f

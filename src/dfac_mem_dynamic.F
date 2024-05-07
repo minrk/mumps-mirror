@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -117,75 +117,6 @@ C
       DMUMPS_DM_IS_DYNAMIC = DYN_SIZE > 0_8
       RETURN
       END FUNCTION DMUMPS_DM_IS_DYNAMIC
-      SUBROUTINE  DMUMPS_DM_FAC_UPD_DYN_MEMCNTS
-     &                    ( MEM_COUNT_ALLOCATED, ATOMIC_UPDATES, KEEP8,
-     &                      IFLAG, IERROR, K69UPD_ARG )
-      IMPLICIT NONE
-      INTEGER(8), INTENT(IN)        :: MEM_COUNT_ALLOCATED
-      INTEGER(8), INTENT(INOUT)     :: KEEP8(150)
-      LOGICAL, INTENT(IN)           :: ATOMIC_UPDATES
-      INTEGER, INTENT(INOUT)        :: IFLAG, IERROR
-      LOGICAL, INTENT(IN), OPTIONAL :: K69UPD_ARG
-      LOGICAL K69UPD
-      INTEGER(8) :: KEEP8TMPCOPY
-      K69UPD = .TRUE.
-      IF (present(K69UPD_ARG)) THEN
-        IF ( .NOT. K69UPD_ARG ) THEN
-          K69UPD = .FALSE.
-        ENDIF
-      ENDIF
-      IF (MEM_COUNT_ALLOCATED.GT.0) THEN
-           IF (ATOMIC_UPDATES ) THEN
-!$OMP        ATOMIC CAPTURE
-             KEEP8(73) = KEEP8(73) + MEM_COUNT_ALLOCATED
-             KEEP8TMPCOPY = KEEP8(73)
-!$OMP        END ATOMIC
-!$OMP        ATOMIC UPDATE
-             KEEP8(74) = max(KEEP8(74), KEEP8TMPCOPY)
-!$OMP        END ATOMIC
-           ELSE
-             KEEP8(73) = KEEP8(73) + MEM_COUNT_ALLOCATED
-             KEEP8TMPCOPY = KEEP8(73)
-             KEEP8(74) = max(KEEP8(74), KEEP8(73))
-           ENDIF
-           IF ( KEEP8TMPCOPY .GT. KEEP8(75) ) THEN
-             IFLAG = -19
-             CALL MUMPS_SET_IERROR(
-     &            (KEEP8TMPCOPY-KEEP8(75)), IERROR)
-           ENDIF
-           IF ( K69UPD ) THEN
-             IF ( ATOMIC_UPDATES ) THEN
-!$OMP          ATOMIC CAPTURE
-               KEEP8(69) = KEEP8(69) + MEM_COUNT_ALLOCATED
-               KEEP8TMPCOPY = KEEP8(69)
-!$OMP          END ATOMIC
-!$OMP          ATOMIC UPDATE
-               KEEP8(68) = max(KEEP8(68), KEEP8TMPCOPY)
-!$OMP          END ATOMIC
-             ELSE
-               KEEP8(69) = KEEP8(69) + MEM_COUNT_ALLOCATED
-               KEEP8(68) = max(KEEP8(69), KEEP8(68))
-             ENDIF
-           ENDIF
-      ELSE
-           IF (ATOMIC_UPDATES) THEN
-!$OMP ATOMIC UPDATE
-             KEEP8(73) = KEEP8(73) + MEM_COUNT_ALLOCATED
-!$OMP END ATOMIC
-             IF ( K69UPD ) THEN
-!$OMP ATOMIC UPDATE
-               KEEP8(69) = KEEP8(69) + MEM_COUNT_ALLOCATED
-!$OMP END ATOMIC
-             ENDIF
-           ELSE
-             KEEP8(73) = KEEP8(73) + MEM_COUNT_ALLOCATED
-             IF ( K69UPD ) THEN
-               KEEP8(69) = KEEP8(69) + MEM_COUNT_ALLOCATED
-             ENDIF
-           ENDIF
-      ENDIF
-      RETURN
-      END SUBROUTINE DMUMPS_DM_FAC_UPD_DYN_MEMCNTS
       SUBROUTINE DMUMPS_DM_FAC_ALLOC_ALLOWED
      &                     (MEM_COUNT_TO_ALLOCATE, KEEP8, 
      &                      IFLAG, IERROR)
@@ -320,7 +251,17 @@ C
             ENDIF
           ENDIF
           IF ( MOVE2DYNAMIC ) THEN
+#if defined(MUMPS_ALLOC_FROM_C)
+            CALL MUMPS_MALLOC_C( TMP_ADDRESS,
+     &      RCURRENT_SIZE * KEEP(35) )
+            IF (TMP_ADDRESS .EQ. 0_8) THEN
+              allocok=1 
+            ELSE 
+              allocok=0
+            ENDIF
+#else
             ALLOCATE(DYNAMIC_CB(RCURRENT_SIZE), stat=allocok)
+#endif
             IF (allocok .GT. 0) THEN
               IF ( (STRATEGY .NE. 1).OR. 
      &           (SIZER_NEEDED-LRLUS).GE.RCURRENT_SIZE) THEN
@@ -338,7 +279,12 @@ C
      &        LIW-ICURRENT+1, SIZEHOLE, KEEP(IXSZ))
             ENDIF
             CALL MUMPS_STOREI8(RCURRENT_SIZE,IW(ICURRENT+XXD))
+#if defined(MUMPS_ALLOC_FROM_C)
+            CALL DMUMPS_DM_SET_PTR( TMP_ADDRESS, RCURRENT_SIZE,
+     &                              DYNAMIC_CB )
+#else
             CALL MUMPS_ADDR_C(DYNAMIC_CB(1), TMP_ADDRESS)
+#endif
             IF (IS_PTRAST) THEN
               PTRAST(STEP(INODE)) = TMP_ADDRESS
             ELSE IF (IS_PAMASTER) THEN
@@ -377,9 +323,9 @@ C
               CALL MUMPS_STOREI8(0_8, IW(ICURRENT+XXR))
             ENDIF
             IF (STRATEGY .NE. 3) THEN
-              CALL DMUMPS_DM_FAC_UPD_DYN_MEMCNTS (
+              CALL MUMPS_DM_FAC_UPD_DYN_MEMCNTS (
      &                      RCURRENT_SIZE, KEEP(405).EQ.1, KEEP8, 
-     &                      IFLAG, IERROR, .FALSE.)
+     &                      IFLAG, IERROR, .FALSE., .FALSE.)
               IF (IFLAG.LT.0) GOTO 500
             ENDIF
 !$          CHUNK8 = max( int(KEEP(361),8),
@@ -456,8 +402,9 @@ C
      &      , IS_PTRAST, IS_PAMASTER
           ENDIF
           CALL DMUMPS_DM_SET_PTR(TMP_ADDRESS, DYN_SIZE, TMP_PTR)
-          CALL DMUMPS_DM_FREE_BLOCK( TMP_PTR, DYN_SIZE,
-     &                               ATOMIC_UPDATES, KEEP8)
+          CALL DMUMPS_DM_FREE_BLOCK( IW(ICURRENT+XXG),
+     &                               TMP_PTR, DYN_SIZE,
+     &                               ATOMIC_UPDATES, KEEP8 )
           CALL MUMPS_STOREI8(0_8, IW(ICURRENT+XXD))
          ENDIF
         ENDIF
@@ -481,18 +428,25 @@ C
 !$OMP END CRITICAL(STATIC_PTR_ACCESS)
       RETURN
       END SUBROUTINE DMUMPS_DM_SET_PTR
-      SUBROUTINE DMUMPS_DM_FREE_BLOCK( DYNPTR, SIZFR8,
+      SUBROUTINE DMUMPS_DM_FREE_BLOCK( XXG_STATUS, DYNPTR, SIZFR8,
      &                                 ATOMIC_UPDATES, KEEP8 )
       IMPLICIT NONE
+      INCLUDE 'mumps_headers.h'
+      INTEGER :: XXG_STATUS
       DOUBLE PRECISION, POINTER, DIMENSION(:) :: DYNPTR
       INTEGER(8) :: SIZFR8
       LOGICAL, INTENT(IN) :: ATOMIC_UPDATES
       INTEGER(8) :: KEEP8(150)
       INTEGER IDUMMY
+#if defined(MUMPS_ALLOC_FROM_C)
+      CALL MUMPS_FREE_C(DYNPTR(1))
+#else
       DEALLOCATE(DYNPTR)
+#endif
       NULLIFY(DYNPTR)
-      CALL DMUMPS_DM_FAC_UPD_DYN_MEMCNTS (
-     &           -SIZFR8, ATOMIC_UPDATES, KEEP8, IDUMMY, IDUMMY)
+      CALL MUMPS_DM_FAC_UPD_DYN_MEMCNTS (
+     &           -SIZFR8, ATOMIC_UPDATES, KEEP8, IDUMMY, IDUMMY,
+     &           .TRUE., .FALSE.)
       RETURN
       END SUBROUTINE DMUMPS_DM_FREE_BLOCK
       END MODULE DMUMPS_DYNAMIC_MEMORY_M

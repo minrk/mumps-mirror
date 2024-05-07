@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.4.1, released
- *  on Tue Aug  3 09:49:43 UTC 2021
+ *  This file is part of MUMPS 5.5.0, released
+ *  on Thu Apr 14 11:45:33 UTC 2022
  *
  *
- *  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -28,6 +28,21 @@ MUMPS_INT esmumpsv( const MUMPS_INT8 n, const MUMPS_INT8 iwlen, MUMPS_INT8 * con
 MUMPS_INT esmumps( const MUMPS_INT8 n, const MUMPS_INT8 iwlen, MUMPS_INT8 * const pe, const MUMPS_INT8 pfree,
              MUMPS_INT8 * const len, MUMPS_INT8 * const iw, MUMPS_INT8 * const nv, MUMPS_INT8 * const elen,
              MUMPS_INT8 * const last);
+#define MUMPS_SCOTCH_ORD_64 \
+  F_SYMBOL(scotch_ord_64,SCOTCH_ORD_64)
+void MUMPS_CALL
+MUMPS_SCOTCH_ORD_64( const MUMPS_INT8 * const  n,
+                 const MUMPS_INT8 * const  iwlen,
+                       MUMPS_INT8 * const  petab,
+                 const MUMPS_INT8 * const  pfree,
+                       MUMPS_INT8 * const  lentab,
+                       MUMPS_INT8 * const  iwtab,
+                       MUMPS_INT8 * const  nvtab,
+                       MUMPS_INT8 * const  elentab,
+                       MUMPS_INT8 * const  lasttab,
+                       MUMPS_INT  * const  ncmpa,
+                       MUMPS_INT  * const  weightused,
+                       MUMPS_INT  * const  weightrequested );
 #define MUMPS_SCOTCH_64 \
   F_SYMBOL(scotch_64,SCOTCH_64)
 void MUMPS_CALL

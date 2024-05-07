@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -114,7 +114,6 @@ C
       COMPLEX :: ZERO
       PARAMETER (ZERO=(0.0E0,0.0E0))
       INCLUDE 'mumps_headers.h'
-      INTEGER(8):: KEEP8TMPCOPY, KEEP873COPY
       FIRST_BLOCK = -99999
       LAST_BLOCK  = -99999
       IP=0
@@ -329,7 +328,7 @@ C
         IF (.NOT. LR_ACTIVATED) THEN
           IEND_BLR = min(IEND_BLR + NBLR_ORIG, NASS)
         ELSE
-          IEND_BLR = min(BEGS_BLR(CURRENT_BLR+1)-1, NASS)
+          IEND_BLR = BEGS_BLR(CURRENT_BLR+1)-1
           BEGS_BLR( CURRENT_BLR ) = IBEG_BLR
           IF ( IEND_BLR - IBEG_BLR + 1 .GT. MAXI_CLUSTER ) THEN
             MAXI_CLUSTER = IEND_BLR - IBEG_BLR + 1
@@ -347,7 +346,7 @@ C
             ENDIF
             IF (KEEP(480).GE.3) THEN
               DO MY_NUM=1,OMP_NUM
-                CALL DEALLOC_LRB(ACC_LUA(MY_NUM),KEEP8)
+                CALL DEALLOC_LRB(ACC_LUA(MY_NUM), KEEP8, KEEP(34))
                 CALL ALLOC_LRB(ACC_LUA(MY_NUM), MAXI_RANK,
      &                         MAXI_CLUSTER, MAXI_CLUSTER, .TRUE.,
      &                         IFLAG, IERROR, KEEP8)
@@ -467,6 +466,7 @@ C
               GOTO 50 
             ENDIF
           ELSE IF ( INOPV.LE.0 ) THEN 
+            INOPV = 0
             IF (PIVOT_OPTION.GE.3) THEN
               LAST_COL = NFRONT
             ELSEIF (PIVOT_OPTION.EQ.2) THEN
@@ -829,16 +829,12 @@ C
 !$OMP END PARALLEL
 #endif          
           IF (IFLAG.LT.0) GOTO 500
-          CALL UPD_MRY_LU_LRGAIN(BLR_U,
-     &               NB_BLR-CURRENT_BLR-NPARTSCB,
-     &               NPARTSCB, 'H')
-          CALL UPD_MRY_LU_LRGAIN(BLR_L,
-     &               NB_BLR-CURRENT_BLR-NPARTSCB,
-     &               NPARTSCB, 'V')
           IF (KEEP(486).EQ.3) THEN
             IF (KEEP(480).EQ.0) THEN
-              CALL DEALLOC_BLR_PANEL (BLR_U, NB_BLR-CURRENT_BLR, KEEP8)
-              CALL DEALLOC_BLR_PANEL (BLR_L, NB_BLR-CURRENT_BLR, KEEP8)
+              CALL DEALLOC_BLR_PANEL(BLR_U, NB_BLR-CURRENT_BLR, KEEP8,
+     &                               KEEP(34))
+              CALL DEALLOC_BLR_PANEL(BLR_L, NB_BLR-CURRENT_BLR, KEEP8,
+     &                               KEEP(34))
               DEALLOCATE(BLR_U,BLR_L)
             ENDIF
           ENDIF
@@ -890,7 +886,7 @@ C
           MEM_TOT = 0
 #if defined(BLR_MT)          
 !$OMP PARALLEL 
-!$OMP& PRIVATE(IP, LorU, DIR, NELIM_LOC)
+!$OMP& PRIVATE(IP, LorU, DIR, NELIM_LOC, BLR_PANEL)
 #endif
           IF (
      &         (KEEP(486).EQ.2) 
@@ -935,44 +931,8 @@ C
 !$OMP ENDDO
 !$OMP SINGLE
 #endif
-            IF (KEEP(405) .EQ. 0) THEN
-              KEEP8(69)    = KEEP8(69) + int(MEM_TOT,8)
-              KEEP8TMPCOPY = KEEP8(69)
-              KEEP8(68)    = max(KEEP8TMPCOPY, KEEP8(68))
-              KEEP8(71)    = KEEP8(71) + int(MEM_TOT,8) 
-              KEEP8TMPCOPY = KEEP8(71)
-              KEEP8(70)    = max(KEEP8(71), KEEP8(70))
-              KEEP8(73)    = KEEP8(73) + int(MEM_TOT,8)
-              KEEP873COPY  = KEEP8(73)
-              KEEP8(74)    = max(KEEP8(74), KEEP873COPY)
-            ELSE
-!$OMP         ATOMIC CAPTURE
-              KEEP8(69)    = KEEP8(69) + int(MEM_TOT,8)
-              KEEP8TMPCOPY = KEEP8(69)
-!$OMP         END ATOMIC
-!$OMP         ATOMIC UPDATE
-              KEEP8(68)    = max(KEEP8TMPCOPY, KEEP8(68))
-!$OMP         END ATOMIC
-!$OMP         ATOMIC CAPTURE
-              KEEP8(71)    = KEEP8(71) + int(MEM_TOT,8) 
-              KEEP8TMPCOPY = KEEP8(71)
-!$OMP         END ATOMIC
-!$OMP         ATOMIC UPDATE
-              KEEP8(70)    = max(KEEP8TMPCOPY, KEEP8(70))
-!$OMP         END ATOMIC
-!$OMP         ATOMIC CAPTURE
-              KEEP8(73)    = KEEP8(73) + int(MEM_TOT,8)
-              KEEP873COPY  = KEEP8(73)
-!$OMP         END ATOMIC
-!$OMP         ATOMIC UPDATE
-              KEEP8(74)    = max(KEEP8(74), KEEP873COPY)
-!$OMP         END ATOMIC
-            ENDIF
-            IF ( KEEP873COPY .GT. KEEP8(75) ) THEN
-             IFLAG = -19
-             CALL MUMPS_SET_IERROR(
-     &             (KEEP873COPY-KEEP8(75)), IERROR)
-            ENDIF
+            CALL MUMPS_DM_FAC_UPD_DYN_MEMCNTS(int(MEM_TOT,8),
+     &        (KEEP(405).NE.0), KEEP8, IFLAG, IERROR, .TRUE., .TRUE.)
 #if defined(BLR_MT)
 !$OMP END SINGLE
 #endif
@@ -981,12 +941,13 @@ C
               DO IP=1,NPARTSASS
                 NELIM_LOC = BEGS_BLR_TMP(IP+1)-BEGS_BLR(IP+1)
                 DO LorU=0,1
+                  CALL CMUMPS_BLR_RETRIEVE_PANEL_LORU(
+     &             IW(IOLDPS+XXF), LorU, IP, BLR_PANEL)
 #if defined(BLR_MT)
 !$OMP SINGLE
 #endif
-                  CALL CMUMPS_BLR_RETRIEVE_PANEL_LORU(
-     &             IW(IOLDPS+XXF), LorU, IP, BLR_PANEL)
-                  CALL DEALLOC_BLR_PANEL(BLR_PANEL, NPARTSASS-IP, KEEP8)
+                  CALL DEALLOC_BLR_PANEL(BLR_PANEL, NPARTSASS-IP, KEEP8,
+     &                                   KEEP(34))
 #if defined(BLR_MT)
 !$OMP END SINGLE
 #endif
@@ -1093,7 +1054,7 @@ C
      &      IW(IOLDPS+XXF), 0, 1, IFLAG, IERROR,
      &      DKEEP(12), KEEP(466), KEEP(484), KEEP(489), CB_LRB,
      &      WORK, TAU, JPVT, LWORK, RWORK, BLOCK,
-     &      MAXI_CLUSTER, KEEP8, 
+     &      MAXI_CLUSTER, KEEP8,
      &      -9999, -9999, -9999, KEEP(1), 
      &      NELIM=NELIM)
 #if defined(BLR_MT)
@@ -1114,6 +1075,13 @@ C
           ENDIF
           IF (IFLAG.LT.0) GOTO 500
          CALL UPD_MRY_LU_FR(NASS, NFRONT-NASS, 0, NASS-NPIV)
+         DO IP=1,NPARTSASS
+           DO LorU=0,1
+             CALL CMUMPS_BLR_RETRIEVE_PANEL_LORU(
+     &             IW(IOLDPS+XXF), LorU, IP, BLR_PANEL)
+             CALL UPD_MRY_LU_LRGAIN(BLR_PANEL, NB_BLR-IP)
+           ENDDO
+         ENDDO
          CALL UPD_FLOP_FACTO_FR(NFRONT, NASS, NPIV, 0, 1)
        ENDIF
        IF ( (PIVOT_OPTION.LT.4) .AND. (.NOT.LR_ACTIVATED) ) THEN
@@ -1165,7 +1133,7 @@ C
         IF (associated(ACC_LUA)) THEN 
          IF (KEEP(480).GE.3) THEN
           DO MY_NUM=1,OMP_NUM
-            CALL DEALLOC_LRB(ACC_LUA(MY_NUM),KEEP8)
+            CALL DEALLOC_LRB(ACC_LUA(MY_NUM), KEEP8, KEEP(34))
           ENDDO
          ENDIF
          DEALLOCATE(ACC_LUA)
@@ -1183,7 +1151,7 @@ C
      &       )
      &     ) THEN
           CALL CMUMPS_BLR_FREE_ALL_PANELS(IW(IOLDPS+XXF), 2, 
-     &                       KEEP8)
+     &                       KEEP8, KEEP(34))
         ENDIF
       ENDIF
       IF (LR_ACTIVATED) THEN
@@ -1193,7 +1161,7 @@ C
      &       )
      &    .AND..NOT.COMPRESS_CB) THEN
           CALL CMUMPS_BLR_END_FRONT(IW(IOLDPS+XXF), IFLAG, KEEP8,
-     &    MTK405=KEEP(405))
+     &                              KEEP(34), MTK405=KEEP(405))
         ENDIF
       ENDIF
       NPVW = NPVW + IW(IOLDPS+1+XSIZE)

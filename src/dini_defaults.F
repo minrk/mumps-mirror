@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -397,6 +397,21 @@ C            and is the value for memory relaxation
 C            so called "PERLU" in the following.
 C
 C
+C ICNTL(15) : Describes the compression of the graph of the input matrix 
+C             The analysis step is then performed on the compressed 
+C             graph
+C             Must be set during analysis on the master
+C           0 : OFF
+C           1 : Compression provided by the user: 
+C               BLKPTR(1:id%NBLK+1) and 
+C               BLKVAR(1:N or N_LOC if distributed format)
+C               (BLKVAR(BLKPTR(iblk):BLKPTR(iblk+1)-1): 
+C                                           dof list for iblk)
+C                - If BLKVAR is not provided then BLKVAR is 
+C                  treated as the identity 
+C                  (contiguous variables in blocks)
+C                - Distributed format if on MASTER N_LOC#N
+C
 C  ICNTL(16) : number of OpenMP threads asked by the user.
 C
 C  ICNTL(17) not used in this version
@@ -624,7 +639,7 @@ C
 C
 C   ICNTL(33) Must be set before the factorization phase to compute
 C             the determinant. See also KEEP(258), KEEP(259),
-C             DKEEP(6), DKEEP(7), INFOG(34), RINFOG(12), INFOG(34)
+C             DKEEP(6), DKEEP(7), INFOG(34), RINFOG(12)
 C
 C            If ICNTL(33)=0 the determinant is not computed
 C            For all other values, the determinant is computed. Note that
@@ -669,9 +684,31 @@ C               ICNTL(38)/10 is a percentage representing the typical
 C               compressed factors compression of the factor matrices 
 C               in BLR fronts: 
 C               ICNTL(38)/10= compressed/uncompressed factors × 100.
-C               Default value: 333 
+C               Default value: 600
 C               (when factors of BLR fronts are compressed, 
-C               their size is 33.3% of their full- rank size).
+C               their size is 60% of their full- rank size).
+C 
+C   ICNTL(58): strategy for symbolic factorization used
+C              with centralized ordering based on METIS (ICNTL(7)=5)
+C              or with given given ordering (ICNTL(7)=1)
+C 
+#if defined(__ve__)
+C   Default value 2
+#else
+C   Default value 1 
+#endif
+C     1 => SYMBQAMD based symbolic factorization 
+C     2 => Column count based symbolic factorization
+C          Symbolic factorization based on 
+C          [GIMP94] "An efficient algorithm to compute row and column
+C          counts for sparse cholesky factorization"
+C          John R. Gilbert, Esmond G. Ng, and Barry W. Peyton
+C          SIMAX 1994
+C          implementation of the algorithm described in figure 3 
+C          of the [GINP94] article
+C 
+C     Other values are treated as 1
+C 
 C=========================
 C  ARRAYS FOR INFORMATION
 C========================
@@ -1006,12 +1043,16 @@ C     analysis strategy: 0=auto, 1=sequential, 2=parallel
 C     tool used for parallel ordering computation :
 C     0 = auto, 1 = PT-SCOTCH, 2 = ParMETIS
       ICNTL(29) = 0
-C     Default BLR compression rate of factors (33.3%)
-      ICNTL(38) = 333
+C     Default BLR compression rate of factors (60%)
+      ICNTL(38) = 600
       ICNTL(55) = 0
       ICNTL(56) = 0
       ICNTL(57) = 0
+#if defined(__ve__)
+      ICNTL(58) = 2
+#else
       ICNTL(58) = 1
+#endif
 C===================================
 C Default values for some components 
 C of KEEP array
@@ -1108,12 +1149,25 @@ C     Forcing proportional is ok with strategy 5
 #endif
       KEEP(100)=0
       KEEP(114) = 1
+C     Threshold value for null pîvot detection during
+C     LU factorization on root in case of RR
+      KEEP(118)=41
 C     strategy for MUMPS_BLOC2_GET_NSLAVESMIN
       KEEP(119)=0
+C     Scaling is enabled by default with the Schur complement option
+      KEEP(125) = 1
+      KEEP(197)=0
+#if defined(__ve__)
+C     More amalgamation of small fronts to better exploit vector engine
+      KEEP(197)=1
+#endif
 C     KEEP(199) for MUMPS_PROCNODE, MUMPS_TYPENODE, etc
 C     KEEP(199)=NSLAVES + 7
       KEEP(199)=-1
       KEEP(200)=0 ! root pre-assembled in id%S
+C     Pre-assemble type 3 root in id%S if no L0-OMP,
+C     allocate id%S later otherwise.
+      KEEP(200) = -1
       KEEP(204)=0
       KEEP(205)=0
       KEEP(209)=-1
@@ -1123,6 +1177,7 @@ C     KEEP(199)=NSLAVES + 7
       KEEP(122)=150
        KEEP(141)=1 ! min needed
       KEEP(206)=1 
+      KEEP(207) = 1
       KEEP(211)=2
       IF (NSLAVES .EQ. 2) THEN
         KEEP(213) = 101
@@ -1146,14 +1201,12 @@ C     KEEP(199)=NSLAVES + 7
       KEEP(240) = 10
       DKEEP(4) = -1.0D0
       DKEEP(5) = -1.0D0
-C#if defined(try_null_space)
-      DKEEP(10) = -9D0  ! default value is 10D-1 set in fac_driver.F 
+      DKEEP(10) = -9D0  ! default value is 10D-1 set in fac_driver.F
       DKEEP(13) = -9D0  ! to define SEUIL for postponing with RR
-                        ! (default value is 10 set in fac_driver.F) 
-      DKEEP(24) = 1000.0D0 ! gap should be larger than dkeep(14)        
-      DKEEP(25) = 10.0D0 ! gap precision        
-C#endif
-      KEEP(238)=14
+                        ! (default value is 10 set in fac_driver.F)
+      DKEEP(24) = 1000.0D0 ! gap should be larger than dkeep(14)
+      DKEEP(25) = 10.0D0 ! gap precision
+      KEEP(238)=18
       KEEP(234)= 1
       KEEP(235)=-1
       DKEEP(3) =-5.0D0
@@ -1176,8 +1229,20 @@ C#endif
       KEEP(362) = 4
       KEEP(363) = 512
       KEEP(364) = 32768
+      KEEP(378) = 1
 C     OMP parallelization of arrowheads
       KEEP(399) = 1
+      KEEP(397) = -1
+#if defined(__ve__)
+      KEEP(401) = 1
+#else
+      KEEP(401) = 0
+#endif
+      KEEP(402) = 1
+      KEEP(405) = 0 ! 1 under L0OMP
+      KEEP(406) = 2 
+C     0.9 equilibration
+      KEEP(408) = 90
       KEEP(420) =  4*KEEP(6)   ! if KEEP(6)=32 then 128
 #if defined(GEMMT_AVAILABLE)
       KEEP(421) = -1
@@ -1191,10 +1256,10 @@ C     of size 250*sizeof(arith). (4k bytes for z)
 C     At each new block of size KEEP(424), there is
 C     probably a cache miss on the pivot.
       KEEP(424) = 250
+      KEEP(459) = 10 ! max number of panels
+      KEEP(460) = 63 ! min panel size
       KEEP(461) = 10
       KEEP(462) = 10
-      KEEP(464) = 333
-      KEEP(465) = 200
       KEEP(466) = 1
       KEEP(468) = 3
       KEEP(469) = 3
@@ -1205,7 +1270,7 @@ C     probably a cache miss on the pivot.
       KEEP(476) = 50  
       KEEP(477) = 100  
       KEEP(483) = 50  
-      KEEP(484) = 50  
+      KEEP(484) = 50
       KEEP(487) = 1
       IF (KEEP(472).EQ.1) THEN
         KEEP(488) = 512
@@ -1260,6 +1325,8 @@ C
          id%ICNTL(27)=-3
          id%KEEP(227)=3
          id%KEEP(30) = 1000
+C        Activate L0OMP with test_mumps in case KEEP(72)=1
+         id%KEEP(401) = 1
       ELSE IF (id%KEEP(72)==2) THEN
          id%KEEP(85)=2            ! default is 
          id%KEEP(85)=-10000         ! default is 160 

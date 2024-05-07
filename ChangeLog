@@ -2,13 +2,45 @@
 = ChangeLog =
 -------------
 
+Changes from 5.4.1 to 5.5.0
+* New feature: analysis by blocks with compressed graph (ICNTL(15))
+* New feature: symbolic factorization using column counts (ICNTL(58))
+* Matrix scaling compatible with Schur complement feature
+* Automatic setting of CNTL(3) and CNTL(5) compatible with Schur 
+  complement feature
+* Fixed possible error in memory (INFOG(3)) and FLOPS (RINFOG(1)) 
+  estimations with Schur feature
+* Memory allowed (ICNTL(23)) is per MPI process and compatible with WK_USER
+* More compact storage of L factors for symmetric matrices
+* Exploit multithreading in SCOTCH versions >= 7.0
+* Support for NEC Aurora vector processors
+* Possibility to build shared instead of static libraries
+* Adjustment of BLR cluster size
+* Shorter time for matrix redistribution 
+* Avoid a possible case of overflow in computation of MAXIS
+* Fixed memory estimate of PTRAIW/PTRARW arrays
+* -DDPRINT_BACKTRACE_ON_ABORT added in case of call to MUMPS_ABORT()
+* More usage of dynamic memory to avoid -9 errors
+* Fixed a possible "Internal error 3 in ZMUMPS_BLR_RETRIEVE_PANEL_LORU"
+* Change construction of mumps_int_def.h to allow for cross compilation
+* Fixed a possible error in deficiency detection on unsymmetric matrices
+* Duplicated few loops during solve (OMP / non-OMP) for gfortran performance
+* Fixed compilation issue with -DUPPER and -DMUMPS_WIN32 (5.4.1 regression)
+* Find free Fortan units instead of imposing a choice (WRITE_PROBLEM, 
+  save/restore)
+* Avoid freeing IRN/JCN when not allocated by MUMPS
+* Fixed a potential memory leak in dynamic memory management
+* -DALLOC_FROM_C introduced to fix dynamic memory management 
+  with Cray compilers
+
+
 Changes from 5.4.0 to 5.4.1
 * Added feature to dump a matrix/rhs in binary form (see id%WRITE_PROBLEM)
 * Fixed error during constrained ordering (ICNTL(12)=3) leading to a segfault
 * Fixed type 2 assembly by pieces in case of huge blocks of delayed pivots
 * Avoid repeated small allocations in MUMPS_BUILD_SORT_INDEX
 * Fixed automatic choice for ICNTL(6) when values are not provided at analysis
-* Avoid an access to an unitialized value (FLOP_FRFRONTS, MPI only, LDLT)
+* Avoid an access to an uninitialized value (FLOP_FRFRONTS, MPI only, LDLT)
 * Fixed error printing in case of error -53
 * Fixed an erroneous -9 error in case of large Schur + discard factors
 * -DWORKAROUNDINTELILP64OPENMPLIMITATION avoids -i8 compilation warnings

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -719,8 +719,8 @@ C       Value defined on MASTER is the reference
         CALL MPI_BCAST( id%KEEP(370), 2, MPI_INTEGER, MASTER, id%COMM,
      &         IERR )
         IF (LANA) THEN
-           CALL MPI_BCAST( id%KEEP(66), 1, MPI_INTEGER, MASTER, id%COMM,
-     &         IERR )
+           CALL MPI_BCAST( id%KEEP(198), 1, MPI_INTEGER, MASTER, 
+     &          id%COMM, IERR )
           IF (id%KEEP(370) .EQ. 1) THEN     
             id%KEEP(77)=0
             id%KEEP(78)=0
@@ -742,14 +742,14 @@ C       Value defined on MASTER is the reference
           ENDIF
         ENDIF
         IF (LANA) THEN
-          IF (id%KEEP(66).NE.0) THEN
+          IF (id%KEEP(198).NE.0) THEN
             id%KEEP(77)=0
             id%KEEP(78)=0
             id%KEEP(375)=1           
             IF ((id%KEEP(50).EQ.0) .AND. (id%NSLAVES.GT.1)) THEN
               id%KEEP(376) = 1
             ENDIF
-            IF (id%KEEP(66).EQ.2) THEN
+            IF (id%KEEP(198).EQ.2) THEN
              id%KEEP(83) = 0
              id%KEEP(91) = 0
             ENDIF
@@ -865,6 +865,9 @@ C          MPI and OpenMP information
      &                 id%NPROCS, ', without OMP'
 !$         ENDIF
           IF (JOB.GE.1 .AND. JOB.LE.6) THEN
+            WRITE(MPG, 99997) id%KEEP(401)
+99997       FORMAT('L0 thread based multithreading setting:'/
+     &       '   KEEP(401) (0=OFF, 1=ON)                     =',I4)
             WRITE(MPG, '(A)')
           ENDIF
         ENDIF
@@ -1472,6 +1475,10 @@ C-      CHECKS, SCALING, ARROWHEAD + FACTORIZATION PHASE
 C-
 C-------------------------------------------------------
 C
+C Broadcast the value of KEEP(125) to decide if performing 
+C the scaling with the Schur complement feature. 
+        CALL MPI_BCAST( id%KEEP(125), 1, MPI_INTEGER, MASTER, id%COMM,
+     &       IERR )
         IF ( id%MYID .EQ. MASTER ) THEN
 C         -------------------------
 C         Check if Schur complement
@@ -1627,16 +1634,21 @@ C           choice of scaling then we do not recompute scaling
      &               ' ** column scaling has to be permuted'
              ENDIF 
           ENDIF
-C         ------------------------
-C         If Schur has been asked
-C         for, scaling is disabled
-C         ------------------------
-          IF ( id%KEEP(60) .ne. 0 .and. id%KEEP(52) .ne. 0 ) THEN
-            id%KEEP(52) = 0
-            IF ( MPG .GT. 0 .AND. id%ICNTL(8) .NE. 0 ) THEN
-              WRITE(MPG,'(A)') ' ** Warning: Scaling not applied.'
-              WRITE(MPG,'(A)') ' ** (incompatibility with Schur)'
-            END IF
+C         -----------------------------------
+C         If Schur has been asked for
+C         choose to disable or enable scaling 
+C         ----------------------------------
+          IF (id%KEEP(125).EQ.0) THEN
+C            ------------------------
+C              scaling is disabled
+C            ------------------------
+             IF ( id%KEEP(60) .ne. 0 .and. id%KEEP(52) .ne. 0 ) THEN
+               id%KEEP(52) = 0
+               IF ( MPG .GT. 0 .AND. id%ICNTL(8) .NE. 0 ) THEN
+                 WRITE(MPG,'(A)') ' ** Warning: scaling not applied.'
+                 WRITE(MPG,'(A)') ' ** (disabled with Schur)'
+               END IF
+             END IF
           END IF
 C         -------------------------------
 C         If matrix is distributed on
@@ -1649,7 +1661,7 @@ C         -------------------------------
              id%KEEP(52) = 0
              IF ( MPG .GT. 0 .and. id%ICNTL(8) .ne. 0 ) THEN
                WRITE(MPG,'(A)')
-     &         ' ** Warning: This scaling option not available'
+     &         ' ** Warning: requested scaling option not available'
                WRITE(MPG,'(A)') ' ** for distributed matrix entry'
              END IF
           END IF
@@ -1669,7 +1681,7 @@ C         ------------------------------------
      &            id%KEEP(52).ne. 77) THEN
               IF ( MPG .GT. 0 ) THEN
                 WRITE(MPG,'(A)')
-     &  ' ** Warning: Scaling option n.a. for symmetric matrix'
+     &  ' ** Warning: scaling option n.a. for symmetric matrix'
               END IF
               id%KEEP(52) = 0
             END IF
@@ -1682,7 +1694,7 @@ C         ----------------------------------
      &        ( id%KEEP(52) .gt. 0 ) ) THEN
             id%KEEP(52) = 0
             IF ( MPG .GT. 0 ) THEN
-              WRITE(MPG,'(A)') ' ** Warning: Scaling not applied.'
+              WRITE(MPG,'(A)') ' ** Warning: scaling not applied.'
               WRITE(MPG,'(A)')
      &        ' ** (only user scaling av. for elt. entry)'
             END IF
@@ -2237,10 +2249,12 @@ C--------------------------------------------------------------------
            IF (id%SYM.EQ.2) THEN
             WRITE (LP,991) ICNTL(5),ICNTL(6),ICNTL(7),ICNTL(12),
      &          ICNTL(13),
+     &          ICNTL(15),
      &          ICNTL(18),ICNTL(19),ICNTL(22)
            ELSE
             WRITE (LP,891) ICNTL(5),ICNTL(6),ICNTL(7),
      &          ICNTL(13),
+     &          ICNTL(15),
      &          ICNTL(18),ICNTL(19),ICNTL(22)
            ENDIF
            IF ((ICNTL(6).EQ.5).OR.(ICNTL(6).EQ.6).OR.
@@ -2280,10 +2294,12 @@ C--------------------------------------------------------------------
            IF (id%SYM.EQ.2) THEN
             WRITE (LP,991) ICNTL(5),ICNTL(6),ICNTL(7),ICNTL(12),
      &          ICNTL(13),
+     &          ICNTL(15),
      &          ICNTL(18),ICNTL(19),ICNTL(22)
            ELSE
             WRITE (LP,891) ICNTL(5),ICNTL(6),ICNTL(7),
      &          ICNTL(13),
+     &          ICNTL(15),
      &          ICNTL(18),ICNTL(19),ICNTL(22)
            ENDIF
            WRITE (LP,992) ICNTL(8)
@@ -2299,10 +2315,12 @@ C--------------------------------------------------------------------
            IF (id%SYM.EQ.2) THEN
             WRITE (LP,991) ICNTL(5),ICNTL(6),ICNTL(7),ICNTL(12),
      &          ICNTL(13),
+     &          ICNTL(15),
      &          ICNTL(18),ICNTL(19),ICNTL(22)
            ELSE
             WRITE (LP,891) ICNTL(5),ICNTL(6),ICNTL(7),
      &          ICNTL(13),
+     &          ICNTL(15),
      &          ICNTL(18),ICNTL(19),ICNTL(22)
            ENDIF
            IF (id%ICNTL(19).NE.0)
@@ -2333,6 +2351,7 @@ C--------------------------------------------------------------------
      &     'ICNTL(7)   Ordering                                =',I10/
      &     'ICNTL(12)  LDLT ordering strat ( keep(95) )        =',I10/
      &     'ICNTL(13)  Parallel root (0=on, 1=off)             =',I10/
+     &     'ICNTL(15)  Analysis by block                       =',I10/
      &     'ICNTL(18)  Distributed matrix  ( keep(54) )        =',I10/
      &     'ICNTL(19)  Schur option ( keep(60) 0=off,else=on ) =',I10/
      &     'ICNTL(22)  Out-off-core option (0=off, >0=on)      =',I10)
@@ -2341,6 +2360,7 @@ C--------------------------------------------------------------------
      &     'ICNTL(6)   Maximum transversal  ( keep(23) )       =',I10/
      &     'ICNTL(7)   Ordering                                =',I10/
      &     'ICNTL(13)  Parallel root (0=on, 1=off)             =',I10/
+     &     'ICNTL(15)  Analysis by block                       =',I10/
      &     'ICNTL(18)  Distributed matrix  ( keep(54) )        =',I10/
      &     'ICNTL(19)  Schur option ( keep(60) 0=off,else=on ) =',I10/
      &     'ICNTL(22)  Out-off-core option (0=off, >0=on)      =',I10)
@@ -2362,7 +2382,7 @@ C--------------------------------------------------------------------
      &     'ICNTL(20)  Den.(0)/sparse(1,2,3)/dist.(10,11) RHS  =',I10/
      &     'ICNTL(21)  Gathered (0) or distributed(1) solution =',I10)
  998  FORMAT (
-     &     '      Size of SCHUR matrix (SIZE_SHUR)             =',I10)
+     &     '           Size of SCHUR matrix (SIZE_SCHUR)       =',I10)
       END SUBROUTINE DMUMPS_PRINT_ICNTL
 C--------------------------------------------------------------------
       SUBROUTINE DMUMPS_PRINT_KEEP(id, LP)

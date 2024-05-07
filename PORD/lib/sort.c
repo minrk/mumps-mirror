@@ -129,7 +129,7 @@ qsortUpInts(PORD_INT n, PORD_INT *array, PORD_INT *stack)
     { r = stack[--p];
       l = stack[--p];
     }
-   if (THRES > 0) insertUpInts(n, array);
+  if (THRES > 0) insertUpInts(n, array);
 }
 
 
@@ -175,7 +175,7 @@ qsortUpFloatsWithIntKeys(PORD_INT n, FLOAT *array, PORD_INT *key, PORD_INT *stac
     { r = stack[--p];
       l = stack[--p];
     }
-   if (THRES > 0) insertUpFloatsWithIntKeys(n, array, key);
+  if (THRES > 0) insertUpFloatsWithIntKeys(n, array, key);
 }
 
 

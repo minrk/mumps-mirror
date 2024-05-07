@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -42,8 +42,8 @@ C
       type alloc_arraytype
          integer, pointer, dimension(:)::t2_nodenumbers
          integer, pointer, dimension(:,:)::t2_cand
-         DOUBLE PRECISION, pointer, dimension(:)::t2_candcostw(:),
-     &                                            t2_candcostm(:)
+         DOUBLE PRECISION, pointer, dimension(:)::t2_candcostw,
+     &                                            t2_candcostm
          integer:: nmb_t2s
       end type alloc_arraytype
       type splitting_data
@@ -315,7 +315,6 @@ C
       integer,intent(out)::istat
       DOUBLE PRECISION maxi,mini,mean,stddev, dpkeep102
       integer i,nmb
-      intrinsic maxval,minval,count,sum
       character (len=48):: subname
       logical alternative_criterion
       DOUBLE PRECISION::
@@ -328,7 +327,7 @@ C
        CL_RATE =0.8D0
        DV_RATE=0.2D0
       else
-       IF (cv_keep(66).NE.0) THEN
+       IF (cv_keep(198).NE.0) THEN
          MINFLOPS = 5.0D8
          MINMEM=5.0D7
          CL_RATE =0.8D0
@@ -341,7 +340,7 @@ C
        ENDIF
       endif
       dpkeep102 = dble(cv_keep(102))
-      IF (cv_keep(66).NE.0) THEN
+      IF (cv_keep(198).NE.0) THEN
         IF (cv_slavef.LT.3)THEN
          dpkeep102 = dble(150)
         ELSEIF (cv_slavef.LT.5)THEN
@@ -849,7 +848,6 @@ C
       DOUBLE PRECISION flop1,work_type2_thislayer,
      &        relative_weight,workmaster,nrow
       logical force_cand
-      intrinsic count,max
       character (len=48):: subname
       integer MUMPS_REG_GETKMAX, MUMPS_BLOC2_GET_NSLAVESMIN,
      &        MUMPS_BLOC2_GET_NSLAVESMAX
@@ -998,7 +996,6 @@ C
      &        relative_weight,workmaster,nrow
       DOUBLE PRECISION save_ncostw, save_ncostm
       LOGICAL SPLITNODE, BLRNODE
-      intrinsic count,max
       character (len=48):: subname
       integer MUMPS_REG_GETKMAX, MUMPS_BLOC2_GET_NSLAVESMIN
       external MUMPS_REG_GETKMAX, MUMPS_BLOC2_GET_NSLAVESMIN
@@ -1789,7 +1786,6 @@ C
       logical,intent(in),OPTIONAL::respect_prop
       integer i
       logical respect_proportional
-      intrinsic huge
       DOUBLE PRECISION dummy
       character (len=48):: subname
       istat=-1
@@ -2009,7 +2005,6 @@ C
       integer i,allocok,rest
       DOUBLE PRECISION peak
       character (len=48):: subname
-      intrinsic bit_size,min,max
       istat=-1
       nullify(cv_frere,cv_fils,cv_nfsiz,cv_ne,cv_keep,cv_keep8,
      &        cv_icntl,cv_info,cv_procnode,cv_ssarbr)
@@ -2218,8 +2213,8 @@ C
       IF (cv_keep(72).EQ.2) THEN
        MINSIZE_L0 = 6*cv_slavef
       ELSE
-       IF (cv_keep(66).NE.0) THEN
-         IF (cv_keep(66).EQ.1) THEN
+       IF (cv_keep(198).NE.0) THEN
+         IF (cv_keep(198).EQ.1) THEN
            MINSIZE_L0 = 3*cv_slavef
          ELSE
            MINSIZE_L0 = 2*cv_slavef
@@ -2231,7 +2226,7 @@ C
  55   continue
       skiparrangeL0 = .false.
       do while(.not.accepted)
-         IF (cv_keep(66).EQ.2) THEN
+         IF (cv_keep(198).EQ.2) THEN
             CURRENT_SIZE_L0 = layerL0_endforarrangeL0
          ELSE
             CURRENT_SIZE_L0 = layerL0_endforarrangeL0
@@ -2264,7 +2259,7 @@ C
             return
           end if
          ENDIF
-         IF (cv_keep(66).EQ.0) THEN
+         IF (cv_keep(198).EQ.0) THEN
            IF (cv_slavef.GT.16) 
      &          skiparrangeL0 = .NOT.skiparrangeL0   
          ENDIF
@@ -2850,7 +2845,6 @@ C
      &        totalnmb,node_of_master,node_of_candid,node_of_swapper
       DOUBLE PRECISION::mastermem,slavemem,maxmem
       logical swapthem,cand_better_master_arch,cand_better_swapper_arch
-      intrinsic maxval,minval
       maxmem=maxval(cv_proc_memused(:))
       totalnmb=0
       do layernmb=cv_maxlayer,1,-1
@@ -2958,7 +2952,6 @@ C
      &                                      maxmem(cv_slavef)
       integer,intent(out)::istat
       integer i,allocok
-      intrinsic huge
       DOUBLE PRECISION dummy
       character (len=48):: subname
       istat=-1
@@ -3031,7 +3024,6 @@ C
       INTEGER :: depth
       logical force_cand
       DOUBLE PRECISION Y
-      intrinsic random_number
       integer nmb_propmap_strict,share2,procsrest,current2
       integer k69onid
       INTEGER, ALLOCATABLE, DIMENSION(:) :: procs_inode
@@ -3112,7 +3104,11 @@ C
      &                         ' should be positive in ',subname
             goto 999
          endif
-         costs_sons = costs_sons + cv_tcostw(in)
+         if (cv_keep(67) .ne. 1) then
+           costs_sons = costs_sons + cv_tcostw(in)
+         else
+           costs_sons = costs_sons + cv_tcostm(in)
+         end if
          in=cv_frere(in)
       enddo
       if(costs_sons.le.0D0) then
@@ -3156,7 +3152,11 @@ C
                end if
             end do
             if(costs_sons.gt.0.0D0) then
-               relative_weight=cv_tcostw(in)/costs_sons
+               if (cv_keep(67) .ne. 1) then
+                 relative_weight=cv_tcostw(in)/costs_sons
+               else
+                 relative_weight=cv_tcostm(in)/costs_sons
+               endif
             else
                relative_weight=0.0D0
             endif
@@ -3239,7 +3239,6 @@ C
       integer MUMPS_REG_GETKMAX, MUMPS_BLOC2_GET_NSLAVESMIN
       external MUMPS_REG_GETKMAX, MUMPS_BLOC2_GET_NSLAVESMIN
       DOUBLE PRECISION Y
-      intrinsic random_number
       integer nmb_propmap_strict,share2,procsrest,current2
       integer k69onid,nb_free_procs,local_son_indice,nb_procs_for_sons,
      &     ptr_upper_ro_procs
@@ -3294,7 +3293,11 @@ C
      &                         ' should be positive in ',subname
             return
          endif
-         costs_sons = costs_sons + cv_tcostw(in)
+         if (cv_keep(67) .ne. 1) then
+           costs_sons = costs_sons + cv_tcostw(in)
+         else
+           costs_sons = costs_sons + cv_tcostm(in)
+         endif
          in=cv_frere(in)
       enddo
       costs_sons_real = costs_sons
@@ -3302,10 +3305,18 @@ C
       IF (costs_sons_real.gt.0.0D0) then
        in = son
        do while (in.gt.0) 
-          relative_weight=cv_tcostw(in)/costs_sons_real
+          if (cv_keep(67) .ne. 1) then
+            relative_weight=cv_tcostw(in)/costs_sons_real
+          else
+            relative_weight=cv_tcostm(in)/costs_sons_real
+          endif
           shtemp = relative_weight*dble(nmb_procs_inode)
           IF (shtemp.lt.PartofaProc) THEN
-            costs_sons = costs_sons - cv_tcostw(in)
+            if (cv_keep(67) .ne. 1) then
+              costs_sons = costs_sons - cv_tcostw(in)
+            else
+              costs_sons = costs_sons - cv_tcostm(in)
+            endif
           ENDIF
           in=cv_frere(in)
        enddo
@@ -3375,7 +3386,11 @@ C
                end do
             end do
             if(costs_sons.gt.0.0D0) then
-               relative_weight=cv_tcostw(in)/costs_sons
+              if (cv_keep(67) .ne. 1) then
+                relative_weight=cv_tcostw(in)/costs_sons
+              else
+                relative_weight=cv_tcostm(in)/costs_sons
+              endif
             else
                relative_weight=dble(0)
             endif
@@ -3505,8 +3520,13 @@ C
             if(.not.upper_round_off)then
                if(local_son_indice.lt.cv_slavef)then
                   id_son(local_son_indice)=in
-                  work_per_proc(local_son_indice)=cv_tcostw(in)/
+                  if ( cv_keep(67) .ne. 1 ) then
+                    work_per_proc(local_son_indice)=cv_tcostw(in)/
      &                 dble(nmb_propmap_strict)
+                  else
+                    work_per_proc(local_son_indice)=cv_tcostm(in)/
+     &                 dble(nmb_propmap_strict)
+                  endif
                   local_son_indice=local_son_indice+1
                   if(local_son_indice.eq.cv_slavef)then
                      CALL MUMPS_SORT_MSORT(ierr,cv_slavef,id_son,
@@ -3521,7 +3541,11 @@ C
                   endif
                else
                   current2=cv_slavef
-                  tmp_cost=cv_tcostw(in)/dble(nmb_propmap_strict)
+                  if (cv_keep(67) .ne.1) then
+                    tmp_cost=cv_tcostw(in)/dble(nmb_propmap_strict)
+                  else
+                    tmp_cost=cv_tcostm(in)/dble(nmb_propmap_strict)
+                  endif
                   do while(current2.ge.1)
                      if(tmp_cost.lt.work_per_proc(current2))exit
                      current2=current2-1
@@ -3618,7 +3642,11 @@ C
             endif
             min_cand_needed = max(min_cand_needed, cv_keep(91))
             if(costs_sons.gt.0.0D0) then
-               relative_weight=cv_tcostw(in)/costs_sons
+               if (cv_keep(67) .ne.1) then
+                 relative_weight=cv_tcostw(in)/costs_sons
+               else
+                 relative_weight=cv_tcostm(in)/costs_sons
+               endif
             else
                relative_weight=dble(0)
             endif
@@ -4209,7 +4237,6 @@ C
       DOUBLE PRECISION,dimension(:),intent(in)::workload,
      &                                                  memused
       DOUBLE PRECISION,intent(out)::maxwork,minwork,maxmem,minmem
-      intrinsic maxval,minval
       maxwork=maxval(workload)
       minwork=minval(workload, mask= workload > dble(0))
       maxmem=maxval(memused)

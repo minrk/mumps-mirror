@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.4.1, released
-#  on Tue Aug  3 09:49:43 UTC 2021
+#  This file is part of MUMPS 5.5.0, released
+#  on Thu Apr 14 11:45:33 UTC 2022
 #
 # We are grateful to Evgenii Rudnyi for his help and suggestions
 # regarding Windows installation.
@@ -72,20 +72,23 @@ IORDERINGSC = $(IMETIS) $(IPORD) $(ISCOTCH)
 ########################################################################
 ################################################################################
 
-PLAT =
+PLAT    =
 LIBEXT  = .lib
+LIBEXT_SHARED  = .so
+#FPIC_OPT = -fPIC
+#RPATH_OPT
 OUTC    = -Fo
 OUTF    = -o 
 RM      = /bin/rm -f
 CC      = cl
-FC = g95
-FL = cl
-AR = lib -out:
+FC      = g95
+FL      = cl
+AR      = lib -out:
 RANLIB  = echo
 
 
-INCSEQ = -I$(topdir)/libseq
-LIBSEQ = $(topdir)/libseq/libmpiseq.lib
+INCSEQ  = -I$(topdir)/libseq
+LIBSEQ  = $(topdir)/libseq/libmpiseq.lib
 
 LIBBLAS = mkl_intel_c.lib mkl_intel_thread.lib mkl_core.lib libiomp5md.lib
 LIBOTHERS = libf95.lib libgcc.lib -link $(PATHORDERINGS)

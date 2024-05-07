@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -25,9 +25,12 @@ C
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE, PANEL_POS, LPANEL_POS
      &    , PRUN_BELOW, TO_PROCESS, SIZE_TO_PROCESS
      &    , RHS_BOUNDS, LRHS_BOUNDS, DO_NBSPARSE, FROM_PP
+     &    , L0_OMP_MAPPING, LL0_OMP_MAPPING,
+     &    L0_OMP_FACTORS, LL0_OMP_FACTORS
      &    )
       USE DMUMPS_STATIC_PTR_M, ONLY : DMUMPS_SET_STATIC_PTR,
      &                                DMUMPS_GET_TMP_PTR
+      USE DMUMPS_STRUC_DEF, ONLY : DMUMPS_L0OMPFAC_T
       IMPLICIT NONE
       INTEGER MTYPE
       INTEGER(8), intent(in) :: LA
@@ -67,11 +70,16 @@ C
       INTEGER, intent(in) :: LRHS_BOUNDS
       INTEGER, intent(in) :: RHS_BOUNDS(LRHS_BOUNDS)
       LOGICAL, intent(in) :: FROM_PP
+      INTEGER, INTENT( in ) :: LL0_OMP_MAPPING, LL0_OMP_FACTORS
+      INTEGER, INTENT( in ) :: L0_OMP_MAPPING( LL0_OMP_MAPPING )
+      TYPE (DMUMPS_L0OMPFAC_T), INTENT(IN) ::
+     &                        L0_OMP_FACTORS(LL0_OMP_FACTORS)
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'
       LOGICAL FLAG
       DOUBLE PRECISION, DIMENSION(:), POINTER :: A_PTR
       INTEGER(8) :: LA_PTR
+      INTEGER :: UNDERL0MAP 
       INTEGER(8) :: POSWCB, PLEFTW
       INTEGER POSIWCB
       INTEGER NBFINF
@@ -136,9 +144,19 @@ C
           IF (III .NE. IIPOOL) THEN
             INODE = IPOOL(IIPOOL-1)
             IIPOOL = IIPOOL - 1
+            IF (KEEP(400) .GT. 0 ) THEN
+              UNDERL0MAP = L0_OMP_MAPPING(STEP(INODE))
+            ELSE
+              UNDERL0MAP = 0
+            ENDIF
+            IF (UNDERL0MAP .EQ. 0 .OR. KEEP(201).GT.0) THEN
               CALL DMUMPS_SET_STATIC_PTR(A)
               CALL DMUMPS_GET_TMP_PTR(A_PTR)
               LA_PTR = LA
+            ELSE
+              A_PTR => L0_OMP_FACTORS(UNDERL0MAP)%A
+              LA_PTR = L0_OMP_FACTORS(UNDERL0MAP)%LA
+            ENDIF
             CALL DMUMPS_SOLVE_NODE_BWD( INODE, 
      &        N, IPOOL, LPOOL, IIPOOL, NBFINF,
      &        A_PTR(1), LA_PTR, IW, LIW, W, LWC, NRHS,

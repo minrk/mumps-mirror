@@ -1,5 +1,5 @@
 ===========================================
-MUMPS 5.4.1 INSTALLATION
+MUMPS 5.5.0 INSTALLATION
 ===========================================
 
 Pre-requisites
@@ -35,8 +35,8 @@ Installation
 
 The following steps can be applied.
 
-% tar zxvf MUMPS_5.4.1.tar.gz
-% cd MUMPS_5.4.1
+% tar zxvf MUMPS_5.5.0.tar.gz
+% cd MUMPS_5.5.0
 
 You then need to build a file called Makefile.inc corresponding
 to your architecture. A few examples are available in the
@@ -56,8 +56,6 @@ directory Make.inc :
  Makefile.SGI.PAR          : default Makefile.inc for an Origin, parallel version.
  Makefile.SUN.SEQ          : default Makefile.inc for a SUN, sequential version.
  Makefile.SUN.PAR          : default Makefile.inc for a SUN, parallel version.
- Makefile.SP.SEQ           : default for SP (32 bits), sequential version.
- Makefile.SP.PAR           : default for SP (32 bits), parallel version.
  Makefile.SP64.SEQ         : default for SP (64 bits), sequential version.
  Makefile.SP64.PAR         : default for SP (64 bits), parallel version.
  Makefile.WIN.MS-Intel.SEQ : default for Windows with Intel compiler, sequential, with GNU make.
@@ -77,7 +75,7 @@ We also strongly recommend to install METIS and/or SCOTCH, see the
 ordering section of Makefile.inc.
 
 By default, only the double precision version of MUMPS will be
-installed. The command:
+installed, with static MUMPS libraries. The command:
 % make <ARITH>
 will build the version for a specific arithmetic, where <ARITH> is
 one of 's', 'd','c','z' (for single precision real, double precision real,
@@ -96,6 +94,32 @@ A simple Fortran test driver in ./examples (see ./examples/README) will
 also be compiled as well as an example of using MUMPS from a C main
 program.
 
+
+Dynamic libraries:
+-----------------
+
+Instead of static libraries, you can build dynamic libraries:
+make sshared
+make dshared
+make cshared
+make zshared
+make allshared
+
+Make sure to do a 'make clean' if you previously installed static libraries,
+since dynamic libraries require the -fPIC option during compilation (if
+needed, the definition FPIC_OPT=-fPIC can be adapted in the Makefile.inc)
+
+The dynamic libraries (e.g. libmumps.so, libdmumps.so, etc.) are
+installed in the directory MUMPS_5.5.0/lib/
+so that including the directory MUMPS_5.5.0/lib in your
+LD_LIBRARY_PATH environment variable will allow them to be successively
+loaded at runtime. Alternatively, you can uncomment and adapt the line
+#RPATH_OPT= -Wl,-rpath /path/to/MUMPS_5.5.0/lib
+in the Makefile.inc
+
+Although we do not currently support an official SONAME, note that, given a
+version x.y.z of MUMPS, it is binary/ABI compatible with x.y.z' versions,
+but not with x.y'.z'' versions.
 
 
 Preprocessing constants (Makefile.inc)
@@ -130,6 +154,18 @@ convention from C to Fortran or Fortran to C.
 
 Some other preprocessing options correspond to default
 architectures and are defined in specific Makefiles.
+
+-DPRINT_BACKTRACE_ON_ABORT:
+Print backtrace (BACKTRACE with GFORTRAN and TRACEBACKQQ with INTEL_COMPILER)
+in case of call to MUMPS_ABORT()
+
+-DMUMPS_USE_BLAS2:
+Some BLAS vendor libraries have more efficient BLAS3 than BLAS2 routines,
+even when one of the dimensions is set to 1. For this reason MUMPS
+typically avoids BLAS2 calls and replaces them by BLAS3 calls with one
+dimension set to 1 (e.g. avoid dgemv and use dgemm instead). The flag
+-DMUMPS_USE_BLAS2 keeps the BLAS2 calls instead of replacing them by
+BLAS3 calls with one of the dimensions set to 1.
 
 
 Sequential version
@@ -273,7 +309,10 @@ Furthermore:
   MUMPS_INTSIZE32 and MUMPS_INTSIZE64 (see include/mumps_int_def.h generated
   during the build process and include/mumps_c_types.h) in order
   to see how MUMPS_INT was defined. At runtime, one can simply check
-  sizeof(MUMPS_INT).
+  sizeof(MUMPS_INT). If for some reason you are building MUMPS without
+  using 'make', you can copy into include/mumps_int_def.h either
+  src/mumps_int_def32_h.in (or src/mumps_int_def64_h.in in case of
+  a MUMPS installation with 64-bit default integers).
 
 
 Using BLAS extension GEMMT

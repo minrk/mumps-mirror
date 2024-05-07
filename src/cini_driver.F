@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -11,6 +11,11 @@ C  released under the CeCILL-C license
 C  (see doc/CeCILL-C_V1-en.txt, doc/CeCILL-C_V1-fr.txt, and
 C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html)
 C
+#if defined(__ve__)
+#if defined(VHOFFLOAD)
+#include 've.h'
+#endif
+#endif
       SUBROUTINE CMUMPS_INI_DRIVER( id )
       USE CMUMPS_STRUC_DEF
 C
@@ -77,6 +82,8 @@ C     ----------------------------------------------
      &    id%KEEP(1), id%KEEP8(1), id%INFO(1), id%INFOG(1),
      &    id%RINFO(1), id%RINFOG(1),
      &    SYM_loc, PAR_loc, id%DKEEP(1), id%MYID )
+      CALL MUMPS_BUILD_ARCH_NODE_COMM( id%COMM, id%KEEP(411),
+     &     id%KEEP(412), id%KEEP(413) )
       id%WRITE_PROBLEM="NAME_NOT_INITIALIZED"
       CALL MUMPS_SET_VERSION( id%VERSION_NUMBER )
       id%OOC_TMPDIR="NAME_NOT_INITIALIZED"

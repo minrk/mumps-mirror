@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.4.1, released
- *  on Tue Aug  3 09:49:43 UTC 2021
+ *  This file is part of MUMPS 5.5.0, released
+ *  on Thu Apr 14 11:45:33 UTC 2022
  *
  *
- *  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -33,12 +33,12 @@ static MUMPS_INT  MUMPS_OOC_STORE_PREFIXLEN=-1;
 static char MUMPS_OOC_STORE_TMPDIR[MUMPS_OOC_TMPDIR_MAX_LENGTH];
 static MUMPS_INT  MUMPS_OOC_STORE_TMPDIRLEN=-1;
 #define MUMPS_DUMPRHSBINARY_C \
-    F_SYMBOL(dumprhsbinary_c,DUMP_RHSBINARY_C)
+    F_SYMBOL(dumprhsbinary_c,DUMPRHSBINARY_C)
 void MUMPS_CALL MUMPS_DUMPRHSBINARY_C ( MUMPS_INT *N, MUMPS_INT *NRHS,
      MUMPS_INT *LRHS, float *RHS, MUMPS_INT *K35, 
      char *filename, mumps_ftnlen l1 );
 #define MUMPS_DUMPMATBINARY_C \
-    F_SYMBOL(dumpmatbinary_c,DUMP_MATBINARY_C)
+    F_SYMBOL(dumpmatbinary_c,DUMPMATBINARY_C)
 void MUMPS_CALL MUMPS_DUMPMATBINARY_C ( MUMPS_INT* N, MUMPS_INT8 *NNZ,
      MUMPS_INT* K35, MUMPS_INT *irn, MUMPS_INT *jcn,
      void *A, MUMPS_INT *is_A_provided,

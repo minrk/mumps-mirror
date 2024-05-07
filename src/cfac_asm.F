@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -37,7 +37,6 @@ C
      &        LDAFS_PERE, IBEG, DIAG
       INCLUDE 'mumps_headers.h'
       LOGICAL SAME_PROC
-      INTRINSIC real
       IOLDPS = PTLUST_S(STEP(INODE))
       POSELT = PTRAST(STEP(INODE))
       NFRONT = IW(IOLDPS+KEEP(IXSZ))
@@ -287,9 +286,10 @@ C
      &              + int((NBROWS-1),8)*int(NBCOLF,8)
             IDIAG = 0
             DO I=NBROWS,1,-1
-             A_PTR(APOS:APOS+int(NBCOLS-IDIAG-1,8))= 
-     &         A_PTR(APOS:APOS+int(NBCOLS-IDIAG-1,8)) +
-     &         VALSON(1:NBCOLS-IDIAG,I)
+             DO J=1,NBCOLS-IDIAG
+               K8 = APOS+int(J-1,8)
+               A_PTR(K8) = A_PTR(K8) + VALSON(J,I)
+             ENDDO
              APOS = APOS - int(NBCOLF,8)
              IDIAG = IDIAG + 1
             ENDDO
@@ -364,6 +364,9 @@ C
                 IPOSCB = IPOSCB + 1_8
               ENDDO
             ELSE
+#if defined(__ve__)
+!NEC$ IVDEP
+#endif
               DO J=1, I
                 APOS = POSELT + int(IW( J ),8)
                 A(IAFATH+ APOS -1_8) = A(IACB+IPOSCB-1_8)
@@ -372,6 +375,9 @@ C
               ENDDO
             ENDIF
           ELSE
+#if defined(__ve__)
+!NEC$ IVDEP
+#endif
             DO J=1, I
               APOS = POSELT + int(IW( J ),8)
               A(IAFATH+ APOS -1_8) = A(IACB+IPOSCB-1_8)
@@ -417,11 +423,17 @@ C
 !$    LOGICAL    :: OMP_FLAG
       IF ((ETATASS.EQ.0) .OR. (ETATASS.EQ.1)) THEN
         IPOSCB = 1_8
+#if defined(__ve__)
+!NEC$ IVDEP
+#endif
         DO I = 1, NELIM
           POSELT = int( IW( I ) - 1, 8 ) * int(NFRONT, 8)
           IF (.NOT. CB_IS_COMPRESSED) THEN
             IPOSCB = 1_8 + int( I - 1, 8 ) * int(NCOLS,8)
           ENDIF
+#if defined(__ve__)
+!NEC$ IVDEP
+#endif
           DO J = 1, I
             APOS = POSELT + int(IW( J ),8)
             A(IAFATH+ APOS -1_8) = A(IAFATH+ APOS -1_8)
@@ -441,6 +453,9 @@ C
           ENDIF
           POSELT = int(IW( I ),8)
           IF (POSELT.LE. int(NASS1,8)) THEN 
+#if defined(__ve__)
+!NEC$ IVDEP
+#endif
             DO J = 1, NELIM
               APOS = POSELT + int( IW( J ) - 1, 8 ) * int(NFRONT,8)
               A(IAFATH+APOS-1_8) = A(IAFATH+APOS-1_8) +
@@ -449,6 +464,9 @@ C
             END DO
           ELSE
             POSELT = int( IW( I ) - 1, 8 ) * int(NFRONT, 8)
+#if defined(__ve__)
+!NEC$ IVDEP
+#endif
             DO J = 1, NELIM
              APOS = POSELT + int(IW( J ), 8)
              A(IAFATH+APOS-1_8) = A(IAFATH+APOS-1_8)
@@ -467,6 +485,9 @@ C
             END DO
           ELSE
             POSELT = int( IW( I ) - 1, 8 ) * int(NFRONT, 8)
+#if defined(__ve__)
+!NEC$ IVDEP
+#endif
             DO J = NELIM + 1, I
              APOS = POSELT + int(IW( J ), 8)
              A(IAFATH+APOS-1_8) = A(IAFATH+APOS-1_8)
@@ -828,14 +849,14 @@ C
       RETURN
       END FUNCTION CMUMPS_IS_GEMM_LARGE_ENOUGH
       SUBROUTINE CMUMPS_PARPIVT1_SET_MAX ( INODE, 
-     &                                 A, LAELL8, KEEP, NFRONT, 
-     &                                 NASS1, NVSCHUR_K253 )
-     &               
+     &                           A, LAELL8, KEEP, NFRONT, 
+     &                           NASS1, NVSCHUR_K253, NB_POSTPONED)
        IMPLICIT NONE
       INTEGER(8), intent(in) :: LAELL8
       INTEGER, intent(in)    :: INODE
       INTEGER, intent(in)    :: KEEP(500), NFRONT, NASS1, 
      &                          NVSCHUR_K253
+      INTEGER, intent(in)    :: NB_POSTPONED
       COMPLEX, intent(inout) :: A(LAELL8)
       INTEGER(8) :: APOSMAX, APOS, NASS1_8, NFRONT_8
       INTEGER    :: I, J, NCB
@@ -871,38 +892,52 @@ C
        ENDDO
       ENDIF
       CALL CMUMPS_UPDATE_PARPIV_ENTRIES ( INODE,
-     &     KEEP, A(APOSMAX), NASS1)
+     &     KEEP, A(APOSMAX), NASS1, NB_POSTPONED)
       RETURN
       END SUBROUTINE CMUMPS_PARPIVT1_SET_MAX
       SUBROUTINE CMUMPS_UPDATE_PARPIV_ENTRIES ( INODE,
-     &           KEEP, PARPIV, LPARPIV)
+     &           KEEP, PARPIV, LPARPIV, 
+     &           NB_POSTPONED)
       IMPLICIT NONE
       INTEGER, intent(in)   :: INODE, LPARPIV, KEEP(500)
       COMPLEX, intent(inout):: PARPIV(LPARPIV)
+      INTEGER, intent(in)   :: NB_POSTPONED
       INTEGER    :: I
       REAL       :: EPS, RMIN, RZERO, RTMP
+      REAL       :: RMAX
       LOGICAL    :: UPDATE_PARPIV
       PARAMETER( RZERO = 0.0E0 )
       UPDATE_PARPIV=.FALSE.
-      RMIN = huge(RZERO)
+      RMIN      = huge(RZERO)
+      RMAX      = RZERO
+      EPS       = sqrt(epsilon(RZERO))*0.01E0
       DO I = 1, LPARPIV
         RTMP = real(PARPIV(I))
         IF (RTMP.GT.RZERO) THEN
          RMIN = min(RMIN,  RTMP)
-        ELSE 
+        ELSE
          UPDATE_PARPIV=.TRUE.
         ENDIF
+        IF (RTMP.LE.EPS) UPDATE_PARPIV=.TRUE.
+        RMAX=  max(RMAX,real(PARPIV(I)))
       ENDDO
       IF (UPDATE_PARPIV) THEN
        IF (RMIN.LT.huge(RMIN)) THEN
-        EPS  = sqrt(epsilon(RZERO))
-        RMIN = min(RMIN, EPS)
-        DO I = 1, LPARPIV
+        RMAX= min (RMAX, EPS)
+        DO I = 1, LPARPIV-NB_POSTPONED
           RTMP = real(PARPIV(I))
-          IF (real(PARPIV(I)).EQ.RZERO) THEN
-            PARPIV(I) = cmplx(-RMIN, kind=kind(PARPIV))
+          IF (RTMP.LE.EPS) THEN
+            PARPIV(I) = cmplx(-RMAX, kind=kind(PARPIV))
           ENDIF
         ENDDO
+        IF (NB_POSTPONED.GT.0) THEN
+         DO I=LPARPIV-NB_POSTPONED+1, LPARPIV
+          RTMP = real(PARPIV(I))
+          IF (RTMP.LE.EPS) THEN
+            PARPIV(I) = cmplx(-RMAX, kind=kind(PARPIV))
+          ENDIF
+         ENDDO
+        ENDIF
        ENDIF
       ENDIF
       RETURN
@@ -910,12 +945,13 @@ C
       SUBROUTINE CMUMPS_PARPIVT1_SET_NVSCHUR_and_MAX
      &    (N, INODE, IW, LIW, A, LA, KEEP, PERM,
      &     IOLDPS, POSELT, 
-     &     NFRONT, NASS1, LR_ACTIVATED, PARPIV_T1)
+     &     NFRONT, NASS1, LR_ACTIVATED, PARPIV_T1, 
+     &     NB_POSTPONED)
       USE CMUMPS_FAC_FRONT_AUX_M, 
      &                      ONLY: CMUMPS_COMPUTE_SIZE_SCHUR_IN_FRONT
       IMPLICIT NONE
       INTEGER, intent(in)    :: N, INODE, LIW, IOLDPS,
-     &                          NFRONT, NASS1
+     &                          NFRONT, NASS1, NB_POSTPONED
       INTEGER(8), intent(in) :: LA, POSELT
       INTEGER, intent(in)    :: IW (LIW), PERM(N), KEEP(500)
       LOGICAL, intent(in)    :: LR_ACTIVATED
@@ -946,7 +982,8 @@ C
           LAELL8  = NFRONT8 * NFRONT8 + int(NASS1,8)
           CALL CMUMPS_PARPIVT1_SET_MAX ( INODE, 
      &                            A(POSELT), LAELL8, KEEP, 
-     &                            NFRONT, NASS1, NVSCHUR_K253 )
+     &                            NFRONT, NASS1, NVSCHUR_K253,
+     &                            NB_POSTPONED )
       ENDIF
       RETURN
       END SUBROUTINE CMUMPS_PARPIVT1_SET_NVSCHUR_and_MAX

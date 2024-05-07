@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -26,7 +26,9 @@ C
      &           DAD, PROCNODE_STEPS, SLAVEF, 
      &           FRT_PTR, FRT_ELT, Pos_First_NUMORG,
      &           SONROWS_PER_ROW, LSONROWS_PER_ROW
+     &           , MUMPS_TPS_ARR, L0_OMP_MAPPING
      & )
+      USE MUMPS_TPS_M
       IMPLICIT NONE
       INTEGER NELT, INODE, N, IOLDPS, HF, NFRONT, NASS1, LIW, NASS,
      &        NUMSTK, NUMORG, IFSON, MYID, IFLAG,
@@ -47,6 +49,8 @@ C
       INTEGER, intent(out)   :: NFRONT_EFF
       INTEGER, intent(in)    :: DAD (KEEP(28))
       INTEGER, intent(in) :: PROCNODE_STEPS(KEEP(28)), SLAVEF
+      TYPE (MUMPS_TPS_T), TARGET, OPTIONAL :: MUMPS_TPS_ARR(:)
+      INTEGER, intent(in), OPTIONAL :: L0_OMP_MAPPING(:)
       INTEGER, intent(in) :: FRT_PTR(N+1), FRT_ELT(NELT)
       INTEGER, intent(out) :: Pos_First_NUMORG
       INTEGER, intent(in)    :: LSONROWS_PER_ROW
@@ -64,6 +68,7 @@ C
       INTEGER TYPESPLIT
       INTEGER ELTI, NUMELT_IBROT
       INCLUDE 'mumps_headers.h'
+      INTEGER :: ITHREAD
       INTEGER, POINTER :: SON_IWPOSCB
       INTEGER, POINTER, DIMENSION(:) :: SON_IW
       INTEGER, POINTER, DIMENSION(:) :: PTTRI, PTLAST
@@ -111,6 +116,15 @@ C
         ENDIF
         SON_IW      => IW
         SON_IWPOSCB => IWPOSCB
+        IF (KEEP(400) .GT. 0 ) THEN
+          IF (present( L0_OMP_MAPPING )) THEN
+            ITHREAD=L0_OMP_MAPPING(STEP(IFSON))
+            IF (ITHREAD .GT. 0) THEN
+              SON_IW      => MUMPS_TPS_ARR(ITHREAD)%IW
+              SON_IWPOSCB => MUMPS_TPS_ARR(ITHREAD)%IWPOSCB
+            ENDIF
+          ENDIF
+        ENDIF
         IF (K2 .GT. SON_IWPOSCB) THEN
           INBPROCFILS_SON = K2 + XXNBPR
         ELSE
@@ -193,6 +207,15 @@ C
           K2 = PIMASTER(STEP(ISON))
           SON_IW => IW
           SON_IWPOSCB => IWPOSCB
+          IF ( KEEP(400) .GT. 0 ) THEN
+            IF (present( L0_OMP_MAPPING )) THEN
+              ITHREAD=L0_OMP_MAPPING(STEP(ISON))
+              IF (ITHREAD .GT. 0) THEN
+                SON_IW      => MUMPS_TPS_ARR(ITHREAD)%IW
+                SON_IWPOSCB => MUMPS_TPS_ARR(ITHREAD)%IWPOSCB
+              ENDIF
+            ENDIF
+          ENDIF
           LSTK   = SON_IW(K2    +KEEP(IXSZ))
           NELIM  = SON_IW(K2 + 1+KEEP(IXSZ))
           NPIVS  = SON_IW(K2 + 3+KEEP(IXSZ))
@@ -262,9 +285,20 @@ C
       ENDIF
       IF (NFRONT-KEEP(253).EQ.NASS1) GOTO 500
       MIN_PERM = N + 1
+      IF (KEEP(400) .GT. 0) THEN
+        ISON = IFSON
+      ENDIF
       JMIN     = -1
       DO IELL = 1, NUMSTK 
         SON_IW => IW
+        IF ( KEEP(400) .GT. 0 ) THEN
+          IF (present( MUMPS_TPS_ARR )) THEN
+            ITHREAD = L0_OMP_MAPPING(STEP(ISON))
+            IF (ITHREAD .GT. 0) THEN
+              SON_IW      => MUMPS_TPS_ARR(ITHREAD)%IW
+            ENDIF
+          ENDIF
+        ENDIF
         ILOC = PTTRI( IELL )
         IF ( ILOC .LE. PTLAST( IELL ) ) THEN 
          IF ( PERM( SON_IW( ILOC ) ) .LT. MIN_PERM ) THEN
@@ -272,6 +306,9 @@ C
            MIN_PERM = PERM( JMIN )
          END IF
         END IF
+        IF (KEEP(400) .GT. 0) THEN
+          ISON = FRERE_STEPS(STEP(ISON))
+        ENDIF
       END DO
       NEWEL = IOLDP2 + NASS1 + NFRONT
       DO WHILE ( MIN_PERM .NE. N + 1 )
@@ -281,8 +318,19 @@ C
           ITLOC( JMIN ) = NFRONT_EFF
           LAST_J_ASS = JMIN
           MIN_PERM = N + 1
+          IF (KEEP(400) .GT. 0) THEN
+            ISON = IFSON
+          ENDIF
           DO IELL = 1,  NUMSTK
             SON_IW => IW
+            IF (KEEP(400) .GT. 0) THEN
+              IF (present( MUMPS_TPS_ARR )) THEN
+                ITHREAD=L0_OMP_MAPPING(STEP(ISON))
+                IF (ITHREAD .GT. 0) THEN
+                  SON_IW      => MUMPS_TPS_ARR(ITHREAD)%IW
+                ENDIF
+              ENDIF
+            ENDIF
             IF ( PTTRI( IELL ) .LE. PTLAST( IELL ) ) THEN
               IF ( SON_IW( PTTRI( IELL ) ) .eq. LAST_J_ASS )
      &        PTTRI( IELL ) = PTTRI( IELL ) + 1
@@ -293,6 +341,9 @@ C
                 MIN_PERM = PERM( JMIN )
              END IF
             END IF
+            IF (KEEP(400).GT.0) THEN
+              ISON = FRERE_STEPS(STEP(ISON))
+            ENDIF
           END DO
       END DO
       NEWEL_SAVE  = NEWEL
@@ -401,6 +452,15 @@ C
           K2 = PIMASTER(STEP(ISON))
           SON_IW => IW
           SON_IWPOSCB => IWPOSCB
+          IF (KEEP(400).GT.0) THEN
+            IF (present( MUMPS_TPS_ARR )) THEN
+              ITHREAD=L0_OMP_MAPPING(STEP(ISON))
+              IF (ITHREAD .GT. 0) THEN
+                SON_IW      => MUMPS_TPS_ARR(ITHREAD)%IW
+                SON_IWPOSCB => MUMPS_TPS_ARR(ITHREAD)%IWPOSCB
+              ENDIF
+            ENDIF
+          ENDIF
           LSTK = SON_IW(K2+KEEP(IXSZ))
           NELIM = SON_IW(K2 + 1 +KEEP(IXSZ))
           NPIVS = SON_IW(K2 + 3 +KEEP(IXSZ))

@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.4.1, released
- *  on Tue Aug  3 09:49:43 UTC 2021
+ *  This file is part of MUMPS 5.5.0, released
+ *  on Thu Apr 14 11:45:33 UTC 2022
  *
  *
- *  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -84,4 +84,12 @@ MUMPS_ICOPY_32TO64_64C_IP_C(MUMPS_INT *inouttab, MUMPS_INT8 *sizetab);
     F_SYMBOL(icopy_64to32_64c_ip_c,ICOPY_64TO32_64C_IP_C)
 void MUMPS_CALL
 MUMPS_ICOPY_64to32_64C_IP_C(MUMPS_INT8 *inouttab, MUMPS_INT8 *sizetab);
+#define MUMPS_MALLOC_C \
+    F_SYMBOL(malloc_c,MALLOC_C)
+void MUMPS_CALL
+MUMPS_MALLOC_C(MUMPS_INT8 *address, MUMPS_INT8 *size);
+#define MUMPS_FREE_C \
+    F_SYMBOL(free_c,FREE_C)
+void MUMPS_CALL
+MUMPS_FREE_C(void *address);
 #endif /* MUMPS_COMMON_H */

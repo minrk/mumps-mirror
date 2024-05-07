@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -81,6 +81,7 @@ C
       KEEP(49) = 0
       ARROW_ROOT = 0
       EARLYT3ROOTINS = KEEP(200) .EQ.0
+     &        .OR.  ( KEEP(200) .LT. 0 .AND. KEEP(400) .EQ. 0 )
       IF ( MYID .eq. MASTER ) THEN
         IF ( KEEP(46) .eq. 0 ) THEN
           NBUF = SLAVEF
@@ -380,9 +381,9 @@ C
      &          + VAL
               ENDIF
               ELSE
-                CALL DMUMPS_ARROW_FILL_SEND_BUF(
+                CALL DMUMPS_ARROW_FILL_SEND_BUF_ELT(
      &          IPOSROOT, JPOSROOT, VAL, DEST, BUFI, BUFR, NBRECORDS,
-     &          NBUF, LP, COMM, KEEP(46) )
+     &          NBUF, LP, COMM )
               END IF
               K8 = K8 + 1_8
             END DO

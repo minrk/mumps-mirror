@@ -9041,8 +9041,8 @@ C       -------------------------------------------------------------
         ELSE
 C
 C         Because of restarting forced even if 
-C         variable (not yest quasi dense) but of 
-C         value of perm larger thatn thresm still
+C         variable (not yet quasi dense) but of 
+C         value of perm larger than thresm still
 C         to be eliminated we have to reset MINDEB to 1
           MINDEG = 1
           NBDM = max(NBDM,NBD)

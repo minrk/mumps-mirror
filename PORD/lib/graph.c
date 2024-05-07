@@ -439,8 +439,8 @@ indNodes(graph_t *G, PORD_INT *vtxmap)
         tmp[adjncy[i]] = u;
 
         /* scan adjacency list of vertex u for indistinguishable vertices */
-        for (i = istart; i < istop; i++)
-         { v = adjncy[i];
+      for (i = istart; i < istop; i++)
+       { v = adjncy[i];
            if ((v > u) && (checksum[v] == checksum[u]) && (deg[v] == deg[u])
               && (vtxmap[v] == v))
             { jstart = xadj[v];
@@ -453,7 +453,7 @@ indNodes(graph_t *G, PORD_INT *vtxmap)
               cnvtx--;
 FAILURE:      ;
             }
-         }
+       }
     }
 
   /* ----------------------

@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.4.1, released
-#  on Tue Aug  3 09:49:43 UTC 2021
+#  This file is part of MUMPS 5.5.0, released
+#  on Thu Apr 14 11:45:33 UTC 2022
 #
 #
 topdir = ..
@@ -9,7 +9,7 @@ incdir = $(topdir)/include
 
 default: d
 
-.PHONY: default all s d c z clean libcommon
+.PHONY: default all s d c z clean libcommon allshared sshared dshared cshared zshared libcommonshared
 
 all: $(incdir)/mumps_int_def.h libcommon s d c z
 
@@ -28,12 +28,22 @@ c: $(incdir)/mumps_int_def.h libcommon
 z: $(incdir)/mumps_int_def.h libcommon
 	$(MAKE) ARITH=z $(libdir)/libzmumps$(PLAT)$(LIBEXT)
 
-include $(topdir)/Makefile.inc
 
-$(incdir)/mumps_int_def.h: build_mumps_int_def 
-	./build_mumps_int_def > $(incdir)/mumps_int_def.h
-build_mumps_int_def:build_mumps_int_def.o
-	$(CC) $(OPTC) $(OPTL) build_mumps_int_def.o -o build_mumps_int_def
+# Rules for shared libraries
+allshared: $(incdir)/mumps_int_def.h libcommonshared sshared dshared cshared zshared
+libcommonshared: $(incdir)/mumps_int_def.h
+	$(MAKE) FPIC=$(FPIC_OPT) $(libdir)/libmumps_common$(PLAT)$(LIBEXT_SHARED)
+sshared: $(incdir)/mumps_int_def.h libcommonshared
+	$(MAKE) ARITH=s FPIC=$(FPIC_OPT) $(libdir)/libsmumps$(PLAT)$(LIBEXT_SHARED)
+dshared: $(incdir)/mumps_int_def.h libcommonshared
+	$(MAKE) ARITH=d FPIC=$(FPIC_OPT) $(libdir)/libdmumps$(PLAT)$(LIBEXT_SHARED)
+cshared: $(incdir)/mumps_int_def.h libcommonshared
+	$(MAKE) ARITH=c FPIC=$(FPIC_OPT) $(libdir)/libcmumps$(PLAT)$(LIBEXT_SHARED)
+zshared: $(incdir)/mumps_int_def.h libcommonshared
+	$(MAKE) ARITH=z FPIC=$(FPIC_OPT) $(libdir)/libzmumps$(PLAT)$(LIBEXT_SHARED)
+
+
+
 
 OBJS_COMMON_MOD = \
         ana_omp_m.o\
@@ -192,13 +202,25 @@ OBJS_OTHER = \
         $(ARITH)tools.o\
         $(ARITH)type3_root.o
 
+include $(topdir)/Makefile.inc
+
+$(incdir)/mumps_int_def.h: mumps_int_def32_h.in  mumps_int_def64_h.in
+	if echo " $(OPTC) " | grep DINTSIZE64; then cat mumps_int_def64_h.in > $(incdir)/mumps_int_def.h; else cat mumps_int_def32_h.in > $(incdir)/mumps_int_def.h; fi
+
 $(libdir)/libmumps_common$(PLAT)$(LIBEXT):      $(OBJS_COMMON_MOD) $(OBJS_COMMON_OTHER)
 	$(AR)$@ $?
 	$(RANLIB) $@
 
+$(libdir)/libmumps_common$(PLAT)$(LIBEXT_SHARED):      $(OBJS_COMMON_MOD) $(OBJS_COMMON_OTHER)
+	$(FC) $(OPTL) -shared $^ -Wl,-soname,libmumps_common$(PLAT).so -L$(libdir) $(RPATH_OPT) $(LORDERINGS) $(LIBS) $(LIBOTHERS) -o $@ 
+
 $(libdir)/lib$(ARITH)mumps$(PLAT)$(LIBEXT):    $(OBJS_MOD) $(OBJS_OTHER)
 	$(AR)$@ $?
 	$(RANLIB) $@
+
+$(libdir)/lib$(ARITH)mumps$(PLAT)$(LIBEXT_SHARED):    $(OBJS_MOD) $(OBJS_OTHER) $(libdir)/libmumps_common$(PLAT)$(LIBEXT_SHARED)
+	$(FC) $(OPTL) -shared $(OBJS_MOD) $(OBJS_OTHER) -L$(libdir) $(LORDERINGS) $(LIBS) $(LIBOTHERS) -lmumps_common$(PLAT) -o $@ $(RPATH_OPT)
+
 
 # Dependencies between modules:
 # i) arithmetic-dependent modules:
@@ -384,6 +406,7 @@ $(ARITH)mumps_save_restore_files.o : $(ARITH)mumps_struc_def.o
 
 $(ARITH)sol_lr.o:               $(ARITH)lr_type.o\
                                 $(ARITH)lr_stats.o\
+                                $(ARITH)lr_core.o\
                                 $(ARITH)mumps_lr_data_m.o
 
 $(ARITH)sol_omp_m.o:            $(ARITH)mumps_struc_def.o
@@ -411,13 +434,13 @@ $(OBJS_OTHER):$(OBJS_COMMON_MOD) $(OBJS_MOD)
 
 .SUFFIXES: .c .F .o
 .F.o:
-	$(FC) $(OPTF) -I. -I../include $(INCS) $(IORDERINGSF) $(ORDERINGSF) -c $*.F $(OUTF)$*.o
+	$(FC) $(OPTF) $(FPIC) -I. -I../include $(INCS) $(IORDERINGSF) $(ORDERINGSF) -c $*.F $(OUTF)$*.o
 .c.o:
-	$(CC) $(OPTC) -I../include $(INCS) $(CDEFS) $(IORDERINGSC) $(ORDERINGSC) -c $*.c $(OUTC)$*.o
+	$(CC) $(OPTC) $(FPIC) -I../include $(INCS) $(CDEFS) $(IORDERINGSC) $(ORDERINGSC) -c $*.c $(OUTC)$*.o
 
 $(ARITH)mumps_c.o:	mumps_c.c
-	$(CC) $(OPTC) -I../include $(INCS) $(CDEFS) -DMUMPS_ARITH=MUMPS_ARITH_$(ARITH) \
+	$(CC) $(OPTC) $(FPIC) -I../include $(INCS) $(CDEFS) -DMUMPS_ARITH=MUMPS_ARITH_$(ARITH) \
 	      $(IORDERINGSC) $(ORDERINGSC) -c mumps_c.c $(OUTC)$@
 
 clean:
-	$(RM) *.o *.mod $(incdir)/mumps_int_def.h build_mumps_int_def
+	$(RM) *.o *.mod $(incdir)/mumps_int_def.h

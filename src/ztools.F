@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -29,7 +29,7 @@ C
       INTEGER(8) KEEP8(150)
       INTEGER IW( LIW )
       COMPLEX(kind=8) A( LA )
-      INTEGER IWPOS, LDLT
+      INTEGER IWPOS
       INTEGER STEP( N )
       INTEGER (8) :: PTRFAC(KEEP(28))
       LOGICAL SSARBR
@@ -40,14 +40,12 @@ C
       INTEGER NFRONT, NSLAVES
       INTEGER IPS, IPSIZE
       INTEGER(8) :: SIZELU, SIZECB, IAPOS, I, SIZESHIFT, ITMP8
+      INTEGER(8) :: SIZEXXR
       LOGICAL MOVEPTRAST
       LOGICAL LRCOMPRESS_PANEL
       INTEGER INODE
       INTEGER IERR
-      INTEGER PARPIV_T1
-      LOGICAL LR_ACTIVATED
       IERR=0
-      LDLT = KEEP(50)
       IOLDSHIFT = IOLDPS + KEEP(IXSZ)
       IF ( IW( IOLDSHIFT ) < 0 ) THEN
         write(*,*) ' ERROR 1 compressLU:Should not point to a band.'
@@ -57,9 +55,9 @@ C
      &  IW(IOLDSHIFT + 2)
         CALL MUMPS_ABORT()
       ENDIF
-      LCONT  = IW( IOLDSHIFT )
+      LCONT  = IW( IOLDSHIFT )     
       NELIM  = IW( IOLDSHIFT + 1 )
-      NROW   = IW( IOLDSHIFT + 2 )
+      NROW   = IW( IOLDSHIFT + 2 ) 
       NPIV   = IW( IOLDSHIFT + 3 )
       IAPOS  = PTRFAC(IW( IOLDSHIFT + 4 ))
       NSLAVES= IW( IOLDSHIFT + 5 )
@@ -71,41 +69,19 @@ C
           WRITE(*,*) ' ERROR 3 compressLU: problem with level of inode'
           CALL MUMPS_ABORT()
       END IF
-      IF (LDLT.EQ.0) THEN
+      IF ( KEEP(50) .EQ. 0 ) THEN
         SIZELU = int(LCONT + NROW, 8) * int(NPIV,8)
       ELSE
+        IF ( KEEP(459) .GT. 1 ) THEN
+          CALL MUMPS_LDLTPANEL_STORAGE( NPIV, KEEP,
+     &    IW(IOLDSHIFT+6+NSLAVES+NFRONT), SIZELU)
+          SIZELU = SIZELU + int( NROW - NPIV, 8 ) * int( NPIV, 8 )
+        ELSE
         SIZELU =   int(NROW,8) * int(NPIV,8)
+        ENDIF
       ENDIF
-      IF ( TYPE .EQ. 2 ) THEN
-        IF (LDLT.EQ.0) THEN
-          SIZECB = int(NELIM,8) * int(LCONT,8)
-        ELSE
-          IF (KEEP(219).NE.0.AND.KEEP(50).EQ.2) THEN
-            SIZECB = int(NELIM+1,8) * int(NELIM + NPIV,8)
-          ELSE
-            SIZECB = int(NELIM,8) * int(NELIM + NPIV,8)
-          ENDIF
-        ENDIF
-      ELSE
-        LR_ACTIVATED =  (IW(IOLDPS+XXLR).GT.0)
-        IF (LDLT.EQ.0) THEN
-         CALL ZMUMPS_SET_PARPIVT1 ( INODE, NFRONT, NELIM+NPIV, 
-     &     KEEP, LR_ACTIVATED, PARPIV_T1) 
-         IF (PARPIV_T1.EQ.0) THEN
-          SIZECB = int(LCONT,8) * int(LCONT,8)
-         ELSE
-          SIZECB = int(LCONT,8) * int(LCONT,8) + int(NELIM + NPIV,8)
-         ENDIF
-        ELSE
-         CALL ZMUMPS_SET_PARPIVT1 ( INODE, NFRONT, NELIM+NPIV, 
-     &     KEEP, LR_ACTIVATED, PARPIV_T1) 
-         IF (PARPIV_T1.EQ.0) THEN
-           SIZECB = int(NROW,8) * int(LCONT,8)
-         ELSE
-           SIZECB = int(NROW,8) * int(LCONT,8) + int(NELIM + NPIV,8)
-         ENDIF
-        ENDIF
-      END IF
+      CALL MUMPS_GETI8(SIZEXXR, IW(IOLDPS+XXR))
+      SIZECB = SIZEXXR - SIZELU
       CALL MUMPS_SUBTRI8TOARRAY( IW(IOLDPS+XXR), SIZECB )
       IF ((KEEP(201).NE.0)
      &     .OR.(LRCOMPRESS_PANEL.AND.KEEP(486).EQ.2)
@@ -339,12 +315,12 @@ C
           CALL MUMPS_SET_IERROR(LREQA - LRLUS, IERROR)
           GO TO 700
         END IF
-        CALL ZMUMPS_COMPRE_NEW( N,KEEP(28), IW, LIW, A, LA,
+        CALL ZMUMPS_COMPRE_NEW( N, KEEP, IW, LIW, A, LA,
      &        LRLU, IPTRLU,
      &        IWPOS,IWPOSCB, PTRIST, PTRAST,
-     &        STEP, PIMASTER, PAMASTER, KEEP(216),LRLUS,
+     &        STEP, PIMASTER, PAMASTER, LRLUS,
      &        KEEP(IXSZ), COMP, DKEEP(97),
-     &        MYID, SLAVEF, KEEP(199), PROCNODE_STEPS, DAD )
+     &        MYID, SLAVEF, PROCNODE_STEPS, DAD )
         IF ( LRLU .NE. LRLUS ) THEN
                WRITE(*,*) 'PB compress ZMUMPS_STACK_BAND:LRLU,LRLUS=',
      &         LRLU, LRLUS
@@ -485,7 +461,6 @@ C
       USE ZMUMPS_DYNAMIC_MEMORY_M, ONLY : ZMUMPS_DM_SET_PTR,
      &                                    ZMUMPS_DM_FREE_BLOCK
       IMPLICIT NONE
-      include 'mumps_headers.h'
       INTEGER(8) :: LRLU, LRLUS, IPTRLU, LA
       INTEGER ISON, MYID, N, IWPOSCB, TYPE_SON
       INTEGER KEEP(500), STEP(N)
@@ -498,8 +473,11 @@ C
       INTEGER ISTCHK
       INTEGER(8) :: DYN_SIZE
       COMPLEX(kind=8), DIMENSION(:), POINTER :: FORTRAN_POINTER
+      INTEGER :: XXG_STATUS
+      INCLUDE 'mumps_headers.h'
       ISTCHK = PTRIST(STEP(ISON))
       CALL MUMPS_GETI8( DYN_SIZE, IW(ISTCHK+XXD) )
+      XXG_STATUS = IW(ISTCHK+XXG)
       IF (DYN_SIZE .GT. 0_8) THEN
         CALL ZMUMPS_DM_SET_PTR( PTRAST(STEP(ISON)), 
      &       DYN_SIZE, FORTRAN_POINTER )
@@ -508,6 +486,10 @@ C
      &     IW, LIW, LRLU, LRLUS, IPTRLU,
      &     IWPOSCB, LA, KEEP,KEEP8, .FALSE.
      &     )
+      IF (DYN_SIZE .GT. 0_8) THEN
+        CALL ZMUMPS_DM_FREE_BLOCK(XXG_STATUS, FORTRAN_POINTER, DYN_SIZE,
+     &                            KEEP(405).EQ.1, KEEP8 )
+      ENDIF
       PTRIST(STEP( ISON )) = -9999888
       PTRAST(STEP( ISON )) = -9999888_8
       RETURN
@@ -515,6 +497,7 @@ C
       SUBROUTINE ZMUMPS_MEM_ESTIM_BLR_ALL( SUM_OF_PEAKS, KEEP, KEEP8,
      &           MYID, COMM, N, NELT, NA, LNA, NNZ8, NA_ELT8, NSLAVES,
      &           INFO, INFOG, PROK, MP, PROKG, MPG
+     &           , I8_L0_OMP, NBSTATS_I8, NBCOLS_I8
      &            )
       IMPLICIT NONE
       LOGICAL, INTENT(IN)   :: PROK, PROKG, SUM_OF_PEAKS
@@ -524,12 +507,16 @@ C
       INTEGER, INTENT(IN):: NA(LNA)
       INTEGER    :: KEEP(500), INFO(80), INFOG(80)
       INTEGER(8) :: KEEP8(150)
+      INTEGER, INTENT(IN)    :: NBSTATS_I8, NBCOLS_I8
+      INTEGER(8), INTENT(IN) :: I8_L0_OMP (NBSTATS_I8, NBCOLS_I8)
       INTEGER, PARAMETER :: MASTER = 0
       INTEGER    :: OOC_STAT, BLR_STRAT, BLR_CASE
       INTEGER    :: IRANK
       LOGICAL    :: EFF, PERLU_ON, COMPUTE_MAXAVG
       INTEGER(8) :: TOTAL_BYTES
       INTEGER    :: TOTAL_MBYTES
+      INTEGER(8) :: TOTAL_BYTES_UNDER_L0
+      INTEGER    :: TOTAL_MBYTES_UNDER_L0
       INTEGER, DIMENSION(3) :: LRLU_UD, OOC_LRLU_UD
       PERLU_ON  = .TRUE.     
       EFF       = .FALSE.    
@@ -550,7 +537,20 @@ C
      &        OOC_STAT, BLR_STRAT, PERLU_ON, TOTAL_BYTES, 
      &        BLR_CASE, SUM_OF_PEAKS, .FALSE. , 
      &        .FALSE. 
+     &        , I8_L0_OMP, NBSTATS_I8, NBCOLS_I8
      &         )
+      IF (KEEP(400) .GT. 0 ) THEN 
+        CALL ZMUMPS_MAX_MEM( KEEP(1), KEEP8(1),
+     &         MYID, N, NELT, NA(1), LNA, KEEP8(28),
+     &         KEEP8(30), NSLAVES, TOTAL_MBYTES_UNDER_L0, EFF, 
+     &         OOC_STAT, BLR_STRAT, PERLU_ON, TOTAL_BYTES_UNDER_L0, 
+     &         BLR_CASE, SUM_OF_PEAKS, .FALSE. , 
+     &         .TRUE. 
+     &         , I8_L0_OMP, NBSTATS_I8, NBCOLS_I8
+     &          )
+        TOTAL_MBYTES = max (TOTAL_MBYTES,TOTAL_MBYTES_UNDER_L0) 
+        TOTAL_BYTES  = max (TOTAL_BYTES, TOTAL_BYTES_UNDER_L0)
+      ENDIF
       CALL MUMPS_MEM_CENTRALIZE( MYID, COMM,
      &                           TOTAL_MBYTES, LRLU_UD, IRANK )
       IF (SUM_OF_PEAKS) THEN
@@ -586,7 +586,20 @@ C
      &        OOC_STAT, BLR_STRAT, PERLU_ON, TOTAL_BYTES, 
      &        BLR_CASE, SUM_OF_PEAKS, .FALSE. , 
      &        .FALSE. 
+     &        , I8_L0_OMP, NBSTATS_I8, NBCOLS_I8
      &         )
+      IF (KEEP(400) .GT. 0 ) THEN 
+         CALL ZMUMPS_MAX_MEM( KEEP(1), KEEP8(1),
+     &        MYID, N, NELT, NA(1), LNA, KEEP8(28),
+     &        KEEP8(30), NSLAVES, TOTAL_MBYTES_UNDER_L0, EFF, 
+     &        OOC_STAT, BLR_STRAT, PERLU_ON, TOTAL_BYTES_UNDER_L0, 
+     &        BLR_CASE, SUM_OF_PEAKS, .FALSE. , 
+     &        .TRUE. 
+     &          , I8_L0_OMP, NBSTATS_I8, NBCOLS_I8
+     &        )
+         TOTAL_MBYTES = max (TOTAL_MBYTES,TOTAL_MBYTES_UNDER_L0) 
+         TOTAL_BYTES  = max (TOTAL_BYTES, TOTAL_BYTES_UNDER_L0)
+      ENDIF
       CALL MUMPS_MEM_CENTRALIZE( MYID, COMM,
      &                             TOTAL_MBYTES, OOC_LRLU_UD, IRANK )
       IF (SUM_OF_PEAKS) THEN
@@ -620,6 +633,7 @@ C
      &           MEMORY_BYTES, 
      &           BLR_CASE, SUM_OF_PEAKS, MEM_EFF_ALLOCATED,
      &           UNDER_L0_OMP
+     &           , I8_L0_OMP, NBSTATS_I8, NBCOLS_I8
      &           )
       IMPLICIT NONE
       LOGICAL, INTENT(IN)    :: EFF, PERLU_ON, UNDER_L0_OMP
@@ -634,6 +648,8 @@ C
       INTEGER, INTENT(IN)    :: BLR_CASE
       LOGICAL, INTENT(IN)    :: SUM_OF_PEAKS
       LOGICAL, INTENT(IN)    :: MEM_EFF_ALLOCATED 
+      INTEGER, INTENT(IN)    :: NBSTATS_I8, NBCOLS_I8
+      INTEGER(8), INTENT(IN) :: I8_L0_OMP (NBSTATS_I8, NBCOLS_I8)
       INTEGER  :: MUMPS_GET_POOL_LENGTH
       EXTERNAL :: MUMPS_GET_POOL_LENGTH
       INTEGER(8) :: MemEstimGlobal
@@ -655,6 +671,12 @@ C
      &              SUM_NRLADU_if_LR_LU_underL0, 
      &              SUM_NRLADULR_UD_underL0, 
      &              SUM_NRLADULR_WC_underL0
+      INTEGER(8) :: MIN_NRLADU_underL0, MIN_NRLADU_if_LR_LU_underL0
+      INTEGER    :: ITH, ITHMIN, ITHMIN_if_LRLU
+      INTEGER(8) ::  I8_L0_OMP_2, I8_L0_OMP_3, 
+     &               I8_L0_OMP_5, I8_L0_OMP_6, I8_L0_OMP_7, 
+     &               I8_L0_OMP_8, I8_L0_OMP_9, I8_L0_OMP_10, 
+     &               I8_L0_OMP_11, I8_L0_OMP_12, I8_L0_OMP_13
       I8OVERI   = int(KEEP(10),8)
       PERLU     = KEEP(12)
       NSTEPS8   = int(KEEP(28),8)
@@ -675,9 +697,9 @@ C
       NB_INT = NB_INT + 3_8 * N8
       IF (KEEP(23).ne.0 .and. I_AM_MASTER) NB_INT=NB_INT + N8
       IF (KEEP(55).eq.0) THEN
-        NB_INT = NB_INT + 2_8 * N8
+        NB_INT = NB_INT + 2_8 * N8 * I8OVERI
       ELSE
-        NB_INT = NB_INT + 2_8 * ( NELT8 + 1_8 )
+        NB_INT = NB_INT + 2_8 * ( NELT8 + 1_8 ) * I8OVERI
       ENDIF
       IF (KEEP(55) .ne. 0 ) THEN
         NB_INT = NB_INT + N8 + 1_8 + NELT8
@@ -685,11 +707,105 @@ C
       NB_INT = NB_INT + int(LNA,8)
       IF ( .NOT. EFF ) THEN
        IF (I_AM_SLAVE) THEN
+        IF (UNDER_L0_OMP) THEN
+          I8_L0_OMP_2 = 0_8
+          I8_L0_OMP_3 = 0_8
+          MIN_NRLADU_if_LR_LU_underL0 = I8_L0_OMP(4,1)
+          MIN_NRLADU_underL0          = I8_L0_OMP(1,1)
+          ITHMIN         = 1
+          ITHMIN_if_LRLU = 1
+          DO ITH=1, KEEP(400)
+           IF (I8_L0_OMP(1,ITH).LT.MIN_NRLADU_underL0)
+     &      THEN
+             MIN_NRLADU_underL0 = I8_L0_OMP(1,ITH)
+             ITHMIN = ITH
+           ENDIF
+           IF (I8_L0_OMP(4,ITH).LT.MIN_NRLADU_if_LR_LU_underL0) 
+     &      THEN
+            MIN_NRLADU_if_LR_LU_underL0 = I8_L0_OMP(4,ITH)
+            ITHMIN_if_LRLU = ITH
+           ENDIF
+           I8_L0_OMP_2=I8_L0_OMP_2 + I8_L0_OMP(2,ITH)
+           I8_L0_OMP_3=I8_L0_OMP_3 + I8_L0_OMP(3,ITH)
+          ENDDO
+          IF (SUM_OF_PEAKS.AND.BLR_STRAT.GT.0) THEN
+            I8_L0_OMP_5 = 0_8
+            I8_L0_OMP_6 = 0_8
+            I8_L0_OMP_7 = 0_8
+            I8_L0_OMP_8 = 0_8
+            I8_L0_OMP_9 = 0_8
+            I8_L0_OMP_10= 0_8
+            I8_L0_OMP_11= 0_8
+            I8_L0_OMP_12= 0_8
+            I8_L0_OMP_13= 0_8
+            DO ITH=1, KEEP(400)
+             I8_L0_OMP_5 =  I8_L0_OMP_5 + I8_L0_OMP(5,ITH)
+             I8_L0_OMP_6 =  I8_L0_OMP_6 + I8_L0_OMP(6,ITH)
+             I8_L0_OMP_7 =  I8_L0_OMP_7 + I8_L0_OMP(7,ITH)
+             I8_L0_OMP_8 =  I8_L0_OMP_8 + I8_L0_OMP(8,ITH)
+             I8_L0_OMP_9 =  I8_L0_OMP_9 + I8_L0_OMP(9,ITH)
+             I8_L0_OMP_10= I8_L0_OMP_10+ I8_L0_OMP(10,ITH)
+             I8_L0_OMP_11= I8_L0_OMP_11+ I8_L0_OMP(11,ITH)
+             I8_L0_OMP_12= I8_L0_OMP_12+ I8_L0_OMP(12,ITH)
+             I8_L0_OMP_13= I8_L0_OMP_13+ I8_L0_OMP(13,ITH)
+            ENDDO
+          ENDIF
+          CALL ZMUMPS_SET_MEMESTIMGLOBAL (
+     &         OOC_STRAT, BLR_STRAT, BLR_CASE, SUM_OF_PEAKS,
+     &         KEEP8, 
+     &         0_8, 0_8, 0_8, 0_8,
+     &         I8_L0_OMP_2, 
+     &         I8_L0_OMP_3, 
+     &         I8_L0_OMP_5, 
+     &         I8_L0_OMP_6, 
+     &         I8_L0_OMP_7, 
+     &         I8_L0_OMP_8, 
+     &         I8_L0_OMP_9, 
+     &         I8_L0_OMP_10, 
+     &         I8_L0_OMP_11, 
+     &         I8_L0_OMP_12, 
+     &         I8_L0_OMP_13, 
+     &         MemEstimGlobal 
+     &         )
+          IF (BLR_STRAT.EQ.0) THEN 
+            IF ( OOC_STRAT .LE. 0 .AND. OOC_STRAT .NE. -1 ) THEN
+              MemEstimGlobal = MemEstimGlobal + 
+     &         I8_L0_OMP(1,ITHMIN) +  
+     &         I8_L0_OMP(23, ITHMIN)  
+            ELSE 
+              MemEstimGlobal = MemEstimGlobal + 
+     &         I8_L0_OMP(23, ITHMIN)  
+            ENDIF
+          ELSE 
+            IF ( OOC_STRAT .LE. 0 .AND. OOC_STRAT .NE. -1 ) THEN
+              MemEstimGlobal = MemEstimGlobal + 
+     &        I8_L0_OMP(4,ITHMIN_if_LRLU) + 
+     &        I8_L0_OMP(23, ITHMIN_if_LRLU) 
+            ELSE
+              MemEstimGlobal = MemEstimGlobal + 
+     &        I8_L0_OMP(23, ITHMIN_if_LRLU) 
+            ENDIF
+          ENDIF
+          NB_REAL = NB_REAL + MemEstimGlobal +
+     &            int(PERLU,8)*(MemEstimGlobal / 100_8 + 1_8 )
+        ELSE
          IF ( KEEP8(24).EQ.0_8 ) THEN
             SUM_NRLADU_underL0          = 0_8
             SUM_NRLADU_if_LR_LU_underL0 = 0_8
             SUM_NRLADULR_UD_underL0     = 0_8
             SUM_NRLADULR_WC_underL0     = 0_8
+           IF (KEEP(400) .GT. 0 ) THEN 
+             DO ITH=1, KEEP(400)
+               SUM_NRLADU_underL0 = 
+     &           SUM_NRLADU_underL0          + I8_L0_OMP(1,ITH)
+               SUM_NRLADU_if_LR_LU_underL0 = 
+     &           SUM_NRLADU_if_LR_LU_underL0 + I8_L0_OMP(4,ITH)
+               SUM_NRLADULR_UD_underL0 = 
+     &           SUM_NRLADULR_UD_underL0 + I8_L0_OMP(9,ITH)
+               SUM_NRLADULR_WC_underL0 = 
+     &           SUM_NRLADULR_WC_underL0 + I8_L0_OMP(10,ITH)
+             ENDDO
+           ENDIF
            CALL ZMUMPS_SET_MEMESTIMGLOBAL (
      &          OOC_STRAT, BLR_STRAT, BLR_CASE, SUM_OF_PEAKS,
      &          KEEP8, 
@@ -724,6 +840,7 @@ C
      &             int(PERLU,8)*(MemEstimGlobal / 100_8 + 1_8 )
            ENDIF
          ENDIF
+        ENDIF
        ELSE
            NB_REAL = NB_REAL + 1_8
        ENDIF
@@ -831,15 +948,9 @@ C
         ELSE
           MIN_PERLU=0
         ENDIF
-        IF (KEEP(489).GT.0) THEN
-          ZMUMPS_LBUFR_BYTES8 = ZMUMPS_LBUFR_BYTES8
-     &        + int( 0.5D0 * dble(max(PERLU,MIN_PERLU))*
-     &        dble(ZMUMPS_LBUFR_BYTES8)/100D0,8)
-        ELSE
-          ZMUMPS_LBUFR_BYTES8 = ZMUMPS_LBUFR_BYTES8
+        ZMUMPS_LBUFR_BYTES8 = ZMUMPS_LBUFR_BYTES8
      &        + int( 2.0D0 * dble(max(PERLU,MIN_PERLU))*
      &        dble(ZMUMPS_LBUFR_BYTES8)/100D0,8)
-        ENDIF
         ZMUMPS_LBUFR_BYTES8 = min(ZMUMPS_LBUFR_BYTES8,
      &                            int(huge (KEEP(43))-100,8))
         NB_BYTES = NB_BYTES + ZMUMPS_LBUFR_BYTES8
@@ -866,16 +977,25 @@ C
         NB_BYTES = NB_BYTES + int(ZMUMPS_LBUF_INT,8)
         IF (.NOT.EFF) THEN
           IF (UNDER_L0_OMP) THEN
-            NB_INT = NB_INT + N8*KEEP(400)
+            NB_INT = NB_INT + N8*int(KEEP(400),8)
+            NB_INT = NB_INT + 
+     &       int(MUMPS_GET_POOL_LENGTH(NA(1), KEEP, KEEP8),8)*
+     &       int(KEEP(400),8)
+          ELSE
+            IF (KEEP(400).GT.0) THEN
+              NB_INT = NB_INT + 
+     &         int(MUMPS_GET_POOL_LENGTH(NA(1), KEEP, KEEP8),8)*
+     &         int(KEEP(400),8)
+            ENDIF
           ENDIF
           IF (OOC_STRAT .GT. 0) THEN
              NB_INT = NB_INT +  int(
-     &            KEEP(138) + 2 * max(PERLU,10) *
+     &            KEEP(138) + 3 * max(PERLU,10) *
      &            ( KEEP(138) / 100 + 1 )
      &                               ,8)
           ELSE
              NB_INT = NB_INT +  int(
-     &            KEEP(137) + 2 * max(PERLU,10) *
+     &            KEEP(137) + 3 * max(PERLU,10) *
      &            ( KEEP(137) / 100 + 1 )
      &                               ,8)
           ENDIF
@@ -1124,6 +1244,7 @@ C
      &           BLR_STRAT, OOC_STRAT, MAXS_ESTIM_RELAXED8,
      &           KEEP, KEEP8, MYID, N, NELT, NA, LNA, 
      &           NSLAVES, ICNTL38, ICNTL39, IFLAG, IERROR
+     &           , I8_L0_OMP, NBSTATS_I8, NBCOLS_I8
      &           )
       IMPLICIT NONE
       INTEGER(8), INTENT(OUT)    :: MAXS
@@ -1135,6 +1256,8 @@ C
       INTEGER(8), INTENT(INOUT) :: KEEP8(150)
       INTEGER, INTENT(IN)    :: MYID, N, NELT, NSLAVES, LNA
       INTEGER, INTENT(IN)    :: NA(LNA), ICNTL38, ICNTL39
+      INTEGER, INTENT(IN)    :: NBSTATS_I8, NBCOLS_I8
+      INTEGER(8), INTENT(IN) :: I8_L0_OMP (NBSTATS_I8, NBCOLS_I8)
       INTEGER(8) :: SMALLER_MAXS, UPDATED_DIFF
       LOGICAL    :: EFF, PERLU_ON, SUM_OF_PEAKS
       INTEGER    :: BLR_CASE
@@ -1159,9 +1282,15 @@ C
      &        BLR_STRAT, PERLU_ON, TOTAL_BYTES, 
      &        BLR_CASE, SUM_OF_PEAKS, .FALSE. , 
      &        .FALSE. 
+     &        , I8_L0_OMP, NBSTATS_I8, NBCOLS_I8
      &         )
       MEM_DISPO_BYTES = MEM_ALLOWED_BYTES-TOTAL_BYTES
-      MEM_DISPO       = MEM_DISPO_BYTES/int(KEEP(35),8)
+      IF (MEM_DISPO_BYTES.GT.0) THEN
+       MEM_DISPO       = MEM_DISPO_BYTES/int(KEEP(35),8)
+      ELSE
+       MEM_DISPO       = (MEM_DISPO_BYTES-int(KEEP(35),8)+1)/
+     &                         int(KEEP(35),8) 
+      ENDIF
       IF (BLR_STRAT.EQ.0) THEN
            UPDATED_DIFF = 0_8
       ELSE IF (BLR_STRAT.EQ.1) THEN
@@ -1208,7 +1337,7 @@ C
       MAXS        = MAXS_ESTIM_RELAXED8
       MEM_DISPO_NR = 0_8
       IF ( (MEM_DISPO.LT.0) .AND. MAXS_ESTIM_RELAXED8.GT. 
-     &    (KEEP8(4)/int(KEEP(35),8)) ) THEN
+     &    (MEM_ALLOWED_BYTES/int(KEEP(35),8)) ) THEN
          PERLU_ON     = .FALSE.
              CALL ZMUMPS_MAX_MEM( KEEP(1), KEEP8(1),
      &        MYID, N, NELT, NA(1), LNA,
@@ -1217,6 +1346,7 @@ C
      &        BLR_STRAT, PERLU_ON, TOTAL_BYTES_NR, 
      &        BLR_CASE, SUM_OF_PEAKS, .FALSE., 
      &        .FALSE. 
+     &        , I8_L0_OMP, NBSTATS_I8, NBCOLS_I8
      &         )
          MEM_DISPO_BYTES_NR = MEM_ALLOWED_BYTES-TOTAL_BYTES_NR
          MEM_DISPO_NR       = 
@@ -1253,7 +1383,7 @@ C
               MAXS = MAXS_ESTIM_RELAXED8+(MEM_DISPO/2_8)
             ENDIF
            ELSE
-              MAXS = MAXS_ESTIM_RELAXED8 + MEM_DISPO
+              MAXS = MAXS_ESTIM_RELAXED8 + MEM_DISPO 
            ENDIF
       ELSE IF (BLR_STRAT.EQ.1)  THEN
           IF ( MEM_DISPO .LT. 0) THEN
@@ -1288,13 +1418,6 @@ C
           CALL MUMPS_SET_IERROR(MAXS_ESTIM_RELAXED8-MAXS,IERROR)
          ENDIF
       ENDIF
-       CALL  ZMUMPS_MEM_ALLOWED_SET_K75 ( 
-     &           MAXS, MYID, 
-     &           .FALSE., 
-     &           N, NELT, NA, LNA, NSLAVES,
-     &           BLR_STRAT, OOC_STRAT, 
-     &           KEEP, KEEP8, IFLAG, IERROR
-     &           )
  500  CONTINUE
       RETURN
       END SUBROUTINE ZMUMPS_MEM_ALLOWED_SET_MAXS
@@ -1303,6 +1426,7 @@ C
      &           N, NELT, NA, LNA, NSLAVES,
      &           BLR_STRAT, OOC_STRAT, 
      &           KEEP, KEEP8, IFLAG, IERROR
+     &           , I8_L0_OMP, NBSTATS_I8, NBCOLS_I8
      &           )
       IMPLICIT NONE
       INTEGER(8), INTENT(IN)    :: MAXS
@@ -1312,6 +1436,8 @@ C
       INTEGER, INTENT(IN)       :: NA(LNA), KEEP(500)
       INTEGER(8), INTENT(INOUT) :: KEEP8(150)
       INTEGER, INTENT(INOUT)    :: IFLAG, IERROR
+      INTEGER, INTENT(IN)    :: NBSTATS_I8, NBCOLS_I8
+      INTEGER(8), INTENT(IN) :: I8_L0_OMP (NBSTATS_I8, NBCOLS_I8)
       INTEGER(8) :: KEEP8_23_SAVETMP, TOTAL_BYTES
       INTEGER    :: TOTAL_MBYTES
       LOGICAL    :: PERLU_ON, MEM_EFF_ALLOCATED, EFF
@@ -1331,6 +1457,7 @@ C
      &    BLR_STRAT, PERLU_ON, TOTAL_BYTES,
      &    IDUMMY, BDUMMY , MEM_EFF_ALLOCATED,
      &    UNDER_L0_OMP
+     &        , I8_L0_OMP, NBSTATS_I8, NBCOLS_I8
      &    )
       KEEP8(23) = KEEP8_23_SAVETMP
       KEEP8(75) = KEEP8(4) - TOTAL_BYTES
@@ -1341,6 +1468,102 @@ C
       ENDIF
       RETURN
       END SUBROUTINE ZMUMPS_MEM_ALLOWED_SET_K75
+      SUBROUTINE ZMUMPS_L0_COMPUTE_PEAK_AUTHORIZED (
+     &           MYID, N,
+     &           NELT, NA, LNA, NSLAVES,
+     &           BLR_STRAT, OOC_STRAT, 
+     &           KEEP, KEEP8, IFLAG, IERROR
+     &           , I8_L0_OMP, NBSTATS_I8, NBCOLS_I8
+     &           )
+      IMPLICIT NONE
+      INTEGER, INTENT(IN)       :: MYID, N, NELT, LNA, NSLAVES, 
+     &                             BLR_STRAT, OOC_STRAT
+      INTEGER, INTENT(IN)       :: NA(LNA), KEEP(500)
+      INTEGER(8), INTENT(INOUT) :: KEEP8(150)
+      INTEGER, INTENT(INOUT)    :: IFLAG, IERROR
+      INTEGER, INTENT(IN)    :: NBSTATS_I8, NBCOLS_I8
+      INTEGER(8), INTENT(IN) :: I8_L0_OMP (NBSTATS_I8, NBCOLS_I8)
+      INTEGER(8) :: KEEP8_23_SAVETMP, TOTAL_BYTES, TOTAL_STATIC,
+     &              TOTAL_ABOVE, TOTAL_UNDER
+      INTEGER(8) :: EXTRA_MEM, MIN_NRLADU_underL0, 
+     &              MIN_NRLADU_if_LR_LU_underL0
+      INTEGER    :: TOTAL_MBYTES
+      LOGICAL    :: PERLU_ON, MEM_EFF_ALLOCATED, EFF
+      LOGICAL    :: UNDER_L0_OMP, SUM_OF_PEAKS
+      INTEGER    :: BLR_CASE, ITH
+      INTEGER, PARAMETER :: IDUMMY = -9999
+      LOGICAL, PARAMETER :: BDUMMY =.FALSE.
+      KEEP8_23_SAVETMP = KEEP8(23)
+      KEEP8(23)        = 0_8
+      UNDER_L0_OMP      = .TRUE.
+      PERLU_ON          = .TRUE.
+      MEM_EFF_ALLOCATED = .TRUE.
+      EFF               = .TRUE.
+      KEEP8(74) = 0_8 
+      KEEP8(63) = 0_8
+      CALL ZMUMPS_MAX_MEM( KEEP(1), KEEP8(1),
+     &    MYID, N, NELT, NA(1), LNA, KEEP8(28),
+     &    KEEP8(30),
+     &    NSLAVES, TOTAL_MBYTES, EFF , KEEP(201),
+     &    BLR_STRAT, PERLU_ON, TOTAL_BYTES,
+     &    IDUMMY, BDUMMY , MEM_EFF_ALLOCATED,
+     &    UNDER_L0_OMP
+     &        , I8_L0_OMP, NBSTATS_I8, NBCOLS_I8
+     &    )
+      TOTAL_STATIC = TOTAL_BYTES
+      KEEP8(23) = KEEP8_23_SAVETMP
+      MEM_EFF_ALLOCATED = .FALSE.
+      EFF               = .FALSE.
+      BLR_CASE          = 2 
+      SUM_OF_PEAKS      = .TRUE.
+      UNDER_L0_OMP      = .FALSE.
+      CALL ZMUMPS_MAX_MEM( KEEP(1), KEEP8(1),
+     &    MYID, N, NELT, NA(1), LNA, KEEP8(28),
+     &    KEEP8(30),
+     &    NSLAVES, TOTAL_MBYTES, EFF , KEEP(201),
+     &    BLR_STRAT, PERLU_ON, TOTAL_BYTES,
+     &    BLR_CASE, SUM_OF_PEAKS , MEM_EFF_ALLOCATED,
+     &    UNDER_L0_OMP
+     &        , I8_L0_OMP, NBSTATS_I8, NBCOLS_I8
+     &    )
+       TOTAL_ABOVE = TOTAL_BYTES
+      IF (PERLU_ON.AND.KEEP(201).LE.0) THEN
+       IF (BLR_STRAT.GT.0) THEN
+         MIN_NRLADU_if_LR_LU_underL0 = I8_L0_OMP(4,1)
+         DO ITH=1, KEEP(400)
+            MIN_NRLADU_if_LR_LU_underL0 = min (
+     &                   MIN_NRLADU_if_LR_LU_underL0, I8_L0_OMP(4,ITH)
+     &                   )
+         ENDDO
+         EXTRA_MEM = int(KEEP(12),8)*
+     &           ( MIN_NRLADU_if_LR_LU_underL0 / 100_8 + 1_8 )
+       ELSE
+         MIN_NRLADU_underL0 = I8_L0_OMP(1,1)
+         DO ITH=1, KEEP(400)
+           MIN_NRLADU_underL0 = min ( 
+     &                   MIN_NRLADU_underL0, I8_L0_OMP(1,ITH)
+     &                   )
+         ENDDO
+         EXTRA_MEM = int(KEEP(12),8)*
+     &           ( MIN_NRLADU_underL0 / 100_8 + 1_8 )
+       ENDIF
+       TOTAL_ABOVE = TOTAL_ABOVE + EXTRA_MEM
+      ENDIF
+      UNDER_L0_OMP      = .TRUE.
+      CALL ZMUMPS_MAX_MEM( KEEP(1), KEEP8(1),
+     &    MYID, N, NELT, NA(1), LNA, KEEP8(28),
+     &    KEEP8(30),
+     &    NSLAVES, TOTAL_MBYTES, EFF , KEEP(201),
+     &    BLR_STRAT, PERLU_ON, TOTAL_BYTES,
+     &    BLR_CASE, SUM_OF_PEAKS , MEM_EFF_ALLOCATED,
+     &    UNDER_L0_OMP
+     &        , I8_L0_OMP, NBSTATS_I8, NBCOLS_I8
+     &    )
+       TOTAL_UNDER = TOTAL_BYTES
+       KEEP8(77) = ( max(TOTAL_UNDER,TOTAL_ABOVE) - TOTAL_STATIC )
+     &             / int(KEEP(35),8)
+      RETURN
+      END SUBROUTINE ZMUMPS_L0_COMPUTE_PEAK_AUTHORIZED
       SUBROUTINE ZMUMPS_SETMAXTOZERO(M_ARRAY, M_SIZE)
       IMPLICIT NONE
       INTEGER M_SIZE
@@ -1778,7 +2001,8 @@ C
      &        LWORK, RWORK, BLOCK,
      &        MAXI_CLUSTER, NELIM, 
      &        LBANDSLAVE, NPIV, ISHIFT, NIV, KPERCENT, 
-     &        KEEP8, OMP_NUM
+     &        KEEP8, 
+     &        OMP_NUM 
      &        )
       USE ZMUMPS_LR_TYPE, ONLY : LRB_TYPE
       USE ZMUMPS_FAC_LR, ONLY : ZMUMPS_COMPRESS_PANEL
@@ -1786,7 +2010,7 @@ C
       INTEGER(8), intent(in)       :: LA, POSELT
       INTEGER, intent(in)          :: NFRONT, NB_BLR, CURRENT_BLR, NIV
       INTEGER, intent(in)          :: OMP_NUM
-      INTEGER, intent(inout)          :: IFLAG, IERROR
+      INTEGER, intent(inout)       :: IFLAG, IERROR
       TYPE(LRB_TYPE), intent(inout) :: BLR_PANEL(NB_BLR-CURRENT_BLR)
       COMPLEX(kind=8), intent(inout)       :: A(LA)
       INTEGER :: MAXI_CLUSTER
@@ -1912,3 +2136,16 @@ C
      &        )
       RETURN
       END SUBROUTINE ZMUMPS_BLR_SLV_UPD_TRAIL_LDLT_I
+      SUBROUTINE ZMUMPS_SET_INNERBLOCKSIZE( SIZE_INNER,
+     &                                  NASS, KEEP )
+      IMPLICIT NONE
+      INTEGER :: SIZE_INNER, NASS, KEEP(500)
+      IF (NASS.LT.KEEP(4)) THEN
+        SIZE_INNER = NASS
+      ELSE IF (NASS .GT. KEEP(3)) THEN
+        SIZE_INNER = min( KEEP(6), NASS )
+      ELSE
+        SIZE_INNER = min( KEEP(5), NASS )
+      ENDIF
+      RETURN
+      END SUBROUTINE ZMUMPS_SET_INNERBLOCKSIZE

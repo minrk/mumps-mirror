@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -588,10 +588,10 @@ C
       ENDIF
       IF (CB_IS_LR) THEN
         CALL SMUMPS_BLR_FREE_CB_LRB(IWXXF_HANDLER,
-     &             .FALSE., 
-     &             KEEP8)
+     &             .FALSE., KEEP8, KEEP(34))
         IF ((KEEP(486).EQ.3).OR.KEEP(486).EQ.0) THEN
-         CALL SMUMPS_BLR_END_FRONT(IWXXF_HANDLER, IFLAG, KEEP8)
+         CALL SMUMPS_BLR_END_FRONT(IWXXF_HANDLER, IFLAG, KEEP8, 
+     &                             KEEP(34))
         ENDIF
       ENDIF
       IF (KEEP(214) .EQ. 2) THEN
@@ -728,6 +728,7 @@ C
       REAL :: ADummy(1)
       REAL, ALLOCATABLE :: A_TEMP(:)
       TYPE (LRB_TYPE), POINTER :: CB_LRB(:,:)
+      INTEGER :: XXG_STATUS
       INCLUDE 'mumps_headers.h'
       INTEGER MUMPS_PROCNODE, MUMPS_TYPENODE
       EXTERNAL MUMPS_PROCNODE, MUMPS_TYPENODE
@@ -908,6 +909,8 @@ C
      &               min(NROWS_TO_STACK-NROWS_ALREADY_STACKED,
      &                   CURRENT_PANEL_SIZE-PANEL_BEG_OFFSET)
           LA_TEMP = CURRENT_PANEL_SIZE*NBCOLS
+          CALL MUMPS_DM_FAC_UPD_DYN_MEMCNTS(LA_TEMP,
+     &        .FALSE., KEEP8, IFLAG, IERROR, .TRUE., .TRUE.)
           allocate(A_TEMP(LA_TEMP),stat=allocok)
           IF (allocok.GT.0) THEN
              CALL MUMPS_SETI8TOI4(LA_TEMP,IERROR)
@@ -988,6 +991,8 @@ C
         ENDDO
         IF (CB_IS_LR.AND.NROWS_TO_STACK.GT.0) THEN
           deallocate(A_TEMP)
+          CALL MUMPS_DM_FAC_UPD_DYN_MEMCNTS(-LA_TEMP,
+     &        .FALSE., KEEP8, IFLAG, IERROR, .TRUE., .TRUE.)
           NROWS_ALREADY_STACKED = NROWS_ALREADY_STACKED 
      &                  + NROWS_TO_STACK_LOC
           IF (NROWS_ALREADY_STACKED.LT.NROWS_TO_STACK) THEN
@@ -1178,12 +1183,13 @@ C
          CALL MUMPS_ABORT()
       ENDIF
       CALL MUMPS_GETI8(DYNSIZE,IW(ISTCHK+XXD))
+      XXG_STATUS = IW(ISTCHK+XXG)
       CALL SMUMPS_FREE_BLOCK_CB_STATIC(.FALSE., MYID, N, ISTCHK,
      &     IW, LIW, LRLU, LRLUS, IPTRLU,
      &     IWPOSCB, LA, KEEP,KEEP8, .FALSE.
      &     )
       IF (DYNSIZE .GT. 0_8) THEN
-        CALL SMUMPS_DM_FREE_BLOCK( SON_A, DYNSIZE,
+        CALL SMUMPS_DM_FREE_BLOCK( XXG_STATUS, SON_A, DYNSIZE,
      &                             KEEP(405).EQ.1, KEEP8 )
       ENDIF
       GOTO 600 
@@ -1192,10 +1198,10 @@ C
  600  CONTINUE
       IF (CB_IS_LR) THEN
         CALL SMUMPS_BLR_FREE_CB_LRB(IW(ISTCHK+XXF),
-     &             .FALSE., 
-     &             KEEP8)
+     &             .FALSE., KEEP8, KEEP(34))
         IF ((KEEP(486).EQ.3).OR.KEEP(486).EQ.0) THEN
-         CALL SMUMPS_BLR_END_FRONT(IW(ISTCHK+XXF), IFLAG, KEEP8)
+         CALL SMUMPS_BLR_END_FRONT(IW(ISTCHK+XXF), IFLAG, KEEP8,
+     &                             KEEP(34))
         ENDIF
       ENDIF
       IF (allocated(NBROW))       DEALLOCATE(NBROW)
@@ -1240,7 +1246,7 @@ C
       INTEGER, intent(in) :: NBROW(0:NSLAVES_PERE)
       INTEGER, intent(in) :: MAP(LMAP_LOC), PERM(LMAP_LOC)
       INTEGER, intent(inout) :: IFLAG, IERROR
-      INTEGER(8), intent(in) :: KEEP8(150)
+      INTEGER(8), intent(inout) :: KEEP8(150)
       INTEGER, intent(in) :: LIW, NELT, LPTRAR
       INTEGER(8), intent(in) :: LA
       INTEGER(8), intent(inout) :: IPTRLU, LRLU, LRLUS
@@ -1269,11 +1275,13 @@ C
       INTEGER, intent(in) :: LRGROUPS(N)
       INCLUDE 'mumps_headers.h'
       INCLUDE 'mpif.h'
+      INTEGER    :: XXG_STATUS
       INTEGER    :: ISTCHK, ISTCHK_LOC, NBCOLS,
      &              NROW, NPIV, NSLSON,
      &              NFRONT, LDA_SON, NROWS_TO_STACK, II, INDICE_PERE,
      &              NOSLA, COLLIST, IPOS_IN_SLAVE, IROW_SON, ITMP,
      &              NBCOLS_EFF, DECR, NELIM
+      INTEGER    :: NB_POSTPONED
       LOGICAL    :: PACKED_CB, SAME_PROC
       INTEGER(8) :: SIZFR, POSROW, SHIFTCB_SON
       INTEGER(8) :: IACHK
@@ -1446,6 +1454,8 @@ C
      &               min(NROWS_TO_STACK-NROWS_ALREADY_STACKED,
      &                   CURRENT_PANEL_SIZE-PANEL_BEG_OFFSET) 
               LA_TEMP = CURRENT_PANEL_SIZE*NBCOLS
+              CALL MUMPS_DM_FAC_UPD_DYN_MEMCNTS(LA_TEMP,
+     &          .FALSE., KEEP8, IFLAG, IERROR, .TRUE., .TRUE.)
               allocate(A_TEMP(LA_TEMP),stat=allocok)
               IF (allocok.GT.0) THEN
                 CALL MUMPS_SETI8TOI4(LA_TEMP,IERROR)
@@ -1630,6 +1640,8 @@ C
             ENDDO
             IF (CB_IS_LR.AND.NROWS_TO_STACK.GT.0) THEN
               deallocate(A_TEMP)
+              CALL MUMPS_DM_FAC_UPD_DYN_MEMCNTS(-LA_TEMP,
+     &        .FALSE., KEEP8, IFLAG, IERROR, .TRUE., .TRUE.)
               NROWS_ALREADY_STACKED = NROWS_ALREADY_STACKED 
      &                              + NROWS_TO_STACK_LOC
               IF (NROWS_ALREADY_STACKED.LT.NROWS_TO_STACK) THEN
@@ -1709,6 +1721,7 @@ C
                    PIMASTER(STEP( ISON )) = -99999999
                  ENDIF
                  CALL MUMPS_GETI8(DYN_SIZE, IW(ISTCHK_LOC+XXD))
+                 XXG_STATUS = IW(ISTCHK_LOC+XXG)
                  IF (DYN_SIZE .GT. 0_8) THEN
                    CALL SMUMPS_DM_SET_PTR( PAMASTER(STEP(ISON)),
      &             DYN_SIZE, SON_A_MASTER )
@@ -1719,7 +1732,8 @@ C
      &            LA, KEEP,KEEP8, .FALSE.
      &            )
                  IF (DYN_SIZE .GT. 0_8) THEN
-                   CALL SMUMPS_DM_FREE_BLOCK( SON_A_MASTER, DYN_SIZE,
+                   CALL SMUMPS_DM_FREE_BLOCK( XXG_STATUS, SON_A_MASTER,
+     &                                        DYN_SIZE,
      &                                        KEEP(405).EQ.1, KEEP8 )
                  ENDIF
                ENDIF
@@ -1730,10 +1744,12 @@ C
                POSELT = PTRAST(STEP(IFATH))
                PARPIV_T1 = -999 
                LR_ACTIVATED = (IW(IOLDPS+XXLR).GT.0)
+               NB_POSTPONED = max(NFRONT - ND(STEP(IFATH)),0)
                CALL SMUMPS_PARPIVT1_SET_NVSCHUR_and_MAX (
      &           N, IFATH, IW, LIW, A, LA, KEEP, PERM,
      &            IOLDPS, POSELT, 
-     &            NFRONT_PERE, NASS_PERE, LR_ACTIVATED, PARPIV_T1)
+     &            NFRONT_PERE, NASS_PERE, LR_ACTIVATED, PARPIV_T1,
+     &            NB_POSTPONED )
              ENDIF
                CALL SMUMPS_INSERT_POOL_N( N, IPOOL, LPOOL,
      &           PROCNODE_STEPS,

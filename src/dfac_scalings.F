@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -269,7 +269,8 @@ C
      &  WRITE(MPRINT,'(A)') '  END OF ROW SCALING'
       RETURN
       END SUBROUTINE DMUMPS_FAC_X
-      SUBROUTINE DMUMPS_ANORMINF( id,  ANORMINF, LSCAL )
+      SUBROUTINE DMUMPS_ANORMINF( id,  ANORMINF, LSCAL, 
+     &            EFF_SIZE_SCHUR )
       USE DMUMPS_STRUC_DEF
       IMPLICIT NONE
       INCLUDE 'mpif.h'
@@ -277,7 +278,8 @@ C
       PARAMETER( MASTER = 0 )
       TYPE(DMUMPS_STRUC), TARGET :: id
       DOUBLE PRECISION, INTENT(OUT) :: ANORMINF
-      LOGICAL :: LSCAL
+      LOGICAL, INTENT(IN)  :: LSCAL
+      INTEGER, INTENT(IN)  :: EFF_SIZE_SCHUR
       INTEGER, DIMENSION (:), POINTER :: KEEP,INFO
       INTEGER(8), DIMENSION (:), POINTER :: KEEP8
       LOGICAL :: I_AM_SLAVE
@@ -307,13 +309,15 @@ C
               CALL DMUMPS_SOL_X(id%A(1),
      &          id%KEEP8(28), id%N,
      &          id%IRN(1), id%JCN(1),
-     &          SUMR, KEEP(1),KEEP8(1) )
+     &          SUMR, KEEP(1),KEEP8(1),
+     &          EFF_SIZE_SCHUR, id%SYM_PERM(1) )
              ELSE
               CALL DMUMPS_SCAL_X(id%A(1),
      &          id%KEEP8(28), id%N,
      &          id%IRN(1), id%JCN(1), 
      &          SUMR, KEEP(1), KEEP8(1),
-     &          id%COLSCA(1))
+     &          id%COLSCA(1), 
+     &          EFF_SIZE_SCHUR, id%SYM_PERM(1) )
              ENDIF
             ELSE
              MTYPE = 1
@@ -346,13 +350,15 @@ C
               CALL DMUMPS_SOL_X(id%A_loc(1),
      &          id%KEEP8(29), id%N,
      &          id%IRN_loc(1), id%JCN_loc(1), 
-     &          SUMR_LOC, id%KEEP(1),id%KEEP8(1) )
+     &          SUMR_LOC, id%KEEP(1),id%KEEP8(1), 
+     &          EFF_SIZE_SCHUR, id%SYM_PERM(1) )
            ELSE
               CALL DMUMPS_SCAL_X(id%A_loc(1),
      &          id%KEEP8(29), id%N,
      &          id%IRN_loc(1), id%JCN_loc(1), 
      &          SUMR_LOC, id%KEEP(1),id%KEEP8(1),
-     &          id%COLSCA(1))
+     &          id%COLSCA(1),
+     &          EFF_SIZE_SCHUR, id%SYM_PERM(1) )
            ENDIF
           ELSE
            SUMR_LOC = ZERO
@@ -369,7 +375,7 @@ C
         DEALLOCATE (SUMR_LOC)
       ENDIF
       IF ( id%MYID .eq. MASTER ) THEN
-       ANORMINF = dble(ZERO)
+        ANORMINF = dble(ZERO)
         IF (LSCAL) THEN
          DO I = 1, id%N
           ANORMINF = max(abs(id%ROWSCA(I) * SUMR(I)), 

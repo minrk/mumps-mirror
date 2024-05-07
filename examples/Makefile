@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.4.1, released
-#  on Tue Aug  3 09:49:43 UTC 2021
+#  This file is part of MUMPS 5.5.0, released
+#  on Thu Apr 14 11:45:33 UTC 2022
 #
 topdir = ..
 libdir = $(topdir)/lib
@@ -21,52 +21,45 @@ multi:	multiple_arithmetics_example
 
 include $(topdir)/Makefile.inc
 
-LIBMUMPS_COMMON = $(libdir)/libmumps_common$(PLAT)$(LIBEXT)
 
 
-LIBSMUMPS = $(libdir)/libsmumps$(PLAT)$(LIBEXT) $(LIBMUMPS_COMMON)
+LIBSMUMPS = -L$(libdir) -lsmumps$(PLAT) -lmumps_common$(PLAT)
+LIBDMUMPS = -L$(libdir) -ldmumps$(PLAT) -lmumps_common$(PLAT)
+LIBCMUMPS = -L$(libdir) -lcmumps$(PLAT) -lmumps_common$(PLAT)
+LIBZMUMPS = -L$(libdir) -lzmumps$(PLAT) -lmumps_common$(PLAT)
 
-ssimpletest:  $(LIBSMUMPS)  $$@.o
-	$(FL) -o $@ $(OPTL) ssimpletest.o  $(LIBSMUMPS) $(LORDERINGS) $(LIBS) $(LIBBLAS) $(LIBOTHERS)
+ssimpletest:   $$@.o
+	$(FL) -o $@ $(OPTL) ssimpletest.o  $(LIBSMUMPS) $(LORDERINGS) $(LIBS) $(RPATH_OPT) $(LIBBLAS) $(LIBOTHERS)
 
+dsimpletest:  $$@.o 
+	$(FL) -o $@ $(OPTL) dsimpletest.o  $(LIBDMUMPS) $(LORDERINGS) $(LIBS) $(RPATH_OPT) $(LIBBLAS) $(LIBOTHERS)
 
-LIBDMUMPS = $(libdir)/libdmumps$(PLAT)$(LIBEXT) $(LIBMUMPS_COMMON)
+csimpletest:  $$@.o
+	$(FL) -o $@ $(OPTL) csimpletest.o  $(LIBCMUMPS) $(LORDERINGS) $(LIBS) $(RPATH_OPT) $(LIBBLAS) $(LIBOTHERS)
 
-dsimpletest: $(LIBDMUMPS)  $$@.o 
-	$(FL) -o $@ $(OPTL) dsimpletest.o  $(LIBDMUMPS) $(LORDERINGS) $(LIBS) $(LIBBLAS) $(LIBOTHERS)
+zsimpletest:  $$@.o
+	$(FL) -o $@ $(OPTL) zsimpletest.o  $(LIBZMUMPS) $(LORDERINGS) $(LIBS) $(RPATH_OPT) $(LIBBLAS) $(LIBOTHERS)
 
-
-LIBCMUMPS = $(libdir)/libcmumps$(PLAT)$(LIBEXT) $(LIBMUMPS_COMMON)
-
-csimpletest: $(LIBCMUMPS)  $$@.o
-	$(FL) -o $@ $(OPTL) csimpletest.o  $(LIBCMUMPS) $(LORDERINGS) $(LIBS) $(LIBBLAS) $(LIBOTHERS)
-
-
-LIBZMUMPS = $(libdir)/libzmumps$(PLAT)$(LIBEXT) $(LIBMUMPS_COMMON)
-
-zsimpletest: $(LIBZMUMPS)  $$@.o
-	$(FL) -o $@ $(OPTL) zsimpletest.o  $(LIBZMUMPS) $(LORDERINGS) $(LIBS) $(LIBBLAS) $(LIBOTHERS)
-
-c_example:	$(LIBDMUMPS) $$@.o
-	$(FL) -o $@ $(OPTL) $@.o $(LIBDMUMPS) $(LORDERINGS) $(LIBS) $(LIBBLAS) $(LIBOTHERS)
+c_example: $$@.o
+	$(FL) -o $@ $(OPTL) $@.o $(LIBDMUMPS) $(LORDERINGS) $(LIBS) $(RPATH_OPT) $(LIBBLAS) $(LIBOTHERS)
 
 
-multiple_arithmetics_example:	$(LIBSMUMPS) $(LIBDMUMPS) $(LIBCMUMPS) $(LIBZMUMPS) $$@.o
-	$(FL) -o $@ $(OPTL) $@.o $(LIBSMUMPS) $(LIBDMUMPS) $(LIBCMUMPS) $(LIBZMUMPS) $(LORDERINGS) $(LIBS) $(LIBBLAS) $(LIBOTHERS)
+multiple_arithmetics_example: $$@.o
+	$(FL) -o $@ $(OPTL) $@.o $(LIBSMUMPS) $(LIBDMUMPS) $(LIBCMUMPS) $(LIBZMUMPS) $(LORDERINGS) $(LIBS) $(RPATH_OPT) $(LIBBLAS) $(LIBOTHERS)
 
-ssimpletest_save_restore:  $(LIBSMUMPS)  $$@.o
+ssimpletest_save_restore:   $$@.o
 	$(FL) -o $@ $(OPTL) ssimpletest_save_restore.o  $(LIBSMUMPS) $(LORDERINGS) $(LIBS) $(LIBBLAS) $(LIBOTHERS)
 
-dsimpletest_save_restore: $(LIBDMUMPS)  $$@.o 
+dsimpletest_save_restore:  $$@.o 
 	$(FL) -o $@ $(OPTL) dsimpletest_save_restore.o  $(LIBDMUMPS) $(LORDERINGS) $(LIBS) $(LIBBLAS) $(LIBOTHERS)
 
-csimpletest_save_restore: $(LIBCMUMPS)  $$@.o
+csimpletest_save_restore:  $$@.o
 	$(FL) -o $@ $(OPTL) csimpletest_save_restore.o  $(LIBCMUMPS) $(LORDERINGS) $(LIBS) $(LIBBLAS) $(LIBOTHERS)
 
-zsimpletest_save_restore: $(LIBZMUMPS)  $$@.o
+zsimpletest_save_restore:  $$@.o
 	$(FL) -o $@ $(OPTL) zsimpletest_save_restore.o  $(LIBZMUMPS) $(LORDERINGS) $(LIBS) $(LIBBLAS) $(LIBOTHERS)
 
-c_example_save_restore:	$(LIBDMUMPS) $$@.o
+c_example_save_restore: $$@.o
 	$(FL) -o $@ $(OPTL) $@.o $(LIBDMUMPS) $(LORDERINGS) $(LIBS) $(LIBBLAS) $(LIBOTHERS)
 
 .SUFFIXES: .c .F .o
@@ -74,27 +67,6 @@ c_example_save_restore:	$(LIBDMUMPS) $$@.o
 	$(FC) $(OPTF) -I. -I$(topdir)/include -I$(topdir)/src $(INCS) -c $*.F $(OUTF)$*.o
 .c.o:
 	$(CC) $(OPTC) $(CDEFS) -I. -I$(topdir)/include -I$(topdir)/src $(INCS) -c $*.c $(OUTC)$*.o
-
-
-$(libdir)/libsmumps$(PLAT)$(LIBEXT):
-	@echo 'Error: you should build the library' $@ 'first'
-	exit 1
-
-$(libdir)/libdmumps$(PLAT)$(LIBEXT):
-	@echo 'Error: you should build the library' $@ 'first'
-	exit 1
-
-$(libdir)/libcmumps$(PLAT)$(LIBEXT):
-	@echo 'Error: you should build the library' $@ 'first'
-	exit 1
-
-$(libdir)/libzmumps$(PLAT)$(LIBEXT):
-	@echo 'Error: you should build the library' $@ 'first'
-	exit 1
-
-$(LIBMUMPS_COMMON):
-	@echo 'Error: you should build the library' $@ 'first'
-	exit 1
 
 clean:
 	$(RM) *.o [sdcz]simpletest c_example multiple_arithmetics_example ssimpletest_save_restore dsimpletest_save_restore csimpletest_save_restore zsimpletest_save_restore c_example_save_restore

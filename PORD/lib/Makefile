@@ -9,7 +9,7 @@
 
 INCLUDES = -I../include
 
-COPTIONS = $(INCLUDES) $(CFLAGS) $(OPTFLAGS)
+COPTIONS = $(INCLUDES) $(CFLAGS) $(OPTFLAGS) $(FPIC)
 
 OBJS = graph.o gbipart.o gbisect.o ddcreate.o ddbisect.o nestdiss.o \
        multisector.o gelim.o bucket.o tree.o \
@@ -24,12 +24,15 @@ OBJS = graph.o gbipart.o gbisect.o ddcreate.o ddbisect.o nestdiss.o \
 .c.o:
 	$(CC) $(COPTIONS) -c $*.c $(OUTC)$*.o
 
-libpord$(LIBEXT):$(OBJS)
+libpord$(PLAT)$(LIBEXT):$(OBJS)
 	$(AR)$@ $(OBJS)
 	$(RANLIB) $@
+
+libpord$(PLAT)$(LIBEXT_SHARED):$(OBJS)
+	$(CC) -shared $(OBJS) -o libpord.so
 
 clean:
 	rm -f *.o
 
 realclean:
-	rm -f *.o libpord.a
+	rm -f *.o libpord$(PLAT)$(LIBEXT) libpord$(PLAT)$(LIBEXT_SHARED)

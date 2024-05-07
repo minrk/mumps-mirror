@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -151,8 +151,8 @@ C
      &        NA(1), NFSIZ(1), NODE(1), id%INFOG(6), FILS(1), FRERE(1),
      &        ND(1), NEMIN, SUBORD(1), id%KEEP(60), id%KEEP(20),
      &        id%KEEP(38), NAMALG(1), id%KEEP(104), CUMUL(1),
-     &        id%KEEP(50), id%ICNTL(13), id%KEEP(37), id%NSLAVES,
-     &        id%KEEP(250).EQ.1, .FALSE., IDUMMY, LIDUMMY)
+     &        id%KEEP(50), id%ICNTL(13), id%KEEP(37), id%KEEP(197),
+     &        id%NSLAVES, id%KEEP(250).EQ.1, .FALSE., IDUMMY, LIDUMMY)
          CALL MUMPS_DEALLOC(CUMUL, NV, IPE, MEMCNT=MEMCNT)
          CALL CMUMPS_ANA_M(NE(1), ND(1), id%INFOG(6), id%INFOG(5),
      &        id%KEEP(2), id%KEEP(50), id%KEEP8(101), id%KEEP(108),
@@ -509,6 +509,7 @@ C
 #endif
 #if defined(ptscotch)
       SUBROUTINE CMUMPS_PTSCOTCH_ORD(id, ord, WORK)
+!$    USE OMP_LIB
       IMPLICIT NONE
       INCLUDE 'ptscotchf.h'
       TYPE(CMUMPS_STRUC)            :: id
@@ -522,6 +523,7 @@ C
       INTEGER(8)                    :: EDGELOCNBR
       INTEGER(8), POINTER           :: VERTLOCTAB(:)
       INTEGER, POINTER              :: EDGELOCTAB(:)
+      INTEGER :: PTHREAD_NUMBER, NOMP
       nullify(FIRST, LAST, SWORK, VERTLOCTAB, EDGELOCTAB)
       IF (size(WORK) .LT. id%N*3) THEN
          WRITE(LP,
@@ -560,6 +562,12 @@ C
       IF(MEMCNT .GT. MAXMEM) MAXMEM=MEMCNT
       IF(ord%IDO) THEN
          CALL MUMPS_SCOTCH_INTSIZE(SCOTCH_INT_SIZE)
+         NOMP=0
+!$       NOMP=omp_get_max_threads()
+         IF (NOMP .GT. 0) THEN
+           CALL MUMPS_SCOTCH_GET_PTHREAD_NUMBER (PTHREAD_NUMBER)
+           CALL MUMPS_SCOTCH_SET_PTHREAD_NUMBER (NOMP)
+         ENDIF
          IF(SCOTCH_INT_SIZE.EQ.32) THEN
            IF (id%KEEP(10).EQ.1) THEN
             id%INFO(1) = -52
@@ -578,6 +586,9 @@ C
      &           EDGELOCNBR, EDGELOCTAB,
      &           IERR)
          END IF
+         IF (NOMP .GT. 0) THEN
+           CALL MUMPS_SCOTCH_SET_PTHREAD_NUMBER (PTHREAD_NUMBER)
+         ENDIF
       END IF
       IF(IERR.NE.0) THEN
          id%INFO(1:2) = -50
@@ -873,7 +884,7 @@ C
      &     DEGREE(:), W(:), PERM(:),
      &     LISTVAR_SCHUR(:), NEXT(:),
      &     HEAD(:), NV(:), ELEN(:),
-     &     RCVCNT(:), LSTVAR(:)
+     &     LSTVAR(:)
       INTEGER, POINTER     :: MYLIST(:),
      &     LPERM(:),
      &     LIPERM(:),
@@ -897,7 +908,7 @@ C
       INTEGER              :: THRESH
       nullify(PE, IPE, LENG, I_HALO_MAP, NCLIQUES)
       nullify(NDENSE, LAST, DEGREE, W, PERM, LISTVAR_SCHUR,
-     &     NEXT, HEAD, NV, ELEN, RCVCNT, LSTVAR)
+     &     NEXT, HEAD, NV, ELEN, LSTVAR)
       nullify(MYLIST, LVARPT,
      &     LPERM, LIPERM, IPET, NVT, BUF_PE1, BUF_PE2,
      &     BUF_NV1, BUF_NV2, ROOTPERM, TMP1, TMP2, BWORK)
@@ -1193,7 +1204,7 @@ C
      &     MEMCNT=MEMCNT)
       CALL MUMPS_DEALLOC(LPERM, LIPERM, NVT, MEMCNT=MEMCNT)
       CALL MUMPS_DEALLOC(ROOTPERM, TMP2, MEMCNT=MEMCNT)
-      NULLIFY(HEAD, ELEN, LENG, PERM, RCVCNT)
+      NULLIFY(HEAD, ELEN, LENG, PERM)
       RETURN
       END SUBROUTINE CMUMPS_PARSYMFACT
       SUBROUTINE CMUMPS_MAKE_LOC_IDX(id, TOPNODES, LPERM, LIPERM, ord)
@@ -1381,11 +1392,11 @@ C
      &                           RCVPNT, PNT, SAVEPNT, DUPS, TOTDUPS
       INTEGER                 :: NROWS_LOC
       INTEGER                 :: STATUS(MPI_STATUS_SIZE)
-      INTEGER, POINTER        :: MAPTAB(:), SDISPL(:)
+      INTEGER, POINTER        :: MAPTAB(:)
       INTEGER(8), POINTER     :: MSGCNT(:), SNDCNT(:), RCVCNT(:)
       INTEGER, POINTER        :: RDISPL(:), BUFLEVEL(:),
      &     SIPES(:,:), LENG(:)
-      INTEGER, POINTER        :: PCNT(:), TSENDI(:),
+      INTEGER, POINTER        :: TSENDI(:),
      &     TSENDJ(:), RCVBUF(:)
       TYPE(ARRPNT), POINTER   :: APNT(:)
       INTEGER                 :: BUFSIZE, SOURCE, MAXS, allocok
@@ -1396,9 +1407,9 @@ C
 #if defined(DETERMINISTIC_PARALLEL_GRAPH)
       INTEGER                 :: L
 #endif
-      nullify(MAPTAB, SNDCNT, RCVCNT, SDISPL)
+      nullify(MAPTAB, SNDCNT, RCVCNT)
       nullify(RDISPL, MSGCNT, SIPES, LENG, BUFLEVEL)
-      nullify(PCNT, TSENDI, TSENDJ, RCVBUF, APNT)
+      nullify(TSENDI, TSENDJ, RCVBUF, APNT)
       CALL MPI_COMM_RANK (id%COMM, MYID, IERR)
       CALL MPI_COMM_SIZE (id%COMM, NPROCS, IERR)
       IF(MUMPS_GETSIZE(WORK) .LT. id%N*2) THEN
@@ -1592,10 +1603,10 @@ C
       INTEGER                :: STATUS(MPI_STATUS_SIZE)
       INTEGER(8), POINTER    :: MSGCNT(:), SNDCNT(:), RCVCNT(:)
       INTEGER, POINTER       :: MAPTAB(:),
-     &     SDISPL(:), HALO_MAP(:), BUFLEVEL(:)
+     &     HALO_MAP(:), BUFLEVEL(:)
       INTEGER, POINTER       :: RDISPL(:),
      &     SIPES(:,:)
-      INTEGER, POINTER       :: PCNT(:), TSENDI(:),
+      INTEGER, POINTER       :: TSENDI(:),
      &     TSENDJ(:), RCVBUF(:)
       TYPE(ARRPNT), POINTER  :: APNT(:)
       INTEGER                :: BUFSIZE, SOURCE, MAXS, allocok
@@ -1603,9 +1614,9 @@ C
       INTEGER, PARAMETER     :: ITAG=30
       INTEGER(KIND=8)        :: TLEN
       LOGICAL                :: FLAG
-      nullify(MAPTAB, SNDCNT, RCVCNT, SDISPL, HALO_MAP)
+      nullify(MAPTAB, SNDCNT, RCVCNT, HALO_MAP)
       nullify(RDISPL, MSGCNT, SIPES, BUFLEVEL)
-      nullify(PCNT, TSENDI, TSENDJ, RCVBUF, APNT)
+      nullify(TSENDI, TSENDJ, RCVBUF, APNT)
       CALL MPI_COMM_RANK (id%COMM, MYID, IERR)
       CALL MPI_COMM_SIZE (id%COMM, NPROCS, IERR)
       IF(MUMPS_GETSIZE(WORK) .LT. id%N*2) THEN

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.4.1, released
-C  on Tue Aug  3 09:49:43 UTC 2021
+C  This file is part of MUMPS 5.5.0, released
+C  on Thu Apr 14 11:45:33 UTC 2022
 C
 C
-C  Copyright 1991-2021 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -158,3 +158,47 @@ C
       DEALLOCATE(GLOBAL_MAPPING)
       RETURN
       END SUBROUTINE MUMPS_SOL_RHSMAPINFO
+      SUBROUTINE MUMPS_COMPUTE_LASTFS_DYN( INODE, LASTFSSBTR_DYN,
+     &MTYPE, KEEP, IW, LIW, N, STEP, PTRIST, FILS, FRERE )
+      IMPLICIT NONE
+      INTEGER, INTENT(IN)  :: INODE
+      INTEGER, INTENT(OUT) :: LASTFSSBTR_DYN
+      INTEGER, INTENT(IN)  :: N, MTYPE, LIW, KEEP(500)
+      INTEGER, INTENT(IN)  :: IW(LIW), STEP( N ), PTRIST( KEEP(28) )
+      INTEGER, INTENT(IN)  :: FILS(N), FRERE( KEEP(28) )
+      INTEGER :: NPIV, LIELL, IPOS, INODE_CUR, IN
+      INODE_CUR = INODE
+ 10   CONTINUE
+      CALL  MUMPS_SOL_GET_NPIV_LIELL_IPOS ( STEP(INODE_CUR), KEEP,
+     &     NPIV, LIELL, IPOS, IW, LIW, PTRIST, STEP, N )
+      IF ( NPIV .NE. 0 ) THEN
+        IF (MTYPE .EQ. 1 .OR. KEEP(50) .NE. 0) THEN
+          LASTFSSBTR_DYN = IW( IPOS + NPIV )
+        ELSE
+          LASTFSSBTR_DYN = IW( IPOS+NPIV+LIELL )
+        ENDIF
+      ELSE
+        IN = INODE_CUR
+        DO WHILE (IN.GT. 0)
+          IN = FILS(IN)
+        ENDDO
+        IF (IN .LT. 0) THEN
+          INODE_CUR = -IN
+          GOTO 10
+        ELSE
+          DO
+            IF (INODE_CUR .EQ. INODE) THEN
+              LASTFSSBTR_DYN = 0
+              EXIT
+            ENDIF
+            INODE_CUR = FRERE(STEP(INODE_CUR))
+            IF (INODE_CUR .GT. 0) THEN
+              GOTO 10
+            ELSE
+              INODE_CUR = -INODE_CUR
+            ENDIF
+          ENDDO
+        ENDIF
+      ENDIF
+      RETURN
+      END SUBROUTINE MUMPS_COMPUTE_LASTFS_DYN
