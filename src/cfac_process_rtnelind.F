@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.6.2, released
-C  on Wed Oct 11 09:36:25 UTC 2023
+C  This file is part of MUMPS 5.7.0, released
+C  on Tue Apr 23 10:25:09 UTC 2024
 C
 C
-C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2024 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -46,7 +46,7 @@ C
       INTEGER STEP(N), PIMASTER(KEEP(28))
       INTEGER COMP
       INTEGER NSTK_S(KEEP(28)), ITLOC( N + KEEP(253) )
-      COMPLEX :: RHS_MUMPS(KEEP(255))
+      COMPLEX :: RHS_MUMPS(KEEP8(85))
       INTEGER PROCNODE_STEPS( KEEP(28) )
       INTEGER IFLAG, IERROR
       INTEGER LPOOL, LEAF

@@ -44,6 +44,9 @@ of the MUMPS user's guide
       within the interface: id.ICNTL(19) which controls the Schur 
       complement option and id.ICNTL(20) which controls the 
       format of the right-hand side.
+      Some parameters related to distributed environments should not be modifed.
+      For example, the solution should always be centralized and id.ICNTL(21)
+      should thus remain to its default value, 0.
       Note that parameters id.ICNTL(1:4) may not work properly
       depending on your compiler and your environment. In case of
       problem, we recommand to swith printing off by setting

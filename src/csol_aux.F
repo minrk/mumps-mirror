@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.6.2, released
-C  on Wed Oct 11 09:36:25 UTC 2023
+C  This file is part of MUMPS 5.7.0, released
+C  on Tue Apr 23 10:25:09 UTC 2024
 C
 C
-C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2024 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -307,7 +307,8 @@ C
       COMPLEX W(N), X(N)
       REAL, intent(inout)    :: EST
       INTEGER, intent(in)    :: GRAIN
-      INTRINSIC abs, nint, real, sign
+      INTRINSIC abs, nint, sign
+      INTRINSIC real
       INTEGER CMUMPS_IXAMAX
       EXTERNAL CMUMPS_IXAMAX
       INTEGER ITMAX
@@ -408,7 +409,7 @@ C
       DO 170 I = 1, N
         TEMP = TEMP + abs(X(I))
   170 CONTINUE
-      TEMP = 2.0E0 * TEMP / real(3 * N)
+      TEMP = 2.0E0/3.0E0 * TEMP / real(N)
       IF (TEMP .GT. EST) THEN
         DO 180 I = 1, N
           W(I) = X(I)
@@ -954,7 +955,7 @@ C
       REAL, PARAMETER :: ZERO = 0.0E0
       REAL, PARAMETER :: ONE  = 1.0E0
       INTEGER CMUMPS_IXAMAX
-      INTRINSIC     abs, max
+      INTRINSIC     abs
       SAVE LCOND1, LCOND2, JUMP,  DXIMAX, DXMAX
       IF (KASE .EQ. 0) THEN
         LCOND1 = .FALSE.
@@ -1034,14 +1035,14 @@ C
   170 CONTINUE
       RETURN
       END SUBROUTINE CMUMPS_SOL_LCOND
-      SUBROUTINE CMUMPS_SOL_CPY_FS2RHSCOMP( JBDEB, JBFIN, NBROWS,
-     &   KEEP, RHSCOMP, NRHS, LRHSCOMP, FIRST_ROW_RHSCOMP, W, LD_W,
+      SUBROUTINE CMUMPS_SOL_CPY_FS2RHSINTR( JBDEB, JBFIN, NBROWS,
+     &   KEEP, RHSINTR, NRHS, LRHSINTR, FIRST_ROW_RHSINTR, W, LD_W,
      &   FIRST_ROW_W )
          INTEGER :: JBDEB, JBFIN, NBROWS
-         INTEGER :: NRHS, LRHSCOMP
-         INTEGER :: FIRST_ROW_RHSCOMP
+         INTEGER :: NRHS, LRHSINTR
+         INTEGER :: FIRST_ROW_RHSINTR
          INTEGER, INTENT(IN) :: KEEP(500)
-         COMPLEX, INTENT(INOUT) :: RHSCOMP(LRHSCOMP,NRHS)
+         COMPLEX, INTENT(INOUT) :: RHSINTR(LRHSINTR,NRHS)
          INTEGER :: LD_W, FIRST_ROW_W
          COMPLEX :: W(LD_W*(JBFIN-JBDEB+1))
          INTEGER :: JJ, K, ISHIFT
@@ -1051,33 +1052,33 @@ C
          DO K = JBDEB, JBFIN
            ISHIFT = FIRST_ROW_W + LD_W * (K-JBDEB)
            DO JJ = 0, NBROWS-1
-              RHSCOMP(FIRST_ROW_RHSCOMP+JJ,K) = W(ISHIFT+JJ)
+              RHSINTR(FIRST_ROW_RHSINTR+JJ,K) = W(ISHIFT+JJ)
            END DO
          END DO
 !$OMP    END PARALLEL DO
       RETURN
-      END SUBROUTINE CMUMPS_SOL_CPY_FS2RHSCOMP
+      END SUBROUTINE CMUMPS_SOL_CPY_FS2RHSINTR
       SUBROUTINE CMUMPS_SOL_BWD_GTHR( JBDEB, JBFIN, J1, J2,
-     &   RHSCOMP, NRHS, LRHSCOMP, W, LD_W, FIRST_ROW_W,
-     &   IW, LIW, KEEP, N, POSINRHSCOMP_BWD )
+     &   RHSINTR, NRHS, LRHSINTR, W, LD_W, FIRST_ROW_W,
+     &   IW, LIW, KEEP, N, POSINRHSINTR_BWD )
       INTEGER, INTENT(IN) :: JBDEB, JBFIN, J1, J2
-      INTEGER, INTENT(IN) :: NRHS, LRHSCOMP
+      INTEGER, INTENT(IN) :: NRHS, LRHSINTR
       INTEGER, INTENT(IN) :: FIRST_ROW_W, LD_W, LIW
       INTEGER, INTENT(IN) :: IW(LIW)
       INTEGER, INTENT(IN) :: KEEP(500)
-      COMPLEX, INTENT(INOUT) :: RHSCOMP(LRHSCOMP,NRHS)
+      COMPLEX, INTENT(INOUT) :: RHSINTR(LRHSINTR,NRHS)
       COMPLEX :: W(LD_W*(JBFIN-JBDEB+1))
       INTEGER, INTENT(IN) :: N
-      INTEGER, INTENT(IN) :: POSINRHSCOMP_BWD(N)
-      INTEGER :: ISHIFT, JJ, K, IPOSINRHSCOMP
-!$OMP PARALLEL DO PRIVATE(JJ,ISHIFT,IPOSINRHSCOMP), IF
+      INTEGER, INTENT(IN) :: POSINRHSINTR_BWD(N)
+      INTEGER :: ISHIFT, JJ, K, IPOSINRHSINTR
+!$OMP PARALLEL DO PRIVATE(JJ,ISHIFT,IPOSINRHSINTR), IF
 !$OMP& ((JBFIN-JBDEB+1 > 2*KEEP(362) .AND.
 !$OMP& (JBFIN-JBDEB+1)*(J2-KEEP(253)-J1+1)>2*KEEP(363)))
              DO K=JBDEB, JBFIN
                ISHIFT = FIRST_ROW_W+(K-JBDEB)*LD_W
                DO JJ = J1, J2-KEEP(253)   
-                 IPOSINRHSCOMP =  abs(POSINRHSCOMP_BWD(IW(JJ)))
-                 W(ISHIFT+JJ-J1)= RHSCOMP(IPOSINRHSCOMP,K)
+                 IPOSINRHSINTR =  abs(POSINRHSINTR_BWD(IW(JJ)))
+                 W(ISHIFT+JJ-J1)= RHSINTR(IPOSINRHSINTR,K)
                ENDDO
              ENDDO
 !$OMP END PARALLEL DO
@@ -1135,11 +1136,11 @@ C
       RESL2 = sqrt(RESL2)
       IF (PROK) WRITE( MPRINT, 90 ) RESMAX, RESL2, ANORM, XNORM, 
      &      SCLNRM
-   90  FORMAT (/' RESIDUAL IS ............ (MAX-NORM)        =',1PD9.2/
+   90  FORMAT (/' RESIDUAL IS ............ (INF-NORM)        =',1PD9.2/
      &       '                       .. (2-NORM)          =',1PD9.2/
-     &       ' RINFOG(4):NORM OF input  Matrix  (MAX-NORM)=',1PD9.2/
-     &       ' RINFOG(5):NORM OF Computed SOLUT (MAX-NORM)=',1PD9.2/
-     &       ' RINFOG(6):SCALED RESIDUAL ...... (MAX-NORM)=',1PD9.2)
+     &       ' RINFOG(4):NORM OF input  Matrix  (INF-NORM)=',1PD9.2/
+     &       ' RINFOG(5):NORM OF Computed SOLUT (INF-NORM)=',1PD9.2/
+     &       ' RINFOG(6):SCALED RESIDUAL ...... (INF-NORM)=',1PD9.2)
       RETURN
       END SUBROUTINE CMUMPS_SOL_Q
       SUBROUTINE CMUMPS_SOLVE_FWD_TRSOLVE (A, LA, APOS, NPIV, LDADIAG, 
@@ -1372,8 +1373,8 @@ C
      &  IW, IPOS, LIW, 
      &  A, LA, APOS,
      &  WCB, LWCB, LD_WCBPIV, 
-     &  RHSCOMP, LRHSCOMP, NRHS, 
-     &  POSINRHSCOMP_FWD, JBDEB, JBFIN, 
+     &  RHSINTR, LRHSINTR, NRHS, 
+     &  POSINRHSINTR_FWD, JBDEB, JBFIN, 
      &  MTYPE, KEEP, OOCWRITE_COMPATIBLE_WITH_BLR,
      &  IGNORE_K459
      &  )
@@ -1381,18 +1382,18 @@ C
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: MTYPE, INODE, N, NPIV, LIELL,
      &                       NELIM, NSLAVES
-      INTEGER, INTENT(IN) :: LRHSCOMP, NRHS, LIW, JBDEB, JBFIN
-      INTEGER, INTENT(IN) :: IW(LIW), IPOS, POSINRHSCOMP_FWD(N)
+      INTEGER, INTENT(IN) :: LRHSINTR, NRHS, LIW, JBDEB, JBFIN
+      INTEGER, INTENT(IN) :: IW(LIW), IPOS, POSINRHSINTR_FWD(N)
       INTEGER(8), INTENT(IN) :: LWCB, APOS, LA, PPIV_COURANT
       INTEGER, INTENT(IN) :: LD_WCBPIV
       INTEGER, INTENT(IN) :: KEEP(500)
       COMPLEX, INTENT(IN) ::  WCB( LWCB )
       COMPLEX, INTENT(IN) :: A( LA )
-      COMPLEX, INTENT(INOUT) :: RHSCOMP(LRHSCOMP, NRHS)
+      COMPLEX, INTENT(INOUT) :: RHSINTR(LRHSINTR, NRHS)
       LOGICAL, INTENT(IN) :: OOCWRITE_COMPATIBLE_WITH_BLR
       LOGICAL, INTENT(IN) :: IGNORE_K459
       INTEGER    :: J1, J3
-      INTEGER    :: IPOSINRHSCOMP, JJ, K,
+      INTEGER    :: IPOSINRHSINTR, JJ, K,
      &              LDAJ, NRHS_B
       INTEGER(8) :: IFR8 , APOS1, APOS2, APOSOFF, IFR_ini8, 
      &              POSWCB1, POSWCB2
@@ -1414,7 +1415,7 @@ C
          J1 = IPOS + LIELL + 1
          J3 = IPOS + LIELL + NPIV
       END IF
-      IPOSINRHSCOMP =  POSINRHSCOMP_FWD(IW(J1)) 
+      IPOSINRHSINTR =  POSINRHSINTR_FWD(IW(J1)) 
       IF ( KEEP(50) .eq. 0 ) THEN
          OMP_FLAG = .FALSE.
 !$       OMP_FLAG=(int(NRHS_B,8)*int(NPIV,8).GE.int(KEEP(363),8))
@@ -1422,7 +1423,7 @@ C
 !$OMP PARALLEL DO PRIVATE(IFR8) COLLAPSE(2)
            DO K = JBDEB, JBFIN
              DO IFR8 = 0_8, int(NPIV-1,8)
-               RHSCOMP(IPOSINRHSCOMP+IFR8, K) =
+               RHSINTR(IPOSINRHSINTR+IFR8, K) =
      &            WCB(PPIV_COURANT+(K-JBDEB)*LD_WCBPIV+IFR8)
              ENDDO
            ENDDO
@@ -1430,7 +1431,7 @@ C
          ELSE
            DO K = JBDEB, JBFIN
              DO IFR8 = 0_8, int(NPIV-1,8)
-               RHSCOMP(IPOSINRHSCOMP+IFR8, K) =
+               RHSINTR(IPOSINRHSINTR+IFR8, K) =
      &            WCB(PPIV_COURANT+(K-JBDEB)*LD_WCBPIV+IFR8)
              ENDDO
            ENDDO
@@ -1450,7 +1451,7 @@ C
             DO JJ = J1, J3
               IPANEL = (JJ-J1)/NB_TARGET + 1
               IF ( JJ-J1+1 .LT. PANEL_COL(IPANEL) ) IPANEL = IPANEL -1
-              ICOL = JJ-J1+1 - PANEL_COL(IPANEL) + 1
+              ICOL = JJ-J1+1 - PANEL_COL(IPANEL) + 1 
               LDAJ = PANEL_COL(IPANEL+1) - PANEL_COL(IPANEL)
               APOS1 = APOS-1_8+PANEL_POS( IPANEL ) + int(ICOL-1,8) *
      &                int(LDAJ+1,8)
@@ -1468,7 +1469,7 @@ C
               IF (SKIP_IT) THEN
               ELSE IF ( IW(JJ+LIELL) .GT. 0 ) THEN
                 VALPIV  = ONE/A( APOS1 )
-                RHSCOMP(IPOSINRHSCOMP+JJ-J1 , K ) = 
+                RHSINTR(IPOSINRHSINTR+JJ-J1 , K ) = 
      &                 WCB( IFR8 ) * VALPIV
                 APOS1 = APOS1 + int(LDAJ + 1,8)
               ELSE
@@ -1483,10 +1484,10 @@ C
                 A12 = -A12/DETPIV
                 POSWCB1 = IFR8
                 POSWCB2 = POSWCB1+1_8
-                RHSCOMP(IPOSINRHSCOMP+JJ-J1,K) =
+                RHSINTR(IPOSINRHSINTR+JJ-J1,K) =
      &                 WCB(POSWCB1)*A11
      &                 + WCB(POSWCB2)*A12
-                RHSCOMP(IPOSINRHSCOMP+JJ-J1+1,K) = 
+                RHSINTR(IPOSINRHSINTR+JJ-J1+1,K) = 
      &                   WCB(POSWCB1)*A12
      &                   + WCB(POSWCB2)*A22
               ENDIF  
@@ -1502,26 +1503,26 @@ C
      &  IW, IPOS, LIW, 
      &  A, LA, APOS,
      &  WCB, LWCB, LD_WCBPIV, 
-     &  RHSCOMP, LRHSCOMP, NRHS, 
-     &  POSINRHSCOMP_FWD, JBDEB, JBFIN, 
+     &  RHSINTR, LRHSINTR, NRHS, 
+     &  POSINRHSINTR_FWD, JBDEB, JBFIN, 
      &  MTYPE, KEEP, OOCWRITE_COMPATIBLE_WITH_BLR,
      &  IGNORE_K459
      &  )
       USE CMUMPS_OOC 
       INTEGER, INTENT(IN) :: MTYPE, INODE, N, NPIV, LIELL,
      &                       NELIM, NSLAVES
-      INTEGER, INTENT(IN) :: LRHSCOMP, NRHS, LIW, JBDEB, JBFIN
-      INTEGER, INTENT(IN) :: IW(LIW), IPOS, POSINRHSCOMP_FWD(N)
+      INTEGER, INTENT(IN) :: LRHSINTR, NRHS, LIW, JBDEB, JBFIN
+      INTEGER, INTENT(IN) :: IW(LIW), IPOS, POSINRHSINTR_FWD(N)
       INTEGER(8), INTENT(IN) :: LWCB, APOS, LA, PPIV_COURANT
       INTEGER, INTENT(IN) :: LD_WCBPIV
       INTEGER, INTENT(IN) :: KEEP(500)
       COMPLEX, INTENT(IN) ::  WCB( LWCB )
       COMPLEX, INTENT(IN) :: A( LA )
-      COMPLEX, INTENT(INOUT) :: RHSCOMP(LRHSCOMP, NRHS)
+      COMPLEX, INTENT(INOUT) :: RHSINTR(LRHSINTR, NRHS)
       LOGICAL, INTENT(IN) :: OOCWRITE_COMPATIBLE_WITH_BLR
       LOGICAL, INTENT(IN) :: IGNORE_K459
       INTEGER    :: TempNROW, J1, J3, PANEL_SIZE
-      INTEGER    :: IPOSINRHSCOMP, JJ, K, NBK, LDAJ, 
+      INTEGER    :: IPOSINRHSINTR, JJ, K, NBK, LDAJ, 
      &              LDAJ_ini, NBK_ini, LDAJ_FIRST_PANEL, NRHS_B
       INTEGER(8) :: IFR8 , APOS1, APOS2, APOSOFF, IFR_ini8, 
      &              POSWCB1, POSWCB2
@@ -1537,13 +1538,13 @@ C
          J1 = IPOS + LIELL + 1
          J3 = IPOS + LIELL + NPIV
       END IF
-      IPOSINRHSCOMP =  POSINRHSCOMP_FWD(IW(J1)) 
+      IPOSINRHSINTR =  POSINRHSINTR_FWD(IW(J1)) 
       IF ( KEEP(50) .eq. 0 ) THEN
 !$         OMP_FLAG=(NRHS_B.GE.KEEP(362).AND.NRHS_B*NPIV.GE.KEEP(363))
 !$OMP PARALLEL DO PRIVATE(IFR8) IF (OMP_FLAG)
            DO K=JBDEB,JBFIN
              IFR8 =  PPIV_COURANT + (K-JBDEB)*LD_WCBPIV
-             RHSCOMP(IPOSINRHSCOMP:IPOSINRHSCOMP+NPIV-1, K) =
+             RHSINTR(IPOSINRHSINTR:IPOSINRHSINTR+NPIV-1, K) =
      &            WCB(IFR8:IFR8+int(NPIV-1,8))
            ENDDO
 !$OMP END PARALLEL DO
@@ -1596,7 +1597,7 @@ C
             IFR8  = IFR8 + 1_8
             IF (IW(JJ+LIELL) .GT. 0) THEN
                VALPIV  = ONE/A( APOS1 )
-               RHSCOMP(IPOSINRHSCOMP+JJ-J1 , K ) = 
+               RHSINTR(IPOSINRHSINTR+JJ-J1 , K ) = 
      &                 WCB( IFR8 ) * VALPIV
               IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR)
      &        THEN
@@ -1629,10 +1630,10 @@ C
               A12 = -A12/DETPIV
               POSWCB1 = IFR8
               POSWCB2 = POSWCB1+1_8
-              RHSCOMP(IPOSINRHSCOMP+JJ-J1,K) =
+              RHSINTR(IPOSINRHSINTR+JJ-J1,K) =
      &               WCB(POSWCB1)*A11
      &               + WCB(POSWCB2)*A12
-              RHSCOMP(IPOSINRHSCOMP+JJ-J1+1,K) = 
+              RHSINTR(IPOSINRHSINTR+JJ-J1+1,K) = 
      &                 WCB(POSWCB1)*A12
      &                 + WCB(POSWCB2)*A22
               IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR)
@@ -1661,6 +1662,7 @@ C
         SEQUENCE
         REAL, dimension(:), pointer :: SCALING
         REAL, dimension(:), pointer :: SCALING_LOC
+        INTEGER, dimension(:), pointer :: SCALING_IND
       end type scaling_data_t
       type (scaling_data_t), INTENT(INOUT) :: scaling_data
       INTEGER, INTENT(IN) :: N, LILOC, COMM, MYID, MASTER, LP

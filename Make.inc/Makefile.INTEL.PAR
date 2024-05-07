@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.6.2, released
-#  on Wed Oct 11 09:36:25 UTC 2023
+#  This file is part of MUMPS 5.7.0, released
+#  on Tue Apr 23 10:25:09 UTC 2024
 #
 #Begin orderings
 
@@ -34,7 +34,7 @@
 
 LPORDDIR = $(topdir)/PORD/lib/
 IPORD    = -I$(topdir)/PORD/include/
-LPORD    = -L$(LPORDDIR) -lpord
+LPORD    = -L$(LPORDDIR) -lpord$(PLAT)
 
 #LMETISDIR = /opt/metis-5.1.0/build/Linux-x86_64/libmetis
 #IMETIS    = /opt/metis-5.1.0/include
@@ -68,6 +68,7 @@ PLAT    =
 LIBEXT  = .a
 LIBEXT_SHARED  = .so
 SONAME = -soname
+SHARED_OPT = -shared
 FPIC_OPT = -fPIC
 # Adapt/uncomment RPATH_OPT to avoid modifying
 # LD_LIBRARY_PATH in case of shared libraries
@@ -90,7 +91,7 @@ SCALAP = -L$(MKLROOT) -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64
 LIBPAR = $(SCALAP) $(LAPACK)
 
 INCSEQ = -I$(topdir)/libseq
-LIBSEQ  = $(LAPACK) -L$(topdir)/libseq -lmpiseq
+LIBSEQ  = $(LAPACK) -L$(topdir)/libseq -lmpiseq$(PLAT)
 
 LIBBLAS = -L$(MKLROOT) -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core 
 LIBOTHERS = -lpthread

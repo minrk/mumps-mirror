@@ -2,6 +2,34 @@
 = ChangeLog =
 -------------
 
+Changes from 5.6.2 to 5.7.0
+* New feature: Evolution of the distributed RHS: exploit sparsity (empty rows)
+* New feature: more efficient multithreading (see ICNTL(48))
+* New feature: Improved null space detection with rank revealing (ICNTL(56))
+* New statistics about pivots and number of swaps
+* Reduced time spent in BLR clustering
+* OOC: add support for files > 2GB to avoid opening too many files
+* Increased various string max sizes: OOC_PREFIX(255), SAVE_PREFIX(255),
+  WRITE_PROBLEM(1023), OOC_TMPDIR(1023), SAVE_DIR(1023),
+* -DMUMPS_SCOTCHIMPORTOMPTHREADS: uses MUMPS OMP threads in SCOTCH
+* Improved size of BLR groups with analysis by blocks 
+* Allow for larger N (avoid need for 2*N to fit in a 32-bit integers)
+* Improved performance on small matrices (avoid costly string
+  comparisons when computing RINFO(7,8) and RINFOG(17,18))
+* -DNO_SAVE_RESTORE: suppress SAVE_RESTORE, RINFO(7,8), RINFOG(17,18)
+* Avoid calling MPI_IPROBE during solve in case of a single MPI process
+* MPI_ALLREDUCE workaround in case it fails for large buffers
+* Raise error -55 in case Nloc_RHS>0 on non-working host
+* Raise new error -88 in case of error during SCOTCH ordering
+* Fixed bound-check error in copies for 64 bit integer orderings and empty graph
+* Raise error -69 in case of installation with incorrect integer sizes
+* Compilation with -DNOSCALAPACK: suppress dependency on NUMROC
+* Fix for METIS > 5.1.0: METIS options indices no longer hardcoded
+* Fixed a bug in solve when restarting (JOB=8) with a new process
+* Fixed error with exploit sparsity during fwd phase on
+  reducible matrices and when Scalapack is used
+* Makefiles: introduced SHARED_OPT=-shared to allow defining different option
+
 Changes from 5.6.1 to 5.6.2
 * Fixed time for symbolic factorization
 * Fixed parallel analysis when PAR=0, 1 MPI per node, #MPI not a power of 2
@@ -17,7 +45,7 @@ Changes from 5.6.0 to 5.6.1
 * Fix incorrect error code -74 instead of -76 (save-restore)
 * Avoid a remaining hard-coded Fortran unit (save-restore)
 * Avoid -Wundef warning in case __STDC_VERSION__ is not defined
-* Avoid calling MPI_IPROBE in case of a single MPI process
+* Avoid calling MPI_IPROBE during factorization in case of a single MPI process
   (performance improvement on matrices with small fronts)
 * During analysis, write time for symbolic factorization
 * Update GEMMT link in INSTALL file
@@ -94,7 +122,6 @@ Changes from 5.4.1 to 5.5.0
 * Fixed a potential memory leak in dynamic memory management
 * -DALLOC_FROM_C introduced to fix dynamic memory management 
   with Cray compilers
-
 
 Changes from 5.4.0 to 5.4.1
 * Added feature to dump a matrix/rhs in binary form (see id%WRITE_PROBLEM)
@@ -771,6 +798,7 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.7.0            : April 2024
 Release 5.6.2            : October 2023
 Release 5.6.1            : July 2023
 Release 5.6.0            : April 2023

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.6.2, released
-C  on Wed Oct 11 09:36:25 UTC 2023
+C  This file is part of MUMPS 5.7.0, released
+C  on Tue Apr 23 10:25:09 UTC 2024
 C
 C
-C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2024 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -728,7 +728,7 @@ C
       INTEGER, INTENT(IN) :: NINCOLARR(KEEP(194))
       INTEGER, INTENT(IN) :: NINROWARR(KEEP(195))
       INTEGER, INTENT(IN) :: PTRDEBARR(KEEP(196))
-      COMPLEX(kind=8) :: RHS_MUMPS(KEEP(255))
+      COMPLEX(kind=8) :: RHS_MUMPS(KEEP8(85))
       INTEGER(8) :: PTRAST  (KEEP(28))
       INTEGER(8) :: PTRFAC  (KEEP(28))
       INTEGER(8) :: PAMASTER(KEEP(28))
@@ -798,7 +798,7 @@ C
      &               NSLAVES, WIDTH, COMM,
      &               NELIM, NPARTSASS, CURRENT_BLR_PANEL,
      &               LR_ACTIVATED, BLR_LorU, 
-     &        IERR )
+     &               ICNTL, IERR )
           IF (IERR.EQ.-1) THEN
             BLOCKING  = .FALSE.
             SET_IRECV = .TRUE.

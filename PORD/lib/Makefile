@@ -7,6 +7,8 @@
 # RANLIB must be passed to make.
 #
 
+.PHONY: clean realclean
+
 INCLUDES = -I../include
 
 COPTIONS = $(INCLUDES) $(CFLAGS) $(OPTFLAGS) $(FPIC)
@@ -29,7 +31,7 @@ libpord$(PLAT)$(LIBEXT):$(OBJS)
 	$(RANLIB) $@
 
 libpord$(PLAT)$(LIBEXT_SHARED):$(OBJS)
-	$(CC) -shared $(OBJS) -o libpord$(PLAT)$(LIBEXT_SHARED)
+	$(CC) $(SHARED_OPT) $(OBJS) -o libpord$(PLAT)$(LIBEXT_SHARED)
 
 clean:
 	rm -f *.o

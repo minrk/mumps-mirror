@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.6.2, released
-#  on Wed Oct 11 09:36:25 UTC 2023
+#  This file is part of MUMPS 5.7.0, released
+#  on Tue Apr 23 10:25:09 UTC 2024
 #
 #
 topdir = ..
@@ -64,6 +64,7 @@ OBJS_COMMON_MOD = \
         mumps_memory_mod.o\
         mumps_mpitoomp_m.o\
         mumps_ooc_common.o\
+	sol_ds_common_m.o\
         mumps_static_mapping.o\
         omp_tps_common_m.o
 
@@ -75,7 +76,6 @@ OBJS_COMMON_OTHER = \
         ana_AMDMF.o\
         bcast_errors.o\
         estim_flops.o\
-        mumps_type_size.o \
         mumps_type2_blocking.o \
         mumps_version.o \
         mumps_print_defined.o \
@@ -144,6 +144,7 @@ OBJS_OTHER = \
         $(ARITH)fac_driver.o\
         $(ARITH)sol_driver.o\
         $(ARITH)sol_distrhs.o\
+        $(ARITH)sol_distsol.o\
         $(ARITH)end_driver.o\
         $(ARITH)ana_aux_ELT.o\
         $(ARITH)ana_dist_m.o\
@@ -154,7 +155,9 @@ OBJS_OTHER = \
         $(ARITH)fac_asm_ELT.o\
         $(ARITH)fac_asm.o\
         $(ARITH)fac_b.o\
+        $(ARITH)fac_diag.o\
         $(ARITH)fac_distrib_distentry.o\
+        $(ARITH)fac_dist_arrowheads_omp.o\
         $(ARITH)fac_distrib_ELT.o\
         $(ARITH)fac_lastrtnelind.o\
         $(ARITH)fac_mem_alloc_cb.o\
@@ -214,14 +217,14 @@ $(libdir)/libmumps_common$(PLAT)$(LIBEXT):      $(OBJS_COMMON_MOD) $(OBJS_COMMON
 	$(RANLIB) $@
 
 $(libdir)/libmumps_common$(PLAT)$(LIBEXT_SHARED):      $(OBJS_COMMON_MOD) $(OBJS_COMMON_OTHER)
-	$(FC) $(OPTL) -shared $^ -Wl,$(SONAME),libmumps_common$(PLAT)$(LIBEXT_SHARED) -L$(libdir) $(RPATH_OPT) $(LORDERINGS) $(LIBS) $(LIBOTHERS) -o $@ 
+	$(FC) $(OPTL) $(SHARED_OPT) $^ -Wl,$(SONAME),libmumps_common$(PLAT)$(LIBEXT_SHARED) -L$(libdir) $(RPATH_OPT) $(LORDERINGS) $(LIBS) $(LIBOTHERS) -o $@ 
 
 $(libdir)/lib$(ARITH)mumps$(PLAT)$(LIBEXT):    $(OBJS_MOD) $(OBJS_OTHER)
 	$(AR)$@ $?
 	$(RANLIB) $@
 
 $(libdir)/lib$(ARITH)mumps$(PLAT)$(LIBEXT_SHARED):    $(OBJS_MOD) $(OBJS_OTHER) $(libdir)/libmumps_common$(PLAT)$(LIBEXT_SHARED)
-	$(FC) $(OPTL) -shared $(OBJS_MOD) $(OBJS_OTHER) -L$(libdir) $(LORDERINGS) $(LIBS) $(LIBOTHERS) -lmumps_common$(PLAT) -o $@ $(RPATH_OPT)
+	$(FC) $(OPTL) $(SHARED_OPT) $(OBJS_MOD) $(OBJS_OTHER) -L$(libdir) $(LORDERINGS) $(LIBS) $(LIBOTHERS) -lmumps_common$(PLAT) -o $@ $(RPATH_OPT)
 
 
 # Dependencies between modules:

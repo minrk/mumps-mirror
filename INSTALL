@@ -1,5 +1,5 @@
 ===========================================
-MUMPS 5.6.2 INSTALLATION
+MUMPS 5.7.0 INSTALLATION
 ===========================================
 
 Pre-requisites
@@ -35,8 +35,8 @@ Installation
 
 The following steps can be applied.
 
-% tar zxvf MUMPS_5.6.2.tar.gz
-% cd MUMPS_5.6.2
+% tar zxvf MUMPS_5.7.0.tar.gz
+% cd MUMPS_5.7.0
 
 You then need to build a file called Makefile.inc corresponding
 to your architecture. A few examples are available in the
@@ -73,6 +73,9 @@ variables LIBBLAS (BLAS library), SCALAP (ScaLAPACK and LAPACK libraries),
 INCPAR (include files for MPI), LIBPAR (library files for MPI) are concerned.
 We also strongly recommend to install METIS and/or SCOTCH, see the
 ordering section of Makefile.inc.
+Makefile.inc also contains a line "PLAT=" which defines an empty $(PLAT)
+Makefile variable. You can use it to add a default suffix to the generated
+libraries.
 
 By default, only the double precision version of MUMPS will be
 installed, with static MUMPS libraries. The command:
@@ -110,11 +113,11 @@ since dynamic libraries require the -fPIC option during compilation (if
 needed, the definition FPIC_OPT=-fPIC can be adapted in the Makefile.inc)
 
 The dynamic libraries (e.g. libmumps.so, libdmumps.so, etc.) are
-installed in the directory MUMPS_5.6.2/lib/
-so that including the directory MUMPS_5.6.2/lib in your
+installed in the directory MUMPS_5.7.0/lib/
+so that including the directory MUMPS_5.7.0/lib in your
 LD_LIBRARY_PATH environment variable will allow them to be successively
 loaded at runtime. Alternatively, you can uncomment and adapt the line
-#RPATH_OPT= -Wl,-rpath /path/to/MUMPS_5.6.2/lib
+#RPATH_OPT= -Wl,-rpath /path/to/MUMPS_5.7.0/lib
 in the Makefile.inc
 
 Although we do not currently support an official SONAME, note that, given a
@@ -122,8 +125,12 @@ version x.y.z of MUMPS, it is binary/ABI compatible with x.y.z' versions,
 but not with x.y'.z'' versions.
 
 
-Preprocessing constants (Makefile.inc)
---------------------------------------
+Preprocessing constants
+-----------------------
+
+This section describes some preprocessing flags that can be added in the
+OPTF and OPTC variables of Makefile.inc.
+
 
 -DDETERMINISTIC_PARALLEL_GRAPH:
 When using several MPI processes, the order of the edges of the graphs
@@ -183,6 +190,17 @@ MUMPS uses MPI_IN_PLACE in some collective MPI operations. In case of
 MPI environments where MPI_IN_PLACE is failing, it is possible to
 avoid the use of MPI_IN_PLACE at the cost of more temporary memory
 allocation and possibly less efficient code.
+
+-DMUMPS_SCOTCHIMPORTOMPTHREADS:
+MUMPS provides OpenMP threads to multithreaded SCOTCH/PT-SCOTCH,
+instead of letting SCOTCH creating new threads. This feature can,
+in some cases, resolve thread affinity issues impacting performance
+negatively.
+
+-DNO_SAVE_RESTORE:
+Disables the save restore feature.  RINFO(7), RINFO(8), RINFOG(17),
+RINFOG(18) will no longer be computed, and a call to MUMPS with
+JOB=7 or JOB=8 will lead to an error.
 
 
 Sequential version
@@ -365,6 +383,8 @@ Although the MUMPS development team is not using Windows, you
 may be interested by discussions on this topic in the archives
 of MUMPS users, or by links to contributions from users (see the
 MUMPS website, and follow "Links").
+-DMUMPS_WINLARGEFILES is designed to reduce the number of file
+descriptors under Windows and allow for files larger than 2GB.
 
 
 * FREEBSD AND SOLARIS
@@ -379,11 +399,12 @@ See the example Makefile.FREEBSD10 in the Make.inc/ directory.
 Note that the absence of space in the main Makefile
 is motivated by portability on Windows environments.
 
-* gfortran-10
-  -----------
+* gfortran versions >= 10
+  -----------------------
 
-For MUMPS to compile with gfortran-10, the option '-fallow-argument-mismatch'
-should be added to OPTF in your Makefile.inc
+For MUMPS to compile with gfortran versions greater or equal t 10,
+the option '-fallow-argument-mismatch' should be included in OPTF
+in your Makefile.inc
 
 * MAC OSX
   -------
@@ -392,20 +413,6 @@ Dominique Orban has developed a Homebrew formula for MUMPS.
 Please check the "Links" page at http://mumps-solver.org and
 http://brew.sh
 
-
-* IBM SP
-  ------
-On SP machines, use of PESSL, BLACS, MPI and ESSL is made.
-
-Note that MUMPS requires PESSL release 2 or greater. The version
-of MUMPS based on PESSL release 1.1 (that used descriptors of
-size 8) is no longer available. If PESSL release 2 is not
-available on your system, the public domain version of
-ScaLAPACK should be used instead. PESSL usually does not
-include single precision versions of the ScaLAPACK routines
-required by MUMPS. If the single precision or single
-complex versions of MUMPS are needed, then ScaLAPACK should
-then be used in place of PESSL.
 
 * LAM
   ---
@@ -419,9 +426,12 @@ due to truncated messages when using double complex types.
 
 * CRAY
   ----
-On the CRAY, we recommend to link with the standard BLACS
-library from netlib, based on MPI. We observed problems
-(deadlock) when using the CRAY BLACS in host-node mode or
-when MUMPS is used on a subcommunicator of MPI_COMM_WORLD
+At least with old CRAY versions, we recommend to link with the
+standard BLACS library from netlib, based on MPI. We observed
+problems (deadlock) when using the CRAY BLACS in host-node mode
+or when MUMPS is used on a subcommunicator of MPI_COMM_WORLD
 of more than 1 processor.
+With recent Cray compilers, the flag -DMUMPS_ALLOC_FROM_C should
+be used, to avoid some Fortran pointer manipulations not allowed
+by the compiler.
 
