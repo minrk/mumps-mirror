@@ -12,10 +12,10 @@ MEX         = /opt/matlab/matlab/bin/mex -g -largeArrayDims
 # MEX         = mkoctfile -g --mex
 
 # Main MUMPS_DIR
-MUMPS_DIR = $(HOME)/MUMPS_5.0.0
+MUMPS_DIR = $(HOME)/MUMPS_5.0.1
 
 # Orderings (see main Makefile.inc file from MUMPS)
-LMETISDIR  = $(HOME)/metis-4.0
+LMETISDIR = ${HOME}/parmetis-4.0.3/build/Linux-x86_64/libmetis
 LMETIS     = -L$(LMETISDIR) -lmetis
 LPORDDIR   = $(MUMPS_DIR)/PORD/lib
 LPORD      = -L$(LPORDDIR) -lpord

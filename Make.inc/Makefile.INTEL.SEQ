@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.0.0, released
-#  on Fri Feb 20 08:19:56 UTC 2015
+#  This file is part of MUMPS 5.0.1, released
+#  on Thu Jul 23 17:08:29 UTC 2015
 #
 #Begin orderings
 
@@ -67,17 +67,20 @@ LIBEXT  = .a
 OUTC    = -o 
 OUTF    = -o 
 RM = /bin/rm -f
-CC = gcc
+CC = icc
 FC = ifort
 FL = ifort
 AR = ar vr 
 #RANLIB = ranlib
 RANLIB  = echo
+# Make this variable point to the path where the Intel MKL library is
+# installed. It is set to the default install directory for Intel MKL. 
+MKLROOT=/opt/intel/mkl/lib/intel64
 INCSEQ = -I$(topdir)/libseq
 LIBSEQ  =  -L$(topdir)/libseq -lmpiseq
 #LIBBLAS = -L/usr/lib/xmm/ -lf77blas -latlas
-LIBBLAS = -L/local/BLAS -lblas
-LIBOTHERS = -lpthread
+LIBBLAS = -L$(MKLROOT) -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core 
+LIBOTHERS = -lpthread -openmp
 #Preprocessor defs for calling Fortran from C (-DAdd_ or -DAdd__ or -DUPPER)
 CDEFS   = -DAdd_
 

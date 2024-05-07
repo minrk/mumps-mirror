@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.0.0, released
-C  on Fri Feb 20 08:19:56 UTC 2015
+C  This file is part of MUMPS 5.0.1, released
+C  on Thu Jul 23 17:08:29 UTC 2015
 C
 C
 C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -18,10 +18,6 @@ C
       integer,pointer,dimension(:,:),SAVE::cv_cand
       integer,pointer,dimension(:),SAVE::cv_par2_nodes
       integer,SAVE::cv_slavef,cv_nb_niv2,cv_lp,cv_mp
-#if defined(OLDSPLITTING)
-      DOUBLE PRECISION,SAVE::cv_stack_peak
-      integer,SAVE::cv_mem_strat
-#endif
       integer, parameter:: tsplit_beg=4 
       integer, parameter:: tsplit_mid=5 
       integer, parameter:: tsplit_last=6 
@@ -1369,20 +1365,6 @@ C
             k2 = kk
             exit
          endif
-#if defined(OLDSPLITTING)
-# if(check_mumps_static_mapping>=1)
-         write(*,*) 'k =',kk
-         write(*,*) 'master_mem =',mem_master,
-     &        'memory peak =',cv_stack_peak,
-     &        'max mem authorized',
-     &        (dble(cv_mem_strat)/dble(100))*cv_stack_peak
-# endif
-         if(mem_master.le.
-     &        (dble(cv_mem_strat)/dble(100))*cv_stack_peak) then
-            k2 = kk
-            exit
-         endif
-#endif
       enddo
       k2 = max(k2, 1)
       k2 = min (k2, npiv)
@@ -1846,10 +1828,6 @@ C
       subname='INITPART1'
       cv_n=n
       cv_slavef=slavef
-#if defined(OLDSPLITTING)
-      cv_stack_peak = peak
-      cv_mem_strat = max((300 / cv_slavef),1)
-#endif
       cv_keep=>keep
       cv_keep8=>KEEP8
       if(cv_keep(82) .lt. 0) then

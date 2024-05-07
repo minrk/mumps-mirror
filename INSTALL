@@ -1,5 +1,5 @@
 ===========================================
-MUMPS 5.0.0 INSTALLATION
+MUMPS 5.0.1 INSTALLATION
 ===========================================
 
 Pre-requisites
@@ -21,7 +21,8 @@ you need:
 For performance (time and memory issues) we very strongly recommend to install:
 -> SCOTCH and/or METIS for the sequential and parallel versions
 -> PT-SCOTCH and/or ParMetis to parallelize the analysis phase (parallel version
-only)
+only: ParMetis and PT-SCOTCH must be disabled for the sequential version as
+this would otherwise lead to undefined MPI symbols at the link phase)
 
 
 Installation
@@ -29,27 +30,33 @@ Installation
 
 The following steps can be applied.
 
-% tar zxvf MUMPS_5.0.0.tar.gz
-% cd MUMPS_5.0.0
+% tar zxvf MUMPS_5.0.1.tar.gz
+% cd MUMPS_5.0.1
 
 You then need to build a file called Makefile.inc corresponding
-to your achitecture. A few examples are available in the
+to your architecture. A few examples are available in the
 directory Make.inc :
 
- Makefile.debian.SEQ : default for debian systems with standard packages, sequential version
- Makefile.debian.PAR : default for debian systems with standard packages, parallel version
- Makefile.INTEL.SEQ : default for PC (linux, intel compiler, lam), sequential.
- Makefile.INTEL.PAR : default for PC (linux, intel compiler, lam), parallel.
+ Makefile.debian.SEQ       : default for debian systems with standard packages, sequential version
+ Makefile.debian.PAR       : default for debian systems with standard packages, parallel version
+ Makefile.FREEBSD10.SEQ    : default Makefile.inc for a FreeBSD system, sequential version.
+ Makefile.FREEBSD10.PAR    : default Makefile.inc for a FreeBSD system, parallel version.
+ Makefile.G95.SEQ          : default Makefile.inc for the G95 compiler, sequential version.
+ Makefile.G95.PAR          : default Makefile.inc for the G95 compiler, parallel version.
+ Makefile.INTEL.SEQ        : default for PC with the Intel suite (compilers, MPI and MKL), sequential.
+ Makefile.INTEL.PAR        : default for PC with the Intel suite (compilers and MKL), parallel.
+ Makefile.NEC.SEQ          : default Makefile.inc for a NEC, sequential version.
+ Makefile.NEC.PAR          : default Makefile.inc for a NEC, parallel version.
+ Makefile.SGI.SEQ          : default Makefile.inc for an Origin, sequential version.
+ Makefile.SGI.PAR          : default Makefile.inc for an Origin, parallel version.
+ Makefile.SUN.SEQ          : default Makefile.inc for a SUN, sequential version.
+ Makefile.SUN.PAR          : default Makefile.inc for a SUN, parallel version.
+ Makefile.SP.SEQ           : default for SP (32 bits), sequential version.
+ Makefile.SP.PAR           : default for SP (32 bits), parallel version.
+ Makefile.SP64.SEQ         : default for SP (64 bits), sequential version.
+ Makefile.SP64.PAR         : default for SP (64 bits), parallel version.
  Makefile.WIN.MS-Intel.SEQ : default for Windows with Intel compiler, sequential, with GNU make.
- Makefile.WIN.MS-G95.SEQ : default for Windows with g95 compiler, sequential, with GNU make.
- Makefile.SGI.SEQ : default Makefile.inc for an Origin, sequential version.
- Makefile.SGI.PAR : default Makefile.inc for an Origin, parallel version.
- Makefile.SUN.SEQ : default Makefile.inc for a SUN, sequential version.
- Makefile.SUN.PAR : default Makefile.inc for a SUN, parallel version.
- Makefile.SP.SEQ : default for SP (32 bits), sequential version.
- Makefile.SP.PAR : default for SP (32 bits), parallel version.
- Makefile.SP64.SEQ : default for SP (64 bits), sequential version.
- Makefile.SP64.PAR : default for SP (64 bits), parallel version.
+ Makefile.WIN.MS-G95.SEQ   : default for Windows with g95 compiler, sequential, with GNU make.
 
 For a parallel version of MUMPS on a debian system and standard packages copy
 Make.inc/Makefile.debian.PAR into Makefile.inc
@@ -176,7 +183,7 @@ Interface with the Metis and ParMetis orderings
 -----------------------------------------------
 
 Since the release of MUMPS 4.10.0, the Metis API
-has changed. MUMPS 5.0.0 assumes that Metis 5.1.0 or 
+has changed. MUMPS 5.0.1 assumes that Metis 5.1.0 or 
 ParMetis 4.0.3 or later are installed, 
 and that the newer versions of Metis/ParMetis
 are backward compatible with Metis 5.1.0/ParMetis 4.0.3.

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.0.0, released
-C  on Fri Feb 20 08:19:56 UTC 2015
+C  This file is part of MUMPS 5.0.1, released
+C  on Thu Jul 23 17:08:29 UTC 2015
 C
 C
 C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -178,7 +178,7 @@ C
      &
      &       OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &       FILS, PTRARW, PTRAIW,
-     &       INTARR, DBLARR, ICNTL, KEEP,KEEP8, ND, FRERE,
+     &       INTARR, DBLARR, ICNTL, KEEP, KEEP8, DKEEP, ND, FRERE,
      &       LPTRAR, NELT, FRTPTR, FRTELT, 
      &       ISTEP_TO_INIV2, TAB_POS_IN_PERE
      &       )

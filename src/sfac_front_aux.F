@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.0.0, released
-C  on Fri Feb 20 08:19:56 UTC 2015
+C  This file is part of MUMPS 5.0.1, released
+C  on Thu Jul 23 17:08:29 UTC 2015
 C
 C
 C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -735,9 +735,6 @@ C
      &     DKEEP,PIVNUL_LIST,LPN_LIST, XSIZE,
      &     PP_FIRST2SWAP_L, PP_LastPanelonDisk,
      &     PP_LastPIVRPTRIndexFilled,MAXFROMM,IS_MAXFROMM_AVAIL)
-#if defined (PROFILE_BLAS_ASS_G)
-      USE SMUMPS_LOAD
-#endif
       USE MUMPS_OOC_COMMON 
       IMPLICIT NONE
       INTEGER(8) :: POSELT, LA

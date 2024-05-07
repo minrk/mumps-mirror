@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.0.0, released
-C  on Fri Feb 20 08:19:56 UTC 2015
+C  This file is part of MUMPS 5.0.1, released
+C  on Thu Jul 23 17:08:29 UTC 2015
 C
 C
 C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -360,21 +360,6 @@ C
      &                  (ISTEP, OOC_FCT_TYPE_LOC)
         ENDDO
         PRUNED_SIZE_LOADED = PRUNED_SIZE_LOADED +Pruned_Size
-#if defined(Mila_Print)
-        write(*,*) 'Pruned_Size Total_Size:',
-     &        Pruned_Size, KEEP8_31
-        write(*,*) MYID,'Gain (%) = ', dble(100)
-     &        - (dble(Pruned_Size)*dble(100)) /dble(KEEP8_31)
-        IF (Pruned_Size .EQ. 0) THEN
-            WRITE(*,*) "NOT NORMAL BEHAVIOUR !!"
-            DO I = 1, nb_nodes_RHS
-               WRITE(*,*) "starting_node node_size",
-     &              nodes_RHS(I), 
-     &              SIZE_OF_BLOCK(STEP(nodes_RHS(I)),OOC_FCT_TYPE_LOC)
-            ENDDO
-        ENDIF
-        write(*,*) '============================='
-#endif
       ENDIF
       RETURN
       END SUBROUTINE MUMPS_TREE_PRUN_NODES_STATS

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.0.0, released
-C  on Fri Feb 20 08:19:56 UTC 2015
+C  This file is part of MUMPS 5.0.1, released
+C  on Thu Jul 23 17:08:29 UTC 2015
 C
 C
 C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -44,7 +44,7 @@ C
       INTEGER, POINTER :: BUF(:) => null()
       END TYPE ARRPNT
       INTEGER :: MEMCNT, MAXMEM, MP, MPG, LP, NRL, TOPROWS
-      LOGICAL :: PROK, PROKG
+      LOGICAL :: PROK, PROKG, LPOK
       CONTAINS
       SUBROUTINE ZMUMPS_ANA_F_PAR(id, WORK1, WORK2, NFSIZ, FILS,
      &     FRERE)
@@ -62,6 +62,7 @@ C
       INTEGER              :: MYID, NPROCS, IERR, NEMIN, LDIAG
       LOGICAL              :: SPLITROOT
       INTEGER(8), PARAMETER :: K79REF=12000000_8
+      DOUBLE PRECISION      :: TIMEB
       nullify(IPE, NV, NE, NA, NODE, ND, SUBORD, NAMALG, IPS,
      &     CUMUL, SAVEIRN, SAVEJCN)
       CALL MPI_COMM_RANK (id%COMM, MYID, IERR)
@@ -71,6 +72,7 @@ C
       MPG   = id%ICNTL(3)
       PROK  = (MP.GT.0)
       PROKG = (MPG.GT.0) .AND. (MYID .EQ. 0)
+      LPOK  = (LP.GT.0) .AND. (id%ICNTL(4).GE.1)
       LDIAG = id%ICNTL(4)
       ord%PERMTAB => WORK1(1        : id%N)
       ord%PERITAB => WORK1(id%N+1   : 2*id%N)
@@ -390,25 +392,13 @@ C
       CALL MUMPS_REALLOC(LAST, NPROCS+1, id%INFO, LP,
      &     MEMCNT=MEMCNT, ERRCODE=-7)
       IF(MEMCNT .GT. MAXMEM) MAXMEM=MEMCNT
-      DO I=0, BASE-1
-         FIRST(I+1) = 0
-         LAST(I+1)  = -1
-      END DO
-      DO I=BASE, BASE+ord%NSLAVES-2
-         FIRST(I+1) = (id%N/ord%NSLAVES)*(I-BASE)+1
-         LAST(I+1)  = (id%N/ord%NSLAVES)*(I+1-BASE)
-      END DO
-      FIRST(BASE+ord%NSLAVES) = (id%N/ord%NSLAVES)*
-     &     (BASE+ord%NSLAVES-1-BASE)+1
-      LAST(BASE+ord%NSLAVES)  = id%N
-      DO I=BASE+ord%NSLAVES, NPROCS
-         FIRST(I+1) = id%N+1
-         LAST(I+1)  = id%N
-      END DO
+      CALL ZMUMPS_GRAPH_DIST(id, ord, FIRST,
+     &     LAST, BASE, NPROCS, WORK(id%N+1: 3*id%N), TYPE=2)
       VERTLOCNBR = LAST(MYID+1)-FIRST(MYID+1) + 1
       SWORK => WORK(id%N+1:3*id%N)
       CALL ZMUMPS_BUILD_SCOTCH_GRAPH(id, FIRST, LAST, VERTLOCTAB,
      &     EDGELOCTAB, SWORK)
+      IF(id%INFO(1).LT.0) RETURN
       EDGELOCNBR = VERTLOCTAB(VERTLOCNBR+1)-1
       OPTIONS(:) = 0
       NROWS_LOC = LAST(MYID+1)-FIRST(MYID+1)+1
@@ -518,26 +508,14 @@ C
       CALL MUMPS_REALLOC(LAST, NPROCS+1, id%INFO, LP,
      &     MEMCNT=MEMCNT, ERRCODE=-7)
       IF(MEMCNT .GT. MAXMEM) MAXMEM=MEMCNT
-      DO I=0, BASE-1
-         FIRST(I+1) = 0
-         LAST(I+1)  = -1
-      END DO
-      DO I=BASE, BASE+ord%NSLAVES-2
-         FIRST(I+1) = (id%N/ord%NSLAVES)*(I-BASE)+1
-         LAST(I+1)  = (id%N/ord%NSLAVES)*(I+1-BASE)
-      END DO
-      FIRST(BASE+ord%NSLAVES) = (id%N/ord%NSLAVES)*
-     &     (BASE+ord%NSLAVES-1-BASE)+1
-      LAST(BASE+ord%NSLAVES)  = id%N
-      DO I=BASE+ord%NSLAVES, NPROCS-1
-         FIRST(I+1) = id%N+1
-         LAST(I+1)  = id%N
-      END DO
+      CALL ZMUMPS_GRAPH_DIST(id, ord, FIRST,
+     &     LAST, BASE, NPROCS, WORK(id%N+1: 3*id%N), TYPE=2)
       VERTLOCNBR = LAST(MYID+1)-FIRST(MYID+1) + 1
       VERTLOCTAB => WORK(1:id%N)
       SWORK => WORK(id%N+1:3*id%N)
       CALL ZMUMPS_BUILD_SCOTCH_GRAPH(id, FIRST, LAST, VERTLOCTAB,
      &     EDGELOCTAB, SWORK)
+      IF(id%INFO(1).LT.0) RETURN
       EDGELOCNBR = VERTLOCTAB(VERTLOCNBR+1)-1
       CALL MUMPS_REALLOC(ord%PERMTAB, id%N, id%INFO,
      &     LP, STRING='PERMTAB', MEMCNT=MEMCNT, ERRCODE=-7)
@@ -961,6 +939,7 @@ C
       BWORK => WORK(1 : 2*id%N)
       CALL ZMUMPS_BUILD_LOC_GRAPH(id, ord, HIDX, IPE, PE, LENG,
      &     I_HALO_MAP, top_graph, BWORK)
+      IF(id%INFO(1).lt.0) RETURN
       TMP = id%N
       DO I=1, NPROCS
          TMP = TMP-(ord%LAST(I)-ord%FIRST(I)+1)
@@ -1433,6 +1412,7 @@ C
       INTEGER, PARAMETER      :: ITAG=30
       LOGICAL                 :: FLAG
       DOUBLE PRECISION        :: SYMMETRY
+      INTEGER(KIND=8)         :: TLEN
 #if defined(DETERMINISTIC_PARALLEL_GRAPH)
       INTEGER                 :: L
 #endif
@@ -1499,10 +1479,21 @@ C
       CALL MUMPS_REALLOC(IPE, NROWS_LOC+1, id%INFO,
      &        LP, STRING='IPE', MEMCNT=MEMCNT, ERRCODE=-7)
       IF(MEMCNT .GT. MAXMEM) MAXMEM=MEMCNT
+      TLEN = 0
       IPE(1) = 1
       DO I=1, NROWS_LOC
          IPE(I+1) = IPE(I) + LENG(I)
+         TLEN = TLEN+LENG(I)
       END DO
+      IF(TLEN.GT.HUGE(I)) THEN
+         id%INFO( 1 ) = -51
+         id%INFO( 2 ) = int(TLEN)
+         IF ( LPOK ) THEN
+            WRITE(LP, '("32 bits int overflow in parallel analysis")')
+         END IF
+      END IF
+      CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1), id%COMM, id%MYID )
+      IF(id%INFO(1).LT.0) RETURN
       CALL MUMPS_REALLOC(PE, max(IPE(NROWS_LOC+1)-1,1), id%INFO,
      &        LP, STRING='PE', MEMCNT=MEMCNT, ERRCODE=-7)
       IF(MEMCNT .GT. MAXMEM) MAXMEM=MEMCNT
@@ -1518,12 +1509,12 @@ C
       TIDX   = 0
       DO I=1, id%NZ_loc
          IF(mod(I,BUFSIZE/10) .EQ. 0) THEN
-            CALL MPI_IPROBE( MPI_ANY_SOURCE, ITAG, MPI_COMM_WORLD,
+            CALL MPI_IPROBE( MPI_ANY_SOURCE, ITAG, id%COMM,
      &           FLAG, STATUS, IERR )
             IF(FLAG) THEN
                SOURCE = STATUS(MPI_SOURCE)
                CALL MPI_RECV(RCVBUF(1), 2*BUFSIZE, MPI_INTEGER, SOURCE,
-     &              ITAG, MPI_COMM_WORLD, STATUS, IERR)
+     &              ITAG, id%COMM, STATUS, IERR)
                CALL ZMUMPS_ASSEMBLE_MSG(BUFSIZE, RCVBUF, IPE, PE, LENG)
                MSGCNT(SOURCE+1)=MSGCNT(SOURCE+1)-1
                RCVPNT = RCVPNT + BUFSIZE
@@ -1574,7 +1565,7 @@ C
       SYMMETRY = dble(TOTDUPS)/(dble(id%NZ)-dble(id%N))
       IF(MYID .EQ. 0) THEN
          IF(id%KEEP(50) .GE. 1) SYMMETRY = 1.d0
-         IF(PROKG) WRITE(MPG,'("Structual symmetry is:",i3,"%")')
+         IF(PROKG) WRITE(MPG,'("Structural symmetry is:",i3,"%")')
      &        ceiling(SYMMETRY*100.d0)
       id%INFOG(8) = ceiling(SYMMETRY*100.0d0)
       END IF
@@ -1620,6 +1611,7 @@ C
       INTEGER                :: BUFSIZE, SOURCE, RCVPNT, MAXS, PNT,
      &     SAVEPNT
       INTEGER, PARAMETER     :: ITAG=30
+      INTEGER(KIND=8)        :: TLEN
       LOGICAL                :: FLAG
       nullify(MAPTAB, SNDCNT, RCVCNT, SDISPL, HALO_MAP)
       nullify(RDISPL, MSGCNT, SIPES)
@@ -1695,10 +1687,21 @@ C
       CALL MUMPS_REALLOC(IPE, max(I,1), id%INFO,
      &        LP, STRING='B_L_G:IPE', MEMCNT=MEMCNT, ERRCODE=-7)
       IF(MEMCNT .GT. MAXMEM) MAXMEM=MEMCNT
+      TLEN = 0
       IPE(1) = 1
       DO I=1, NROWS_LOC
          IPE(I+1) = IPE(I) + LENG(I)
+         TLEN = TLEN+LENG(I)
       END DO
+      IF(TLEN.GT.HUGE(I)) THEN
+         id%INFO( 1 ) = -51
+         id%INFO( 2 ) = int(TLEN)
+         IF ( LPOK ) THEN
+            WRITE(LP, '("32 bits int overflow in parallel analysis")')
+         END IF
+      END IF
+      CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1), id%COMM, id%MYID )
+      IF(id%INFO(1).LT.0) RETURN
       CALL MUMPS_REALLOC(TSENDI, max(TOP_CNT,1), id%INFO, LP,
      &     MEMCNT=MEMCNT, ERRCODE=-7)
       CALL MUMPS_REALLOC(TSENDJ, max(TOP_CNT,1), id%INFO, LP,
@@ -1719,12 +1722,12 @@ C
       TIDX   = 0
       DO I=1, id%NZ_loc
          IF(mod(I,BUFSIZE/10) .EQ. 0) THEN
-            CALL MPI_IPROBE( MPI_ANY_SOURCE, ITAG, MPI_COMM_WORLD,
+            CALL MPI_IPROBE( MPI_ANY_SOURCE, ITAG, id%COMM,
      &           FLAG, STATUS, IERR )
             IF(FLAG) THEN
                SOURCE = STATUS(MPI_SOURCE)
                CALL MPI_RECV(RCVBUF(1), 2*BUFSIZE, MPI_INTEGER, SOURCE,
-     &              ITAG, MPI_COMM_WORLD, STATUS, IERR)
+     &              ITAG, id%COMM, STATUS, IERR)
                CALL ZMUMPS_ASSEMBLE_MSG(BUFSIZE, RCVBUF, IPE, PE, LENG)
                MSGCNT(SOURCE+1)=MSGCNT(SOURCE+1)-1
                RCVPNT = RCVPNT + BUFSIZE
@@ -2000,6 +2003,67 @@ C
       END DO
       RETURN
       END SUBROUTINE ZMUMPS_BUILD_TREE
+      SUBROUTINE ZMUMPS_GRAPH_DIST(id, ord, FIRST,
+     &     LAST, BASE, NPROCS, WORK, TYPE)
+      IMPLICIT NONE
+      TYPE(ZMUMPS_STRUC)   :: id
+      TYPE(ORD_TYPE)       :: ord
+      INTEGER              :: FIRST(:), LAST(:), BASE, NPROCS, TYPE
+      INTEGER, TARGET      :: WORK(:)
+      INTEGER, POINTER     :: TMP(:), NZ_ROW(:)
+      INTEGER              :: I, IERR, P, T, F
+      DO I=0, BASE-1
+         FIRST(I+1) = 0
+         LAST(I+1)  = -1
+      END DO
+      IF(TYPE.EQ.1) THEN
+      DO I=BASE, BASE+ord%NSLAVES-2
+         FIRST(I+1) = (id%N/ord%NSLAVES)*(I-BASE)+1
+         LAST(I+1)  = (id%N/ord%NSLAVES)*(I+1-BASE)
+      END DO
+      FIRST(BASE+ord%NSLAVES) = (id%N/ord%NSLAVES)*
+     &     (BASE+ord%NSLAVES-1-BASE)+1
+      LAST(BASE+ord%NSLAVES)  = id%N
+      ELSE IF (TYPE.EQ.2) THEN
+      TMP    => WORK(1:id%N)
+      NZ_ROW => WORK(id%N+1:2*id%N)
+      TMP = 0
+      DO I=1, ID%NZ_LOC
+         IF(id%IRN_LOC(I) .NE. id%JCN_LOC(I)) THEN
+            TMP(id%IRN_LOC(I)) = TMP(id%IRN_LOC(I))+1
+            IF(id%SYM.GT.0) THEN
+               TMP(id%JCN_LOC(I)) = TMP(id%JCN_LOC(I))+1
+            end if
+         end if
+      end do
+      CALL MPI_ALLREDUCE(TMP(1), NZ_ROW(1), id%N,
+     &     MPI_INTEGER, MPI_SUM, id%COMM, IERR)
+      nullify(TMP)
+      P = 1
+      T = 0
+      F = 1
+      DO I=1, id%N
+         T = T+NZ_ROW(I)
+         IF(T .ge. id%NZ/ord%NSLAVES) THEN
+            FIRST(BASE+P) = F
+            LAST(BASE+P)  = I
+            F = I+1
+            P = P+1
+            T = 0
+            IF (P.EQ.ord%NSLAVES) THEN
+               FIRST(BASE+P) = F
+               LAST(BASE+P)  = id%N
+               EXIT
+            END IF
+         END IF
+      END DO
+      END IF
+      DO I=BASE+ord%NSLAVES, NPROCS
+         FIRST(I+1) = id%N+1
+         LAST(I+1)  = id%N
+      END DO
+      RETURN
+      END SUBROUTINE ZMUMPS_GRAPH_DIST
       SUBROUTINE ZMUMPS_MERGESWAP(N, L, A1, A2)
       INTEGER   :: I, LP, ISWAP, N
       INTEGER   :: L(0:), A1(:), A2(:)
@@ -2024,6 +2088,7 @@ C
          I  = I + 1
       ENDDO
       END SUBROUTINE ZMUMPS_MERGESWAP
+#if defined(DETERMINISTIC_PARALLEL_GRAPH) 
       SUBROUTINE ZMUMPS_MERGESWAP1(N, L, A)
       INTEGER   :: I, LP, ISWAP, N
       INTEGER   :: L(0:), A(:)
@@ -2045,6 +2110,7 @@ C
          I  = I + 1
       ENDDO
       END SUBROUTINE ZMUMPS_MERGESWAP1
+#endif     
       SUBROUTINE ZMUMPS_MERGESORT(N, K, L)
       INTEGER    :: N
       INTEGER    :: K(:), L(0:)

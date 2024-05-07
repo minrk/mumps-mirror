@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.0.0, released
-C  on Fri Feb 20 08:19:56 UTC 2015
+C  This file is part of MUMPS 5.0.1, released
+C  on Thu Jul 23 17:08:29 UTC 2015
 C
 C
 C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -559,20 +559,6 @@ C
      &      RESULT,T1,T2)
           IPOOL(1:NBROOT) = NA(3+NBLEAF:2+NBLEAF+NBROOT)
         ENDIF
-#if defined(OOC_PAR_MEM2)
-        IF(K38.NE.0)THEN
-           WRITE(*,*)'K38 != 0'
-           DO I=1,NBROOT
-              IF(NA(2+NBLEAF+I).EQ.K38)THEN
-                 II=I
-                 EXIT
-              ENDIF
-           ENDDO
-           I=NA(2+NBLEAF+1)
-           NA(2+NBLEAF+1)=NA(2+NBLEAF+II)
-           NA(2+NBLEAF+II)=I
-        ENDIF
-#endif
  001    CONTINUE
         fin=NBROOT
         LEAF=NA(1)

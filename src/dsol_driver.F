@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.0.0, released
-C  on Fri Feb 20 08:19:56 UTC 2015
+C  This file is part of MUMPS 5.0.1, released
+C  on Thu Jul 23 17:08:29 UTC 2015
 C
 C
 C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -253,7 +253,6 @@ C     Interval associated to the subblocks of RHS a node has to process
       INTEGER NB_K133, IRANK, TSIZE
       INTEGER KMAX_246_247
       INTEGER IFLAG_IR, IRStep
-      DOUBLE PRECISION OM1
       LOGICAL TESTConv
       LOGICAL WORKSPACE_MINIMAL_PREFERRED, WK_USER_PROVIDED
       INTEGER(8) NB_BYTES     !size of data allocated during solve
@@ -4166,7 +4165,6 @@ C         Initializations for the IR
 C         Test of convergence should be made
           IF (( id%MYID .eq. MASTER ).AND.(ICNTL10.GT.0)) THEN
             TESTConv = .TRUE.
-            OM1 = RZERO
             ARRET = CNTL(2)
             IF (ARRET .LT. 0.0D0) THEN
               ARRET = sqrt(epsilon(0.0D0))
@@ -4325,7 +4323,7 @@ C                                               of the last sol.
                     ENDIF
                   ENDIF
                   GIVSOL = .TRUE.
-                  CALL DMUMPS_SOL_Q_CH(MTYPE,INFO(1),id%N,id%NZ,
+                  CALL DMUMPS_SOL_Q(MTYPE,INFO(1),id%N,id%NZ,
      &            id%RHS(IBEG),
      &            SAVERHS,R_W(id%N+1),C_Y,GIVSOL,
      &            RSOL,RINFOG(4),RINFOG(5),RINFOG(6),MPG,ICNTL(1),
@@ -4531,7 +4529,7 @@ C             If IFLAG_IR = 0 or 1 IW1 should be correct
               ENDIF ! (IFLAG_IR.EQ.2)
 c             Compute some statistics for
               GIVSOL = .TRUE.
-              CALL DMUMPS_SOL_Q_CH(MTYPE,INFO(1),id%N,id%NZ,
+              CALL DMUMPS_SOL_Q(MTYPE,INFO(1),id%N,id%NZ,
      &        id%RHS(IBEG),
      &        SAVERHS,R_W(id%N+1),C_Y,GIVSOL,
      &        RSOL,RINFOG(4),RINFOG(5),RINFOG(6),MPG,ICNTL(1),

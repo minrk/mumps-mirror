@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.0.0, released
-#  on Fri Feb 20 08:19:56 UTC 2015
+#  This file is part of MUMPS 5.0.1, released
+#  on Thu Jul 23 17:08:29 UTC 2015
 #
 #
 #  This file is part of MUMPS 5.0beta, built on Tue Jan 10 16:43:31 UTC 2012
@@ -53,7 +53,7 @@ OBJS_COMMON_OTHER = \
         mumps_type2_blocking.o \
         mumps_version.o \
         tools_common.o \
-	mumps_print_defined.o \
+        mumps_print_defined.o \
         mumps_common.o\
         mumps_orderings.o\
         mumps_size.o\
@@ -61,6 +61,7 @@ OBJS_COMMON_OTHER = \
         mumps_io_basic.o\
         mumps_io_thread.o\
         mumps_io_err.o\
+        ana_set_ordering.o\
         mumps_numa.o
 
 OBJS_MOD =   \
@@ -134,7 +135,7 @@ OBJS_OTHER = \
         $(ARITH)fac_sol_pool.o\
         $(ARITH)fac_type3_symmetrize.o\
         $(ARITH)ini_defaults.o\
-	$(ARITH)mumps_c.o\
+        $(ARITH)mumps_c.o\
         $(ARITH)mumps_driver.o\
         $(ARITH)mumps_f77.o\
         $(ARITH)mumps_iXamax.o\
@@ -151,7 +152,7 @@ OBJS_OTHER = \
         $(ARITH)sol_root_parallel.o\
         $(ARITH)tools.o\
         $(ARITH)type3_root.o\
-	$(ARITH)mumps_restart.o
+        $(ARITH)mumps_restart.o
 
 $(libdir)/libmumps_common$(PLAT)$(LIBEXT):      $(OBJS_COMMON_MOD) $(OBJS_COMMON_OTHER)
 	$(AR)$@ $?

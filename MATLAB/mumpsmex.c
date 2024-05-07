@@ -73,9 +73,26 @@
 
 #define EXTRACT_FROM_MATLAB_TOPTR(mxcomponent,mumpspointer,type,length)         \
   ptr_matlab = mxGetPr(mxcomponent);                                            \
-  MYFREE(mumpspointer);                                                         \
   if(ptr_matlab[0] != -9999){                                                   \
+    MYFREE(mumpspointer);                                                       \
     MYMALLOC(mumpspointer,length,type);                                         \
+    for(i=0;i<length;i++){                                                      \
+      mumpspointer[i] = ptr_matlab[i];                                          \
+    }                                                                           \
+  }
+
+
+/* For scaling arrays, if they were previously allocated by MUMPS, touch nothing   */
+/* This is not quite correct (user may want to modify MUMPS scaling and use given  */
+/* scaling, or provide a new scaling vector on input after a previous call where   */
+/* it was computed by MUMPS). One way to solve this might be to separate COLSCA_IN */
+/* and COLSCA_OUT in the C interface (and possibly Fortran) too, but breaking      */
+/* backward compatibility.                                                         */
+#define EXTRACT_SCALING_FROM_MATLAB_TOPTR(mxcomponent,mumpspointer,is_a_pointer_from_mumps,length)   \
+  ptr_matlab = mxGetPr(mxcomponent);                                            \
+  if( ptr_matlab[0] != -9999 && ! (is_a_pointer_from_mumps) ) {                 \
+    MYFREE(mumpspointer);                                                       \
+    MYMALLOC(mumpspointer,length,double);                                       \
     for(i=0;i<length;i++){                                                      \
       mumpspointer[i] = ptr_matlab[i];                                          \
     }                                                                           \
@@ -132,6 +149,7 @@
     }                                                                           \
   }
 
+
 #define EXTRACT_CMPLX_FROM_C_TO_MATLAB(mxcomponent,mumpspointer,length)         \
   if(mumpspointer == 0){                                                        \
     mxcomponent = mxCreateDoubleMatrix (1, 1, mxCOMPLEX);                       \
@@ -165,6 +183,9 @@ void DMUMPS_free(DMUMPS_STRUC_C **dmumps_par){
   MYFREE( (*dmumps_par)->eltvar );
   MYFREE( (*dmumps_par)->a_elt );
   MYFREE( (*dmumps_par)->perm_in );
+  /* colsca/rowsca might have been allocated by
+   * MUMPS but in that case the corresponding pointer
+   * is already equal to 0 so line below will do nothing */
   MYFREE( (*dmumps_par)->colsca );
   MYFREE( (*dmumps_par)->rowsca  );
   MYFREE( (*dmumps_par)->pivnul_list );
@@ -263,6 +284,9 @@ void mexFunction(int nlhs, mxArray *plhs[ ],
     if(job == -2){
       dmumps_par->job = -2;
       dmumps_c(dmumps_par);
+      /* If colsca/rowsca were freed by MUMPS,
+         dmumps_par->colsca/rowsca are now null.
+         Application of MYFREE in call below thus ok */
       DMUMPS_free(&dmumps_par);
     }else{
 
@@ -373,9 +397,15 @@ void mexFunction(int nlhs, mxArray *plhs[ ],
       EXTRACT_FROM_MATLAB_TOARR(CNTL_IN,dmumps_par->cntl,double,15);
       EXTRACT_FROM_MATLAB_TOPTR(PERM_IN,(dmumps_par->perm_in),int,((int)n));
 
-      EXTRACT_FROM_MATLAB_TOPTR(COLSCA_IN,(dmumps_par->colsca),double,((int)n));
-      EXTRACT_FROM_MATLAB_TOPTR(ROWSCA_IN,(dmumps_par->rowsca),double,((int)n));
-      
+      /* colsca and rowsca are treated differently: it may happen that
+         dmumps_par-> colsca is nonzero because it was set to a nonzero
+         value on output (COLSCA_OUT) from MUMPS. Unfortunately if scaling
+         was on output, one cannot currently provide scaling on input
+         afterwards without reinitializing the instance */
+
+      EXTRACT_SCALING_FROM_MATLAB_TOPTR(COLSCA_IN,(dmumps_par->colsca),(dmumps_par->colsca_from_mumps),((int)n)); /* type always double */
+      EXTRACT_SCALING_FROM_MATLAB_TOPTR(ROWSCA_IN,(dmumps_par->rowsca),(dmumps_par->rowsca_from_mumps),((int)n)); /* type always double */
+
       EXTRACT_FROM_MATLAB_TOARR(KEEP_IN,dmumps_par->keep,int,500);
       EXTRACT_FROM_MATLAB_TOARR(DKEEP_IN,dmumps_par->dkeep,double,30);
 
@@ -583,7 +613,7 @@ void mexFunction(int nlhs, mxArray *plhs[ ],
     EXTRACT_FROM_C_TO_MATLAB( KEEP_OUT   ,dmumps_par->keep,500);
     EXTRACT_FROM_C_TO_MATLAB( DKEEP_OUT  ,dmumps_par->dkeep,30);
 
-    if(dmumps_par->size_schur > 0){
+    if(dmumps_par->size_schur > 0 && dofactorize){
       SCHUR_OUT = mxCreateDoubleMatrix(dmumps_par->size_schur,dmumps_par->size_schur,mxREAL2);
       ptr_matlab = mxGetPr (SCHUR_OUT);
 #if MUMPS_ARITH == MUMPS_ARITH_z

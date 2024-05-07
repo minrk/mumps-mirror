@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.0.0, released
-C  on Fri Feb 20 08:19:56 UTC 2015
+C  This file is part of MUMPS 5.0.1, released
+C  on Thu Jul 23 17:08:29 UTC 2015
 C
 C
 C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -254,9 +254,6 @@ C
             WRITE(LP, * ) 'PB compress CMUMPS_FAC_ASM_NIV1_ELT'
             WRITE(LP, * ) 'LRLU,LRLUS=',LRLU,LRLUS
            ENDIF
-#if defined(perfanal)
-           CALL MUMPS_ABORT()
-#endif
            GOTO 280
           END IF
         END IF
@@ -905,15 +902,11 @@ C
      &        SONROWS_PER_ROW, NFRONT - NASS1)
       IF (INFO(1).LT.0) GOTO 250
       IF ( NFRONT .NE. NFRONT_EFF ) THEN
-#if defined(splitting_wissam)
-#endif
         IF (
      &        (TYPESPLIT.EQ.5) .OR. (TYPESPLIT.EQ.6)) THEN
           WRITE(6,*) ' Internal error 1 in fac_ass due to splitting ',
      &     ' INODE, NFRONT, NFRONT_EFF =', INODE, NFRONT, NFRONT_EFF 
           WRITE(6,*) ' SPLITTING NOT YET READY FOR THAT'
-#if defined(splitting_wissam)
-#endif
           CALL MUMPS_ABORT()
         ENDIF
         IF (NFRONT.GT.NFRONT_EFF) THEN

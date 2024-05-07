@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.0.0, released
-C  on Fri Feb 20 08:19:56 UTC 2015
+C  This file is part of MUMPS 5.0.1, released
+C  on Thu Jul 23 17:08:29 UTC 2015
 C
 C
 C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -219,8 +219,8 @@ C     If it is set to zero, these
 C     messages will be suppressed.
 C  
 C  ICNTL(2) has default value 0.
-C     It is the output stream for diagnostic printing 
-C     and  for warning messages.
+C     It is the output stream for diagnostic printing and
+C     for warning messages that are local to each MPI process.
 C     If it is set to zero, these messages are suppressed.
 C  
 C  ICNTL(3) -- Host only

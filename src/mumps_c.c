@@ -1,56 +1,17 @@
 /*
  *
- *  This file is part of MUMPS 5.0.0, released
- *  on Fri Feb 20 08:19:56 UTC 2015
+ *  This file is part of MUMPS 5.0.1, released
+ *  on Thu Jul 23 17:08:29 UTC 2015
  *
  *
  *  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
- *  released under the CeCILL-C license,
- *  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html, 
- *  except for the external and optional ordering PORD, 
- *  in separate directory PORD, which is public domain (see PORD/README).
- *
- *  You can acknowledge (using references [1] and [2]) the contribution of
- *  this package in any scientific publication dependent upon the use of
- *  the package. Please use reasonable endeavours to notify the authors
- *  of the package of this publication.
- *
- *   [1] P. R. Amestoy, I. S. Duff, J. Koster and  J.-Y. L'Excellent,
- *   A fully asynchronous multifrontal solver using distributed dynamic
- *   scheduling, SIAM Journal of Matrix Analysis and Applications,
- *   Vol 23, No 1, pp 15-41 (2001).
- *
- *   [2] P. R. Amestoy, A. Guermouche, J.-Y. L'Excellent and
- *   S. Pralet, Hybrid scheduling for the parallel solution of linear
- *   systems. Parallel Computing Vol 32 (2), pp 136-156 (2006).
- *
- *  As a counterpart to the access to the source code and rights to copy,
- *  modify and redistribute granted by the license, users are provided only
- *  with a limited warranty  and the software's author,  the holder of the
- *  economic rights,  and the successive licensors  have only  limited
- *  liability. 
- *
- *  In this respect, the user's attention is drawn to the risks associated
- *  with loading,  using,  modifying and/or developing or reproducing the
- *  software by the user in light of its specific status of free software,
- *  that may mean  that it is complicated to manipulate,  and  that  also
- *  therefore means  that it is reserved for developers  and  experienced
- *  professionals having in-depth computer knowledge. Users are therefore
- *  encouraged to load and test the software's suitability as regards their
- *  requirements in conditions enabling the security of their systems and/or 
- *  data to be ensured and,  more generally, to use and operate it in the 
- *  same conditions as regards security. 
- *
- *  The fact that you are presently reading this means that you have had
- *  knowledge of the CeCILL-C license and that you accept its terms.
+ *  released under the CeCILL-C license:
+ *  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
  *
  */
-/* Written by JYL, march 2002 */
-/* This file groups so far all C functions and symbols that vary with the
-   arithmetic */
 /* Header used for debug purpose only
 #include <stdio.h>
 */
@@ -73,7 +34,7 @@
 # define MUMPS_REAL    ZMUMPS_REAL
 # define MUMPS_COMPLEX ZMUMPS_COMPLEX
 #endif
-/**
+/*
  * F_SYM_ARITH is the same as F_SYMBOL (see mumps_commn.h) for the symbols
  * that depend on the arithmetic.
  * Example: For CMUMPS_XXX, first define
@@ -321,13 +282,12 @@ mumps_c(MUMPS_STRUC_C * mumps_par)
     idummyp = &idummy;
     cdummyp = &cdummy;
     rdummyp = &rdummy;
-#ifdef return_scaling
-    /* Don't forget to initialize those two before
-     * each call to mumps as we may copy values from
-     * old instances otherwise ! */
+    /* [SDCZ]MUMPS_F77 always calls either
+     * MUMPS_NULLIFY_C_COLSCA or MUMPS_ASSIGN_C_COLSCA
+     * (and ROWSCA). The next two lines are thus not
+     * strictly necessary. */
     MUMPS_COLSCA_STATIC=0;
     MUMPS_ROWSCA_STATIC=0;
-#endif
     /* Initialize pointers to zero for job == -1 */
     if ( mumps_par->job == -1 )
       { /* job = -1: we just reset all pointers to 0 */
@@ -397,14 +357,14 @@ mumps_c(MUMPS_STRUC_C * mumps_par)
     /* EXTRACT_POINTERS not adapted to rowsca and colsca */
     if ( mumps_par->rowsca != 0 && mumps_par->rowsca_from_mumps == 0 )
       {
-        /* has been changed by user and was not allocated in mumps */
+        /* has been set by user and was not allocated in mumps */
         rowsca = mumps_par-> rowsca;
         rowsca_avail = yes;
       }
     else
       {
-        /* Note: changing rowsca in C after an earlier call
-           where rowsca was computed by mumps is not possible */
+        /* FIXME: changing rowsca in C after an earlier call
+           where rowsca was computed by mumps is not possible. */
         rowsca = rdummyp;
         rowsca_avail = no;
       }
@@ -416,7 +376,7 @@ mumps_c(MUMPS_STRUC_C * mumps_par)
       }
     else
       {
-        /* Note: changing colsca in C after an earlier call
+        /* FIXME: changing colsca in C after an earlier call
            where colsca was computed by mumps is not possible */
         colsca = rdummyp;
         colsca_avail = no;
@@ -494,16 +454,24 @@ mumps_c(MUMPS_STRUC_C * mumps_par)
      * colsca/rowsca can either be user data or have been modified
      * within mumps by calls to MUMPS_ASSIGN_COLSCA and/or
      * MUMPS_ASSIGN_ROWSCA. In all cases their address is contained
-     * in MUMPS_COLSCA_STATIC and/or MUMPS_ROWSCA_STATIC
+     * in MUMPS_COLSCA_STATIC and/or MUMPS_ROWSCA_STATIC.
+     *
+     * In case of a null pointer, we also reset mumps_par->rowsca/colsca
+     * to 0 (case of JOB=-2, the Fortran pointer will be NULL but the
+     * C pointer should also be null.
      */
-    if (rowsca_avail == no && MUMPS_ROWSCA_STATIC) {
-      /* rowsca was set by MUMPS */
+    if (rowsca_avail == no) {
       mumps_par->rowsca = MUMPS_ROWSCA_STATIC;
-      mumps_par->rowsca_from_mumps=1;
+      if (MUMPS_ROWSCA_STATIC) {
+         /* remember that row Scaling was computed by MUMPS */
+         mumps_par->rowsca_from_mumps=1;
+      }
     }
-    if (colsca_avail == no && MUMPS_COLSCA_STATIC) {
-      /* rowsca was set by MUMPS */
+    if (colsca_avail == no) {
       mumps_par->colsca = MUMPS_COLSCA_STATIC;
-      mumps_par->colsca_from_mumps=1;
+      if (MUMPS_COLSCA_STATIC) {
+         /* remember that column Scaling was computed by MUMPS */
+         mumps_par->colsca_from_mumps=1;
+      }
     }
 }

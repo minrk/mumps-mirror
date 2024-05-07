@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.0.0, released
-C  on Fri Feb 20 08:19:56 UTC 2015
+C  This file is part of MUMPS 5.0.1, released
+C  on Thu Jul 23 17:08:29 UTC 2015
 C
 C
 C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -75,107 +75,14 @@ C
        IF (IPTIW.NE.LIWW) GOTO 10
        RETURN
        END SUBROUTINE SMUMPS_COMPSO
-      SUBROUTINE SMUMPS_SOL_Q(MTYPE, IFLAG, N, NZ,
-     &    LHS, WRHS, W, RHS, GIVSOL, SOL, ANORM, XNORM, SCLNRM,
-     &    MPRINT, ICNTL, KEEP,KEEP8, RESMAX, RESL2)
-      INTEGER MTYPE,N,NZ,IFLAG,ICNTL(40), KEEP(500)
-      INTEGER(8) KEEP8(150)
-      REAL RHS(N),LHS(N)
-      REAL WRHS(N),SOL(*)
-      REAL W(N)
-      REAL RESMAX,RESL2,XNORM, ERMAX,MAXSOL,
-     &     COMAX, SCLNRM, ERL2, ERREL
-      REAL ANORM,DZERO,EPSI
-      LOGICAL GIVSOL,PROK
-      INTEGER MPRINT, MP
-      INTEGER K
-      INTRINSIC abs, max, sqrt
-      MP = ICNTL(2)
-      PROK = ((MPRINT .GT. 0).AND.ICNTL(4).GE.2)
-      DZERO = 0.0E0
-      EPSI = 0.1E-9
-      ANORM = DZERO
-      RESMAX = DZERO
-      RESL2 = DZERO
-      DO 40 K = 1, N
-        RESMAX = max(RESMAX, abs(RHS(K)))
-        RESL2 = RESL2 + abs(RHS(K)) * abs(RHS(K))
-        ANORM = max(ANORM, W(K))
-   40 CONTINUE
-      XNORM = DZERO
-      DO 50 K = 1, N
-        XNORM = max(XNORM, abs(LHS(K)))
-   50 CONTINUE
-      IF (XNORM .GT. EPSI) THEN
-        SCLNRM = RESMAX / (ANORM * XNORM)
-      ELSE
-        IF (mod(IFLAG/2,2) .EQ. 0) THEN
-          IFLAG = IFLAG + 2
-        ENDIF
-        IF ((MP .GT. 0) .AND. (ICNTL(4) .GE. 2)) WRITE( MP, * ) 
-     &' max-NORM of computed solut. is zero'
-        SCLNRM = RESMAX / ANORM
-      ENDIF
-      RESL2 = sqrt(RESL2)
-      ERMAX = DZERO
-      COMAX = DZERO
-      ERL2 = DZERO      
-      IF (.NOT.GIVSOL) THEN
-        IF (PROK) WRITE( MPRINT, 90 ) RESMAX, RESL2, ANORM, XNORM, 
-     &      SCLNRM
-      ELSE
-        MAXSOL = DZERO
-        DO 60 K = 1, N
-          MAXSOL = max(MAXSOL, abs(SOL(K)))
-   60   CONTINUE
-        DO 70 K = 1, N
-          ERL2 = abs(LHS(K) - SOL(K)) ** 2 + ERL2
-          ERMAX = max(ERMAX, abs(LHS(K) - SOL(K)))
-   70   CONTINUE
-        DO 80 K = 1, N
-          IF (abs(SOL(K)) .GT. EPSI) THEN
-            COMAX = max(COMAX, (abs(LHS(K) - SOL(K)) / abs(SOL(K))))
-          ENDIF
-   80   CONTINUE
-        ERL2 = sqrt(ERL2)
-        IF (MAXSOL .GT. EPSI) THEN
-          ERREL = ERMAX / MAXSOL
-        ELSE
-          IF (mod(IFLAG/2,2) .EQ. 0) THEN
-            IFLAG = IFLAG + 2
-          ENDIF
-          IF ((MP .GT. 0) .AND. (ICNTL(4) .GE. 2)) WRITE( MP, * ) 
-     &' MAX-NORM of exact solution is zero'
-          ERREL = ERMAX
-        ENDIF
-        IF (PROK) WRITE( MPRINT, 100 ) ERMAX, ERL2, ERREL, COMAX, RESMAX
-     &      , RESL2, ANORM, XNORM, SCLNRM
-      ENDIF
-   90  FORMAT (/' RESIDUAL IS ............ (MAX-NORM)        =',1PD9.2/
-     &       '                       .. (2-NORM)          =',1PD9.2/
-     &       ' RINFOG(4):NORM OF input  Matrix  (MAX-NORM)=',1PD9.2/
-     &       ' RINFOG(5):NORM OF Computed SOLUT (MAX-NORM)=',1PD9.2/
-     &       ' RINFOG(6):SCALED RESIDUAL ...... (MAX-NORM)=',1PD9.2)
-      RETURN
-  100  FORMAT (/' ERROR IS     ............ (MAX-NORM)       =',1PD9.2/
-     &       '              ............ (2-NORM)         =',1PD9.2/
-     &       ' RELATIVE ERROR........... (MAX-NORM)       =',1PD9.2/
-     &       ' Comp. Wise ERROR......... (MAX-NORM)       =',1PD9.2/
-     &       ' AND RESIDUAL IS ......... (MAX-NORM)       =',1PD9.2/
-     &       '                        .. (2-NORM)         =',1PD9.2/
-     &       ' NORM OF input  MATRIX ... (MAX-NORM)       =',1PD9.2/
-     &       ' NORM of computed SOLUT... (MAX-NORM)       =',1PD9.2/
-     &       ' SCALED RESIDUAL ......... (MAX-NORM)       =',1PD9.2)
-      END SUBROUTINE SMUMPS_SOL_Q
       SUBROUTINE SMUMPS_SOL_X(A, NZ, N, IRN, ICN, Z, KEEP,KEEP8)
       INTEGER NZ, N, I, J, K, KEEP(500)
       INTEGER(8) KEEP8(150)
       INTEGER IRN(NZ), ICN(NZ)
       REAL A(NZ)
       REAL Z(N)
-      REAL ZERO
+      REAL, PARAMETER :: ZERO = 0.0E0
       INTRINSIC     abs
-      DATA ZERO /0.0E0/
       DO 10 I = 1, N
         Z(I) = ZERO
    10 CONTINUE
@@ -228,8 +135,7 @@ C
       REAL,   intent(in)  :: A(NZ)
       REAL,      intent(in)  :: COLSCA(N)
       REAL,      intent(out) :: Z(N)
-      REAL  ZERO
-      DATA ZERO /0.0E0/
+      REAL, PARAMETER :: ZERO = 0.0E0
       INTEGER I, J, K
       DO 10 I = 1, N
         Z(I) = ZERO
@@ -266,8 +172,7 @@ C
       REAL,      intent(out)  :: W(N)
       REAL,   intent(out)  :: R(N)
       INTEGER I, K, J
-      REAL ZERO
-      DATA ZERO /0.0E0/
+      REAL, PARAMETER :: ZERO = 0.0E0
       REAL D
       DO I = 1, N
         R(I) = RHS(I)
@@ -897,21 +802,22 @@ C
       LOGICAL TESTConv
       REAL OMEGA(2)
       REAL ARRET
-      REAL CGCE, CTAU
-      DATA  CTAU /1.0E3/, CGCE /0.2E0/
+      REAL, PARAMETER :: CGCE=0.2E0
+      REAL, PARAMETER :: CTAU=1.0E3
       INTEGER I, IMAX
-      REAL CONVER, OM1, OM2, DXMAX
-      REAL ZERO, ONE,TAU, DD
+      REAL OM1, OM2, DXMAX
+      REAL TAU, DD
       REAL OLDOMG(2)
+      REAL, PARAMETER :: ZERO=0.0E0
+      REAL, PARAMETER :: ONE=1.0E0
       INTEGER SMUMPS_IXAMAX
       INTRINSIC  abs, max
       SAVE  OM1, OLDOMG
-      DATA ZERO /0.0E0/, ONE /1.0E0/
       IMAX = SMUMPS_IXAMAX(N, X, 1)
       DXMAX = abs(X(IMAX))
       OMEGA(1) = ZERO
       OMEGA(2) = ZERO
-      DO 40 I = 1, N
+      DO I = 1, N
         TAU = (R_W(I, 2) * DXMAX + abs(RHS(I))) * real(N) * CTAU
         DD = R_W(I, 1) + abs(RHS(I))
         IF ((DD + TAU) .GT. TAU) THEN
@@ -924,35 +830,34 @@ C
           ENDIF
           IW(I, 1) = 2
         ENDIF
-   40 CONTINUE
+      ENDDO
       IF (TESTConv) THEN
         OM2 = OMEGA(1) + OMEGA(2)
         IF (OM2 .LT. ARRET ) THEN
            IFLAG = 1
            GOTO 70
         ENDIF
-        IF (NOITER .GT. 1) THEN
+        IF (NOITER .GE. 1) THEN
            IF (OM2 .GT. OM1 * CGCE) THEN
-             CONVER = OM2 / OM1
              IF (OM2 .GT. OM1) THEN
                OMEGA(1) = OLDOMG(1)
                OMEGA(2) = OLDOMG(2)
-               DO 50 I = 1, N
+               DO I = 1, N
                  X(I) = C_W(I)
-   50          CONTINUE
+               ENDDO
                IFLAG = 2
                GOTO 70
              ENDIF
              IFLAG = 3
              GOTO 70
            ENDIF
-           DO 60 I = 1, N
-             C_W(I) = X(I)
-   60      CONTINUE
-           OLDOMG(1) = OMEGA(1)
-           OLDOMG(2) = OMEGA(2)
-           OM1 = OM2
         ENDIF
+        DO I = 1, N
+             C_W(I) = X(I)
+        ENDDO
+        OLDOMG(1) = OMEGA(1)
+        OLDOMG(2) = OMEGA(2)
+        OM1 = OM2
       ENDIF
       IFLAG = 0
       RETURN
@@ -977,20 +882,18 @@ C
       LOGICAL LCOND1, LCOND2
       INTEGER JUMP, I, IMAX
       REAL ERX, DXMAX
-      REAL OM1, DXIMAX
-      REAL ZERO, ONE
+      REAL DXIMAX
+      REAL, PARAMETER :: ZERO = 0.0E0
+      REAL, PARAMETER :: ONE  = 1.0E0
       INTEGER SMUMPS_IXAMAX
       INTRINSIC     abs, max
-      SAVE LCOND1, LCOND2, JUMP,  DXIMAX, DXMAX,
-     &     OM1
-      DATA ZERO /0.0E0/, ONE /1.0E0/
+      SAVE LCOND1, LCOND2, JUMP,  DXIMAX, DXMAX
       IF (KASE .EQ. 0) THEN
         LCOND1 = .FALSE.
         LCOND2 = .FALSE.
         COND(1) = ONE
         COND(2) = ONE
         ERX = ZERO
-        OM1 = ZERO
         JUMP = 1
       ENDIF
       SELECT CASE (JUMP)
@@ -1022,9 +925,9 @@ C
           LCOND2 = .TRUE.
         ENDIF
       ENDDO
-      DO 90 I = 1, N
+      DO I = 1, N
         C_W(I) = X(I) * D(I)
-   90 CONTINUE
+      ENDDO
       IMAX = SMUMPS_IXAMAX(N, C_W(1), 1)
       DXIMAX = abs(C_W(IMAX))
       IF (.NOT.LCOND1) GOTO 130
@@ -1039,11 +942,14 @@ C
       IF (KASE .EQ. 1) CALL SMUMPS_SOL_MULR(N, Y, R_W)
       IF (KASE .EQ. 2) CALL SMUMPS_SOL_MULR(N, Y, D)
       GOTO 100
-  120 IF (DXIMAX .GT. ZERO) COND(1) = COND(1) / DXIMAX
+  120 CONTINUE
+      IF (DXIMAX .GT. ZERO) COND(1) = COND(1) / DXIMAX
       ERX = OMEGA(1) * COND(1)
-  130 IF (.NOT.LCOND2) GOTO 170
+  130 CONTINUE
+      IF (.NOT.LCOND2) GOTO 170
       KASE = 0
-  140 CALL SMUMPS_SOL_B(N, KASE, Y, COND(2), C_W, IW(1, 2))
+  140 CONTINUE
+      CALL SMUMPS_SOL_B(N, KASE, Y, COND(2), C_W, IW(1, 2))
       IF (KASE .EQ. 0) GOTO 160
       IF (KASE .EQ. 1) CALL SMUMPS_SOL_MULR(N, Y, D)
       IF (KASE .EQ. 2) CALL SMUMPS_SOL_MULR(N, Y, R_W(1, 2))
@@ -1057,10 +963,10 @@ C
         COND(2) = COND(2) / DXIMAX
       ENDIF
       ERX = ERX + OMEGA(2) * COND(2)
-  170 CONTINUE           
+  170 CONTINUE
       RETURN
       END SUBROUTINE SMUMPS_SOL_LCOND
-      SUBROUTINE SMUMPS_SOL_Q_CH(MTYPE, IFLAG, N, NZ,
+      SUBROUTINE SMUMPS_SOL_Q(MTYPE, IFLAG, N, NZ,
      &    LHS, WRHS, W, RHS, GIVNORM, SOL, ANORM, XNORM, SCLNRM,
      &    MPRINT, ICNTL, KEEP,KEEP8)
       INTEGER MTYPE,N,NZ,IFLAG,ICNTL(40), KEEP(500)
@@ -1109,4 +1015,4 @@ C
      &       ' RINFOG(5):NORM OF Computed SOLUT (MAX-NORM)=',1PD9.2/
      &       ' RINFOG(6):SCALED RESIDUAL ...... (MAX-NORM)=',1PD9.2)
       RETURN
-      END SUBROUTINE SMUMPS_SOL_Q_CH
+      END SUBROUTINE SMUMPS_SOL_Q

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.0.0, released
-C  on Fri Feb 20 08:19:56 UTC 2015
+C  This file is part of MUMPS 5.0.1, released
+C  on Thu Jul 23 17:08:29 UTC 2015
 C
 C
 C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -866,11 +866,6 @@ C
          IF ( allocated(Pruned_Leaves)) DEALLOCATE (Pruned_Leaves)
       ENDIF
       RETURN 
-#if defined(BLR_LargeV1)
- 444  FORMAT (' in ZMUMPS_SOL_C time in SOL_R (fwd) =',F13.7)
- 445  FORMAT (' in ZMUMPS_SOL_C time in SOL_S (bwd) =',F13.7)
- 446  FORMAT (' in ZMUMPS_SOL_C time in special root=',F13.7)
-#endif
 99993 FORMAT (' RHS    (first column)'/(1X,1P,5D14.6))
 99994 FORMAT (' RHS    (2 nd  column)'/(1X,1P,5D14.6))
 99992 FORMAT (//' LEAVING SOLVE (MPI41C) WITH')

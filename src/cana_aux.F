@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.0.0, released
-C  on Fri Feb 20 08:19:56 UTC 2015
+C  This file is part of MUMPS 5.0.1, released
+C  on Thu Jul 23 17:08:29 UTC 2015
 C
 C
 C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -136,7 +136,7 @@ C
      & .AND. (IORD .EQ. 7) ) THEN  
         IORD = 2 
       ENDIF
-      CALL CMUMPS_SET_ORDERING( N, KEEP(50), NSLAVES, IORD, 
+      CALL MUMPS_SET_ORDERING( N, KEEP(50), NSLAVES, IORD, 
      &     symmetry, MedDens, NBQD, AvgDens,
      &     PROK, MP )
       IF(KEEP(50) .EQ. 2) THEN
@@ -1336,6 +1336,12 @@ C
                 AMALG_TO_father_OK = .TRUE.
                 NAMALG(DADI) = NAMALG(DADI) + NODE(I)
              ENDIF
+           ENDIF
+           IF ( DADI .EQ. -FRERE(I) 
+     &       .AND. -FILS(DADI).EQ.I  
+     &       ) THEN
+             AMALG_TO_father_OK = ( AMALG_TO_father_OK .OR.
+     &                          ( NV(I)-NODE(I).EQ.NV(DADI)) )
            ENDIF
            IF (AMALG_TO_father_OK) THEN
              CUMUL(DADI)=CUMUL(DADI)+nint(ACCU)
@@ -2675,96 +2681,6 @@ C
       RETURN
 99999 FORMAT (/'*** Warning message from analysis routine ***')
       END SUBROUTINE CMUMPS_ANA_GNEW
-      SUBROUTINE CMUMPS_SET_ORDERING(N, SYM, NPROCS, IORD,
-     &                       symmetry,MedDens, NBQD, AvgDens,
-     &                       PROK, MP)
-      IMPLICIT NONE
-      INTEGER, intent(in)    :: N, NPROCS, SYM
-      INTEGER, intent(in)    :: symmetry,MedDens, NBQD, AvgDens, MP
-      LOGICAL, intent(in)    :: PROK
-      INTEGER, intent(inout)   :: IORD
-      INTEGER MAXQD
-      PARAMETER (MAXQD=2)
-      INTEGER SMALLSYM, SMALLUNS
-      PARAMETER (SMALLUNS=5000, SMALLSYM=10000)
-#if ! defined(metis) && ! defined(parmetis) && ! defined(metis4) && ! defined(parmetis3)
-      IF ( IORD .EQ. 5 ) THEN
-        IF (PROK) WRITE(MP,*)
-     &  'WARNING: METIS not available. Ordering set to default.'
-        IORD = 7
-      END IF
-#endif
-#if ! defined(pord)
-      IF ( IORD .EQ. 4 ) THEN
-        IF (PROK) WRITE(MP,*)
-     &  'WARNING: PORD not available. Ordering set to default.'
-        IORD = 7
-      END IF
-#endif
-#if ! defined(scotch) && !  defined(ptscotch)
-      IF ( IORD .EQ. 3 ) THEN
-        IF (PROK) WRITE(MP,*)
-     &  'WARNING: SCOTCH not available. Ordering set to default.'
-        IORD = 7
-      END IF
-#endif
-      IF (IORD.EQ.7) THEN
-        IF (SYM.NE.0) THEN
-          IF ( N.LE.SMALLSYM ) THEN 
-             IF (NBQD.GE.MAXQD) THEN
-               IORD = 6         
-             ELSE
-               IORD = 2         
-             ENDIF
-          ELSE
-             IF (NBQD.GE.MedDens*NPROCS) THEN
-               IORD = 6      
-               RETURN
-             ENDIF
-#if  defined(metis) || defined(parmetis) || defined(metis4) || defined(parmetis3)
-             IORD = 5
-#else
-#  if defined(scotch) || defined(ptscotch)
-             IORD = 3
-#  else
-#    if defined(pord)
-               IORD = 4
-#    else
-               IORD = 6
-#    endif
-#  endif
-#endif
-          ENDIF
-        ELSE
-          IF ( N.LE.SMALLUNS ) THEN
-            IF (NBQD.GE.MAXQD) THEN
-              IORD = 6  
-            ELSE
-              IORD = 2   
-            ENDIF
-          ELSE
-            IF (NBQD.GE.MedDens*NPROCS) THEN
-              IORD = 6      
-              RETURN
-            ENDIF
-#if  defined(metis) || defined(parmetis) || defined(metis4) || defined(parmetis3)
-            IORD = 5
-#else
-#  if defined(scotch) || defined(ptscotch)
-            IORD = 3
-#  else
-#    if defined(pord)
-              IORD = 4
-#    else
-              IORD = 6
-#    endif
-#  endif
-#endif
-          ENDIF
-        ENDIF
-      ENDIF
-      RETURN
-      END SUBROUTINE CMUMPS_SET_ORDERING
       SUBROUTINE CMUMPS_SET_K821_SURFACE
      &     (KEEP821, KEEP2, KEEP48 ,KEEP50, NSLAVES)
       IMPLICIT NONE

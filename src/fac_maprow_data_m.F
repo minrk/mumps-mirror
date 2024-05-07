@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.0.0, released
-C  on Fri Feb 20 08:19:56 UTC 2015
+C  This file is part of MUMPS 5.0.1, released
+C  on Thu Jul 23 17:08:29 UTC 2015
 C
 C
 C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -12,7 +12,6 @@ C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
        MODULE MUMPS_FAC_MAPROW_DATA_M
        IMPLICIT NONE
-       INTEGER :: MAPROW_TMP
 #if ! defined(NO_FDM_MAPROW)
 C      =========================================
 C      The MUMPS_FAC_MAPROW_DATA_M module stores

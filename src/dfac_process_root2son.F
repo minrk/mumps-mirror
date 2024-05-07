@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.0.0, released
-C  on Fri Feb 20 08:19:56 UTC 2015
+C  This file is part of MUMPS 5.0.1, released
+C  on Thu Jul 23 17:08:29 UTC 2015
 C
 C
 C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -178,7 +178,7 @@ C
      &    INTARR,DBLARR,ICNTL,KEEP,KEEP8,DKEEP,
      &    TRANSPOSE_ASM,ND,FRERE,
      &    LPTRAR, NELT, FRTPTR, FRTELT, 
-     &   ISTEP_TO_INIV2, TAB_POS_IN_PERE 
+     &    ISTEP_TO_INIV2, TAB_POS_IN_PERE 
      &   )
         IF (IFLAG.LT.0 ) RETURN
        ENDIF
@@ -247,16 +247,6 @@ C
           IF ( KEEP(50).eq.0) THEN
 #if defined(IBC_TEST)
             MSGSOU = IW( PTRIST(STEP(ISON)) + 7 +  KEEP(IXSZ) )
-#if defined(TRY_FDM_IBCT)
-            IF (MSGSOU > 0) THEN
-              WRITE(*,*) "Internal error 2 in DMUMPS_PROCESS_ROOT2SON",
-     &                    MSGSOU
-              CALL MUMPS_ABORT()
-            ENDIF
-            CALL MUMPS_FIBCD_RETRIEVE( IW(PTRIST(STEP(ISON))+XXA),
-     &                                   IBC_STRUC )
-            MSGSOU = IBC_STRUC%PREDECESSOR
-#endif
             MSGTAG = BLOC_FACTO
 #else
             MSGSOU = PDEST_MASTER_ISON
@@ -268,16 +258,6 @@ C
 #if defined(IBC_TEST)
               MSGSOU = IW( PTRIST(STEP(ISON)) + 9 +  KEEP(IXSZ) )
               MSGTAG = BLOC_FACTO_SYM
-#if defined(TRY_FDM_IBCT)
-              IF (MSGSOU > 0) THEN
-                WRITE(*,*) "Internal error 3 in DMUMPS_PROCESS_ROOT2SON"
-     &                    , MSGSOU
-                CALL MUMPS_ABORT()
-              ENDIF
-              CALL MUMPS_FIBCD_RETRIEVE( IW(PTRIST(STEP(ISON))+XXA),
-     &                                   IBC_STRUC )
-              MSGSOU = IBC_STRUC%PREDECESSOR
-#endif
 #else
               MSGSOU = PDEST_MASTER_ISON
               MSGTAG = BLOC_FACTO_SYM
@@ -338,21 +318,8 @@ C
        SHIFT_LIST_ROW_SON = 6 + IW(IOLDPS+5+KEEP(IXSZ)) + KEEP(IXSZ)
        SHIFT_LIST_COL_SON = SHIFT_LIST_ROW_SON + NROW + NPIV
        NCOL_TO_SEND       = NELIM
-       IF (IW(IOLDPS+XXS).EQ.S_NOLCBNOCONTIG38.OR.
-     &     IW(IOLDPS+XXS).EQ.S_ALL) THEN
-         SHIFT_VAL_SON      = int(NPIV,8)
-         LDA                = LCONT + NPIV
-       ELSE IF (IW(IOLDPS+XXS).EQ.S_NOLCBCONTIG38) THEN
-         SHIFT_VAL_SON = int(NROW,8)*int(LCONT+NPIV-NELIM,8)
-         LDA           = NELIM
-       ELSE IF (IW(IOLDPS+XXS).EQ.S_NOLCLEANED38) THEN
-         SHIFT_VAL_SON=0_8
-         LDA = NELIM
-       ELSE
-         write(*,*) MYID,": internal error in DMUMPS_PROCESS_ROOT2SON",
-     &   IW(IOLDPS+XXS), "INODE=",INODE
-         CALL MUMPS_ABORT()
-       ENDIF
+       LDA = -9999
+       SHIFT_VAL_SON = -9999_8
        IF ( KEEP( 50 ) .eq. 0 ) THEN
          TRANSPOSE_ASM = .FALSE.
        ELSE

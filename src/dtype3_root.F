@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.0.0, released
-C  on Fri Feb 20 08:19:56 UTC 2015
+C  This file is part of MUMPS 5.0.1, released
+C  on Thu Jul 23 17:08:29 UTC 2015
 C
 C
 C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -49,7 +49,7 @@ C
      &  ( COMM_LOAD, ASS_IRECV, N, ISON, IROOT,
      &    PTRI, PTRR,
      &    root, NBROW, NBCOL, SHIFT_LIST_ROW_SON,
-     &    SHIFT_LIST_COL_SON, SHIFT_VAL_SON, LDA, TAG,
+     &    SHIFT_LIST_COL_SON, SHIFT_VAL_SON_ARG, LDA_ARG, TAG,
      &    MYID, COMM, BUFR, LBUFR, LBUFR_BYTES, PROCNODE_STEPS, POSFAC,
      &    IWPOS, IWPOSCB, IPTRLU, LRLU, LRLUS, IW, LIW, A, LA,
      &    PTRIST, PTLUST_S, PTRFAC,
@@ -76,8 +76,9 @@ C
       INTEGER N, ISON, IROOT, TAG
       INTEGER PTRI( KEEP(28) )
       INTEGER(8) :: PTRR( KEEP(28) )
-      INTEGER NBROW, NBCOL, LDA
-      INTEGER(8) :: SHIFT_VAL_SON
+      INTEGER NBROW, NBCOL
+      INTEGER, INTENT(IN):: LDA_ARG
+      INTEGER(8), INTENT(IN) :: SHIFT_VAL_SON_ARG
       INTEGER SHIFT_LIST_ROW_SON, SHIFT_LIST_COL_SON
       INTEGER MYID, COMM
       LOGICAL TRANSPOSE_ASM
@@ -123,6 +124,8 @@ C
       INTEGER(8) :: POSROOT
       INTEGER NSUBSET_ROW, NSUBSET_COL
       INTEGER NRLOCAL, NCLOCAL
+      INTEGER :: LDA
+      INTEGER(8) :: SHIFT_VAL_SON
       LOGICAL SET_IRECV, BLOCKING, MESSAGE_RECEIVED
       INTEGER NBROWS_ALREADY_SENT
       INTEGER SIZE_MSG
@@ -135,6 +138,13 @@ C
       BBPCBP  = 0   
       LP = ICNTL(1)
       IF ( ICNTL(4) .LE. 0 ) LP = -1
+      IF (LDA_ARG < 0) THEN 
+        CALL DMUMPS_SET_LDA_SHIFT_VAL_SON(IW, LIW, PTRI(STEP(ISON)),
+     &                             LDA, SHIFT_VAL_SON)
+      ELSE
+        LDA = LDA_ARG
+        SHIFT_VAL_SON = SHIFT_VAL_SON_ARG
+      ENDIF
       ALLOCATE(PTRROW(root%NPROW + 1 ),  stat=allocok)
       if (allocok .GT. 0) THEN
        IFLAG  =-13
@@ -502,6 +512,11 @@ C
      &            ISTEP_TO_INIV2, TAB_POS_IN_PERE, .TRUE.
      &             )
                   IF ( IFLAG .LT. 0 ) GOTO 500
+                  IF (LDA_ARG < 0) THEN 
+                    CALL DMUMPS_SET_LDA_SHIFT_VAL_SON(
+     &                    IW, LIW, PTRI(STEP(ISON)),
+     &                    LDA, SHIFT_VAL_SON)
+                  ENDIF
               END IF
             END DO
             IF ( IERR == -2 ) THEN
@@ -529,6 +544,38 @@ C
       DEALLOCATE(ROW_INDEX_LIST)
       DEALLOCATE(COL_INDEX_LIST)
       RETURN
+      CONTAINS
+        SUBROUTINE DMUMPS_SET_LDA_SHIFT_VAL_SON(IW, LIW, IOLDPS,
+     &                             LDA, SHIFT_VAL_SON)
+        INTEGER,    INTENT(IN)  :: LIW, IOLDPS
+        INTEGER,    INTENT(IN)  :: IW(LIW)
+        INTEGER,    INTENT(OUT) :: LDA
+        INTEGER(8), INTENT(OUT) :: SHIFT_VAL_SON
+        INCLUDE 'mumps_headers.h'
+        INTEGER :: LCONT, NROW, NPIV, NASS, NELIM
+        LCONT  = IW(IOLDPS+KEEP(IXSZ))
+        NROW   = IW(IOLDPS+2+KEEP(IXSZ))
+        NPIV   = IW(IOLDPS+3+KEEP(IXSZ))
+        NASS   = IW(IOLDPS+4+KEEP(IXSZ))
+        NELIM  = NASS-NPIV
+        IF (IW(IOLDPS+XXS).EQ.S_NOLCBNOCONTIG38.OR.
+     &      IW(IOLDPS+XXS).EQ.S_ALL) THEN
+          SHIFT_VAL_SON      = int(NPIV,8)
+          LDA                = LCONT + NPIV
+        ELSE IF (IW(IOLDPS+XXS).EQ.S_NOLCBCONTIG38) THEN
+          SHIFT_VAL_SON = int(NROW,8)*int(LCONT+NPIV-NELIM,8)
+          LDA           = NELIM
+        ELSE IF (IW(IOLDPS+XXS).EQ.S_NOLCLEANED38) THEN
+          SHIFT_VAL_SON=0_8
+          LDA = NELIM
+        ELSE
+          WRITE(*,*) MYID,
+     &    ": internal error in DMUMPS_SET_LDA_SHIFT_VAL_SON",
+     &    IW(IOLDPS+XXS), "ISON=",ISON
+          CALL MUMPS_ABORT()
+        ENDIF
+        RETURN
+        END SUBROUTINE DMUMPS_SET_LDA_SHIFT_VAL_SON
       END SUBROUTINE DMUMPS_BUILD_AND_SEND_CB_ROOT
       SUBROUTINE DMUMPS_ROOT_LOCAL_ASSEMBLY( N, VAL_ROOT,
      &   LOCAL_M, LOCAL_N,

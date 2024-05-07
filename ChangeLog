@@ -2,6 +2,26 @@
 = ChangeLog =
 -------------
 
+Changes from 5.0.0 to 5.0.1
+* Iterative refinement convergence check corrected (problem
+  introduced in 5.0.0)
+* Used communicator provided by user instead of MPI_COMM_WORLD
+  in two places (parallel analysis only)
+* Matlab interface patched to avoid memory corruption in some
+  situations (Schur, colsca/rowsca management)
+* Corrected a case of error not properly processed which could
+  cause a segfault instead of a standard "-9" error, or an
+  abort on "ERR: ERROR: NBROWS > NBROWF"
+* Amalgamation without fill forced for single children
+* (rare) segfault related to assemblies of delayed columns in
+  scalapack root node corrected
+* Automatic strategy for ordering choice improved
+* Further improvements to userguide (mainly iterative
+  refinement, error analysis, discard factors and forward
+  elimination during factorization)
+* Error -51 also raised in case of integer overflow during
+  parallel analysis
+
 Changes from 4.10.0 to 5.0.0
 * Userguide revisited
 * Compatibility with metis 5.1.0/parmetis 4.0.3, and with
@@ -18,6 +38,8 @@ Changes from 4.10.0 to 5.0.0
 * Finer control of error analysis and iterative refinement (ICNTL(11))
 * Memory for analysis phase (mapping) reduced.
 * Better support for 64-bit integers (see INSTALL file)
+* Error raised instead of silent integer overflow during analysis (but
+  not during external orderings)
 * Improvements and corrections to parallel analysis (ICNTL(28)),
   deterministic graph construction forced with -DDETERMINISTIC_PARALLEL_GRAPH
 * Forward elimination (ICNTL(32)) can be done during factorization
@@ -45,6 +67,8 @@ Changes from 4.10.0 to 5.0.0
   matrix + scaling (where zero pivots are excluded)
 * Trace ' PANEL: INIT and force STRAT_IO=' suppressed
 * Some OpenMP directives added (multithreaded BLAS still needed)
+* Later allocation of strips of distributed fronts with improved locality
+* Front factorization algorithms redesigned (two levels of panels)
 * Null pivot (ICNTL(24)) and null space detection ICNTL(25)) improved
   for unsymmetric matrices
 * Fortran automatic arrays (e.g. in mumps_static_mapping.F) suppressed
@@ -450,6 +474,8 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.0.1            : July 2015
+Release 5.0.0            : February 2015
 Release 4.10.0           : May 2011
 Release 4.9.2            : November 2009
 Release 4.9.1            : October 2009

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.0.0, released
-C  on Fri Feb 20 08:19:56 UTC 2015
+C  This file is part of MUMPS 5.0.1, released
+C  on Thu Jul 23 17:08:29 UTC 2015
 C
 C
 C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -18,6 +18,10 @@ C
 #if defined(ALLOW_NON_INIT)
       write(MPG,*) "MUMPS compiled with option -DALLOW_NON_INIT"
 #endif
+#if defined(DETERMINISTIC_PARALLEL_GRAPH)
+      write(MPG,*) "MUMPS compiled with option"
+     &     ," -DDETERMINISTIC_PARALLEL_GRAPH"
+#endif
 #if defined(metis)
       write(MPG,*) "MUMPS compiled with option -Dmetis"
 #endif
@@ -30,6 +34,9 @@ C
 #if defined(MUMPS_OPENMP)
       write(MPG,*) "MUMPS compiled with option -DMUMPS_OPENMP"
 #endif
+#if defined(OLD_OOC_NOPANEL)
+      write(MPG,*) "MUMPS compiled with option -DOLD_OOC_NOPANEL"
+#endif
 #if defined(parmetis)
       write(MPG,*) "MUMPS compiled with option -Dparmetis"
 #endif
@@ -41,6 +48,9 @@ C
 #endif
 #if defined(scotch)
       write(MPG,*) "MUMPS compiled with option -Dscotch"
+#endif
+#if defined(MUMPS_USE_BLAS2)
+      write(MPG,*) "MUMPS compiled with option -DMUMPS_USE_BLAS2"
 #endif
       write(MPG,*) "================================================="
       RETURN

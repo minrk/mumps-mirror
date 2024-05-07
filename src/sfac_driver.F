@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.0.0, released
-C  on Fri Feb 20 08:19:56 UTC 2015
+C  This file is part of MUMPS 5.0.1, released
+C  on Thu Jul 23 17:08:29 UTC 2015
 C
 C
 C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -2602,9 +2602,9 @@ C     -----------------------------
           ! Memory compress
           WRITE(MPG, 99981) INFOG(14)
           ! Extra copies due to ip stack in unsym case
-          IF ((KEEP(201).EQ.0.OR.KEEP(201).EQ.2).AND.
-     &        KEEP(50).EQ.0) THEN
-          WRITE(MPG, 99980) KEEP8(108)
+          ! in core case (or OLD_OOC_PANEL)
+          IF (KEEP8(108) .GT. 0_8) THEN
+            WRITE(MPG, 99980) KEEP8(108)
           ENDIF
           IF  ((KEEP(60).NE.0) .AND. INFOG(25).GT.0) THEN
           !  Schur on and tiny pivots set in last level 
@@ -2709,54 +2709,54 @@ C  it was allocated.
 C
       id%KEEP(13) = KEEP13_SAVE
       RETURN
- 120  FORMAT(/' LOCAL REDISTRIB: DATA LOCAL/SENT         =',I12,I12)
- 125  FORMAT(/' REDISTRIB: TOTAL DATA LOCAL/SENT         =',I12,I12)
+ 120  FORMAT(/' LOCAL REDISTRIB: DATA LOCAL/SENT         =',I14,I14)
+ 125  FORMAT(/' REDISTRIB: TOTAL DATA LOCAL/SENT         =',I14,I14)
  130  FORMAT(/' ****** FACTORIZATION STEP ********'/)
  160  FORMAT(' GLOBAL TIME FOR MATRIX DISTRIBUTION       =',F12.4)
  166  FORMAT(' Convergence error after scaling for ONE-NORM',
      &       ' (option 7/8)   =',D9.2)
  170  FORMAT(/' STATISTICS PRIOR NUMERICAL FACTORIZATION ...'/
-     &        ' Size of internal working array S         =',I12/
-     &        ' Size of internal working array IS        =',I12/
-     &        ' MINIMUM (ICNTL(14)=0) size of S          =',I12/
-     &        ' MINIMUM (ICNTL(14)=0) size of IS         =',I12/
-     &        ' REAL SPACE FOR ORIGINAL MATRIX           =',I12/
-     &        ' INTEGER SPACE FOR ORIGINAL MATRIX        =',I12/
-     &        ' REAL SPACE FOR FACTORS                   =',I12/
-     &        ' INTEGER SPACE FOR FACTORS                =',I12/
-     &        ' MAXIMUM FRONTAL SIZE (ESTIMATED)         =',I12)
+     &        ' Size of internal working array S         =',I14/
+     &        ' Size of internal working array IS        =',I14/
+     &        ' MINIMUM (ICNTL(14)=0) size of S          =',I14/
+     &        ' MINIMUM (ICNTL(14)=0) size of IS         =',I14/
+     &        ' REAL SPACE FOR ORIGINAL MATRIX           =',I14/
+     &        ' INTEGER SPACE FOR ORIGINAL MATRIX        =',I14/
+     &        ' REAL SPACE FOR FACTORS                   =',I14/
+     &        ' INTEGER SPACE FOR FACTORS                =',I14/
+     &        ' MAXIMUM FRONTAL SIZE (ESTIMATED)         =',I14)
  172  FORMAT(/' GLOBAL STATISTICS PRIOR NUMERICAL FACTORIZATION ...'/
-     &        ' NUMBER OF WORKING PROCESSES              =',I12/
-     &        ' OUT-OF-CORE OPTION (ICNTL(22))           =',I12/
-     &        ' REAL SPACE FOR FACTORS                   =',I12/
-     &        ' INTEGER SPACE FOR FACTORS                =',I12/
-     &        ' MAXIMUM FRONTAL SIZE (ESTIMATED)         =',I12/
-     &        ' NUMBER OF NODES IN THE TREE              =',I12/
-     &        ' MEMORY ALLOWED (MB -- 0: N/A )           =',I12)
- 173  FORMAT( ' PERFORM FORWARD DURING FACTO, NRHS       =',I12)
- 175  FORMAT(/' NUMBER OF ENTRIES FOR // ROOT            =',I12)
+     &        ' NUMBER OF WORKING PROCESSES              =',I14/
+     &        ' OUT-OF-CORE OPTION (ICNTL(22))           =',I14/
+     &        ' REAL SPACE FOR FACTORS                   =',I14/
+     &        ' INTEGER SPACE FOR FACTORS                =',I14/
+     &        ' MAXIMUM FRONTAL SIZE (ESTIMATED)         =',I14/
+     &        ' NUMBER OF NODES IN THE TREE              =',I14/
+     &        ' MEMORY ALLOWED (MB -- 0: N/A )           =',I14)
+ 173  FORMAT( ' PERFORM FORWARD DURING FACTO, NRHS       =',I14)
+ 175  FORMAT(/' NUMBER OF ENTRIES FOR // ROOT            =',I14)
  180  FORMAT(/' ELAPSED TIME FOR FACTORIZATION           =',F12.4)
  185  FORMAT(/' ELAPSED TIME FOR (FAILED) FACTORIZATION  =',F12.4)
-99977 FORMAT( ' INFOG(34)  DETERMINANT (base 2 exponent) =',I12)
+99977 FORMAT( ' INFOG(34)  DETERMINANT (base 2 exponent) =',I14)
 99978 FORMAT( ' RINFOG(12) DETERMINANT (real part)       =',F12.4)
-99980 FORMAT( ' KEEP8(108) Extra copies IP stacking      =',I12)
-99981 FORMAT( ' INFOG(14)  NUMBER OF MEMORY COMPRESS     =',I12)
-99982 FORMAT( ' INFOG(13)  NUMBER OF DELAYED PIVOTS      =',I12)
-99983 FORMAT( ' NB OF NULL PIVOTS DETECTED BY ICNTL(16)  =',I12)
-99991 FORMAT( ' NB OF NULL PIVOTS DETECTED BY ICNTL(24)  =',I12)
-99992 FORMAT( ' INFOG(28)  ESTIMATED DEFICIENCY          =',I12)
+99980 FORMAT( ' Extra copies due to In-Place stacking    =',I14)
+99981 FORMAT( ' INFOG(14)  NUMBER OF MEMORY COMPRESS     =',I14)
+99982 FORMAT( ' INFOG(13)  NUMBER OF DELAYED PIVOTS      =',I14)
+99983 FORMAT( ' NB OF NULL PIVOTS DETECTED BY ICNTL(16)  =',I14)
+99991 FORMAT( ' NB OF NULL PIVOTS DETECTED BY ICNTL(24)  =',I14)
+99992 FORMAT( ' INFOG(28)  ESTIMATED DEFICIENCY          =',I14)
 99984 FORMAT(/' GLOBAL STATISTICS '/
      &        ' RINFOG(2)  OPERATIONS IN NODE ASSEMBLY   =',1PD10.3/
      &        ' ------(3)  OPERATIONS IN NODE ELIMINATION=',1PD10.3/
-     &        ' INFOG (9)  REAL SPACE FOR FACTORS        =',I12/
-     &        ' INFOG(10)  INTEGER SPACE FOR FACTORS     =',I12/
-     &        ' INFOG(11)  MAXIMUM FRONT SIZE            =',I12/
-     &        ' INFOG(29)  NUMBER OF ENTRIES IN FACTORS  =',I12)
-99985 FORMAT( ' INFOG(12)  NUMBER OF OFF DIAGONAL PIVOTS =',I12)
-99986 FORMAT( ' INFOG(25)  NUMBER OF TINY PIVOTS(STATIC) =',I12)
-99987 FORMAT( ' INFOG(12)  NUMBER OF NEGATIVE PIVOTS     =',I12)
-99988 FORMAT( ' NUMBER OF 2x2 PIVOTS in type 1 nodes     =',I12)
-99989 FORMAT( ' NUMBER OF 2x2 PIVOTS in type 2 nodes     =',I12)
+     &        ' INFOG (9)  REAL SPACE FOR FACTORS        =',I14/
+     &        ' INFOG(10)  INTEGER SPACE FOR FACTORS     =',I14/
+     &        ' INFOG(11)  MAXIMUM FRONT SIZE            =',I14/
+     &        ' INFOG(29)  NUMBER OF ENTRIES IN FACTORS  =',I14)
+99985 FORMAT( ' INFOG(12)  NUMBER OF OFF DIAGONAL PIVOTS =',I14)
+99986 FORMAT( ' INFOG(25)  NUMBER OF TINY PIVOTS(STATIC) =',I14)
+99987 FORMAT( ' INFOG(12)  NUMBER OF NEGATIVE PIVOTS     =',I14)
+99988 FORMAT( ' NUMBER OF 2x2 PIVOTS in type 1 nodes     =',I14)
+99989 FORMAT( ' NUMBER OF 2x2 PIVOTS in type 2 nodes     =',I14)
       END SUBROUTINE SMUMPS_FAC_DRIVER
       SUBROUTINE SMUMPS_AVGMAX_STAT8(PROKG, MPG, VAL, NSLAVES,
      &     COMM, MSG)
@@ -2783,7 +2783,7 @@ C
         WRITE(MPG,100) " Average ", MSG, int(AVG_VAL,8)
       ENDIF
       RETURN
- 100  FORMAT(A9,A42,I12)
+ 100  FORMAT(A9,A42,I14)
       END SUBROUTINE SMUMPS_AVGMAX_STAT8
 C
       SUBROUTINE SMUMPS_EXTRACT_SCHUR_REDRHS(id)

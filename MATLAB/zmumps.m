@@ -34,7 +34,7 @@ end
 
 if(id.JOB == -1)
      if(id.INST~=-9999)
-         disp('Allready initialized instance');
+         disp('Already initialized instance');
          return;
      end
      [inform,rinform,sol,inst,schur,redrhs,pivnul_list,sym_perm,uns_perm,icntl,cntl,colsca_out,rowsca_out,keep_out,dkeep_out] = zmumpsmex(id.SYM,id.JOB,id.ICNTL,id.CNTL,id.PERM_IN,id.COLSCA,id.ROWSCA,id.RHS,id.VAR_SCHUR,id.INST,id.REDRHS,id.KEEP,id.DKEEP);
