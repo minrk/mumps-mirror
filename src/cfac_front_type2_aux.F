@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -205,7 +205,7 @@ C
             J1 = POSPV1 + LDAFS8
             DO J=1, IEND_BLOCK - IPIV
                IF(abs(A(J1)) .GT. AMAX) THEN
-                  AMAX = max(abs(A(J1)),AMAX)
+                  AMAX = abs(A(J1))
                   JMAX = IPIV + J
                ENDIF
                J1 = J1 + LDAFS8
@@ -281,6 +281,8 @@ C
           GO TO 415
         END IF
          IF (NPIVP1.EQ.IEND_BLOCK) THEN
+           GOTO 460
+         ELSE IF (JMAX .EQ.0) THEN
            GOTO 460
          ENDIF
          IF (max(abs(PIVOT),RMAX,AMAX).LE.tiny(RMAX)) THEN
@@ -399,12 +401,6 @@ C
               IF (LPIV.EQ.NPIVP1) THEN
                  GOTO 416
               ENDIF
-            IF (LPIV.EQ.0) THEN
-              WRITE(*,*) 'Internal error in Master LDLT T2 swapping',
-     &            " JMAX, PIVSIZ, K, LPIV, NPIVP1=", 
-     &             JMAX, PIVSIZ, K, LPIV, NPIVP1
-              CALL MUMPS_ABORT()
-            ENDIF
               CALL CMUMPS_SWAP_LDLT( A, LA, IW, LIW,
      &             IOLDPS, NPIVP1, LPIV, POSELT, NASS,
      &             LDAFS, NFRONT, 2, K219, KEEP(50),

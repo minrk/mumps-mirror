@@ -1,7 +1,7 @@
 /*
  *
- *  This file is part of MUMPS 5.2.0, released
- *  on Thu Apr 18 09:55:07 UTC 2019
+ *  This file is part of MUMPS 5.2.1, released
+ *  on Fri Jun 14 14:46:05 UTC 2019
  *
  *
  *  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -80,7 +80,7 @@ MUMPS_NULLIFY_C_UNS_PERM()
     MUMPS_UNS_PERM = 0;
 }
 void MUMPS_CALL
-MUMPS_COPY_INT_32TO64_64C_IP_C(MUMPS_INT *inouttab, MUMPS_INT8 *sizetab)
+MUMPS_ICOPY_32TO64_64C_IP_C(MUMPS_INT *inouttab, MUMPS_INT8 *sizetab)
 /* Copies in-place *sizetab int values starting at address inouttab
    into *sizetab int64_t values starting at the same address.
 */
@@ -93,7 +93,7 @@ MUMPS_COPY_INT_32TO64_64C_IP_C(MUMPS_INT *inouttab, MUMPS_INT8 *sizetab)
      }
 }
 void MUMPS_CALL
-MUMPS_COPY_INT_64TO32_64C_IP_C(MUMPS_INT8 *inouttab, MUMPS_INT8 *sizetab)
+MUMPS_ICOPY_64TO32_64C_IP_C(MUMPS_INT8 *inouttab, MUMPS_INT8 *sizetab)
 /* Copies in-place *sizetab int64_t values starting at address inouttab
    into *sizetab int values starting at the same address */
 {

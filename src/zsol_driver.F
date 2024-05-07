@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -72,7 +72,7 @@ C
       INTEGER MTYPE, ICNTL21
       LOGICAL LSCAL, POSTPros, GIVSOL
       INTEGER ICNTL10, ICNTL11
-      INTEGER I,K,JPERM, J, II, IZ2
+      INTEGER I,IPERM,K,JPERM, J, II, IZ2
       INTEGER IZ, NZ_THIS_BLOCK, PJ
 C     pointers in IS
       INTEGER LIW
@@ -3316,6 +3316,9 @@ C               Columns are not contiguous and need be copied one by one
                 IPOS = 1
                 J    = 0
                 DO I=JBEG_RHS, JBEG_RHS + NBCOL_INBLOC -1
+                  IF (DO_PERMUTE_RHS.OR.INTERLEAVE_PAR) THEN
+                      IPERM = PERM_RHS(I)
+                  ENDIF 
                   J = J+1
 C                 Note that we work here on compressed IRHS_PTR_COPY
                   COLSIZE = IRHS_PTR_COPY(J+1) - IRHS_PTR_COPY(J)
@@ -3327,7 +3330,7 @@ C                     if A-1 only, then, for each non empty target
 C                     column PERM_RHS(I), scale in first position
 C                     in column the diagonal entry
 C                     build the scaled rhs ej on each slave.
-                      RHS_SPARSE_COPY(IPOS) =   id%ROWSCA(PERM_RHS(I)) *
+                      RHS_SPARSE_COPY(IPOS) =   id%ROWSCA(IPERM) *
      &                       ONE
                     ELSE
                       RHS_SPARSE_COPY(IPOS) =   id%ROWSCA(I) * ONE
@@ -3353,11 +3356,11 @@ C                     PERM_RHS(I) corresponds to column in original RHS.
 C                     Original IRHS_PTR must be used to access id%RHS_SPARSE
                       IF (MTYPE.EQ.1) THEN
                         RHS_SPARSE_COPY(IPOS+K-1) =
-     &                  id%RHS_SPARSE(id%IRHS_PTR(PERM_RHS(I))+K-1)*
+     &                  id%RHS_SPARSE(id%IRHS_PTR(IPERM)+K-1)*
      &                  id%ROWSCA(II)
                       ELSE
                           RHS_SPARSE_COPY(IPOS+K-1) =
-     &                    id%RHS_SPARSE(id%IRHS_PTR(PERM_RHS(I))+K-1)*
+     &                    id%RHS_SPARSE(id%IRHS_PTR(IPERM)+K-1)*
      &                    id%COLSCA(II)
                       ENDIF
                     ENDDO

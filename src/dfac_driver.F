@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -15,7 +15,6 @@ C
       USE DMUMPS_LOAD
       USE DMUMPS_OOC
       USE DMUMPS_STRUC_DEF
-      USE DMUMPS_LR_CORE
       USE DMUMPS_LR_STATS
       USE DMUMPS_LR_DATA_M, only: DMUMPS_BLR_INIT_MODULE, 
      &                            DMUMPS_BLR_END_MODULE

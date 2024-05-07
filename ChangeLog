@@ -2,6 +2,19 @@
 = ChangeLog =
 -------------
 
+Changes from 5.2.0 to 5.2.1
+* Fixed a minor "Internal error in CMUMPS_DM_FREEALLDYNAMICCB"
+* Default value of ICNTL(14) for MPI executions independent 
+  of SYM + slightly less aggressive than for 5.2.0
+* Avoided accesses to uninitialized data in symmetric (2D root, BLR)
+* Fixed some incorrect "out" intents for routine arguments
+* Avoided CHUNK=0 in OMP loops even if loop not parallelized (pgi)
+* Fixed COLSCA&ROWSCA declarations in [SDCZ]MUMPS_ANA_F
+* Avoided a possible segfault in presence of NaN's in pivot search
+* Minor update to userguide
+* Fixed MPI_IN_PLACE usage in libseq (preventing compiler optimization)
+
+
 Changes from 5.1.2 to 5.2.0
 * Memory gains due to low-rank factorization are now effective, low-rank solve
 * Internal dynamic storage possible in case S array is too small
@@ -585,6 +598,7 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.2.1            : June 2019
 Release 5.2.0            : April 2019
 Release 5.1.2            : October 2017
 Release 5.1.1            : March 2017

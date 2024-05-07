@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -817,7 +817,7 @@ C
             NBGROUPS = NBGROUPS + NV/GROUP_SIZE2 + 1
 !$OMP END CRITICAL(lrgrouping_cri)
           ELSE
-            IF (K469_loc .EQ. 2) THEN
+            IF (K469_LOC .EQ. 2) THEN
               CALL SEP_GROUPING(NV, WORK(1), N, NZ8,
      &              LRGROUPS, NBGROUPS, IW(1), LW, IPE(1), LEN(1),
      &              GROUP_SIZE, HALO_DEPTH, TRACE_PRV, WORKH_PRV, 

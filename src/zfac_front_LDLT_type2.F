@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -933,7 +933,7 @@ C
 #if defined(BLR_MT)
 !$OMP BARRIER
 #endif
-            IF (IFLAG.LT.0) GOTO 460
+            IF (IFLAG.LT.0) GOTO 440
 #if defined(BLR_MT)
 !$OMP SINGLE
 #endif
@@ -953,6 +953,7 @@ C
 #if defined(BLR_MT)
 !$OMP END MASTER
 #endif
+ 440      CONTINUE         
         ENDIF 
  460    CONTINUE          
 #if defined(BLR_MT)          

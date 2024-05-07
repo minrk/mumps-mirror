@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -38,7 +38,7 @@ C
       INTEGER, INTENT(INOUT) :: PIV(:)
       INTEGER, INTENT(INOUT) :: IKEEP1(:), IKEEP2(:), IKEEP3(:)
       DOUBLE PRECISION :: CNTL4
-      DOUBLE PRECISION :: COLSCA(:), ROWSCA(:)
+      DOUBLE PRECISION, POINTER :: COLSCA(:), ROWSCA(:)
 #if defined(metis) || defined(parmetis) || defined(metis4) || defined(parmetis3)      
       INTEGER, INTENT(IN)    :: METIS_OPTIONS(40)
 #endif      

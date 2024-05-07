@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -28,7 +28,8 @@ C
       INTEGER(8), INTENT(INOUT) :: PE(N)
       INTEGER, INTENT(INOUT)    :: PERM(N)
       INTEGER, INTENT(OUT)   :: NCMPA
-      INTEGER, INTENT(OUT)   :: NV(N), ELEN(N), LAST(N)
+      INTEGER, INTENT(OUT)   :: NV(N), LAST(N)
+      INTEGER, INTENT(INOUT)   :: ELEN(N)
       INTEGER, INTENT(OUT) :: NDENSE(N), DEGREE(N), 
      &                        HEAD(N), NEXT(N), W(N)
       INTEGER THRESM, NDME, PERMeqN
@@ -117,6 +118,7 @@ C
         NDENSE(I)= 0
         LAST (I) = 0
         HEAD (I) = 0
+        NEXT (I) = 0
         NV (I) = 1
         W (I) = 1
    10 CONTINUE

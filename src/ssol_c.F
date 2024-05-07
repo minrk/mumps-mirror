@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -953,7 +953,7 @@ C
 !$           NOMP = OMP_GET_MAX_THREADS()
 !$           OMP_FLAG = .FALSE.
 !$           CHUNK = max(N/2,1)
-!$           IF (NRHS * N .GE. KEEP(363)) THEN
+!$           IF (int(NRHS,8) * int(N,8) .GE. int(KEEP(363),8)) THEN
 !$             OMP_FLAG = .TRUE.
 !$         CHUNK=int((int(N,8)*int(NRHS,8)+int(NOMP-1,8))/int(NOMP,8))
 !$             CHUNK = min(CHUNK,(N+KEEP(362)-1)/KEEP(362))

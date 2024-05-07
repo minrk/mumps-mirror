@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -909,6 +909,14 @@ C       -------------------------------------
         GOTO 500
       END IF
 C
+C     TIMINGS: for JOBS different from -1 and -2,
+C     we measure TIMETOTAL:
+C
+      IF (id%MYID.EQ.MASTER) THEN
+        id%DKEEP(70)=0.0D0
+        CALL MUMPS_SECDEB(TIMETOTAL)
+      ENDIF
+C
 C----------------------------------------------------------------
 C
 C     JOB = 7 : SAVE THE INSTANCE
@@ -937,9 +945,6 @@ C       -----------------------------
      &        id%INFO(1),
      &        id%COMM, id%MYID )
          IF ( id%INFO(1) .LT. 0 ) GOTO 499
-         IF (id%MYID.EQ.MASTER) THEN
-           CALL MUMPS_SECDEB(TIMETOTAL)
-         ENDIF
          IF ( JOB .EQ. 7 ) THEN
             IF (id%MYID.EQ.MASTER) THEN
              CALL MUMPS_SECDEB(TIMEG)
@@ -977,9 +982,6 @@ C
 C----------------------------------------------------------------
 C
       IF (JOB .EQ. -3) THEN
-        IF (id%MYID.EQ.MASTER) THEN
-          CALL MUMPS_SECDEB(TIMETOTAL)
-        ENDIF
         CALL ZMUMPS_REMOVE_SAVED(id)
         IF ( id%INFO(1) .LT. 0 ) GOTO 499
         GOTO 500
@@ -1018,11 +1020,6 @@ C
 C           CHECK SEQUENCE
 C
 C-----------------------------------------------------------------------
-C     TIMINGS
-      IF (id%MYID .eq. MASTER) THEN
-         id%DKEEP(70)=0.0D0
-         CALL MUMPS_SECDEB(TIMETOTAL)
-      END IF 
       IF ( LANA ) THEN
         IF ( PROKG .AND. OLDJOB .EQ. -1 ) THEN
 C         Print compilation options at first call to analysis

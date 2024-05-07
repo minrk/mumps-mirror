@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -12,9 +12,6 @@ C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
       MODULE ZMUMPS_FAC_LR
       USE ZMUMPS_LR_CORE
-      USE ZMUMPS_LR_TYPE
-      USE ZMUMPS_LR_STATS
-      USE ZMUMPS_LR_DATA_M
       IMPLICIT NONE
       CONTAINS
       SUBROUTINE ZMUMPS_BLR_UPDATE_TRAILING_LDLT(
@@ -128,7 +125,7 @@ C
       NB_BLOCKS_PANEL_LM = NB_BLR_LM-CURRENT_BLR_LM
       NB_BLOCKS_PANEL_LS = NB_BLR_LS-CURRENT_BLR_LS
       POSELTD = 1_8 
-      OMP_NUM = 0 
+      OMP_NUM = 0
 #if defined(BLR_MT) 
       CHUNK = 1
 !$OMP DO SCHEDULE(DYNAMIC,CHUNK)
@@ -199,7 +196,7 @@ C
 #endif
       RETURN
       END SUBROUTINE ZMUMPS_BLR_SLV_UPD_TRAIL_LDLT
-      SUBROUTINE ZMUMPS_BLR_UPDATE_NELIM_VAR_U(
+      SUBROUTINE ZMUMPS_BLR_UPD_NELIM_VAR_U(
      &        A, LA, POSELT, IFLAG, IERROR, NFRONT,
      &        BEGS_BLR, CURRENT_BLR, BLR_U, NB_BLR, 
      &        FIRST_BLOCK, IBEG_BLR, NPIV, NELIM)
@@ -236,7 +233,7 @@ C
                  IFLAG  = -13
                  IERROR = NELIM * LRB%K
                  write(*,*) 'Allocation problem in BLR routine 
-     &         ZMUMPS_BLR_UPDATE_NELIM_VAR_U: ',
+     &         ZMUMPS_BLR_UPD_NELIM_VAR_U: ',
      &         'not enough memory? memory requested = ', IERROR
                  GOTO 100
                ENDIF
@@ -259,8 +256,8 @@ C
 #if defined(BLR_MT) 
 !$OMP END MASTER
 #endif
-      END SUBROUTINE ZMUMPS_BLR_UPDATE_NELIM_VAR_U
-      SUBROUTINE ZMUMPS_BLR_UPDATE_NELIM_VAR_L(
+      END SUBROUTINE ZMUMPS_BLR_UPD_NELIM_VAR_U
+      SUBROUTINE ZMUMPS_BLR_UPD_NELIM_VAR_L(
      &        A_U, LA_U, UPOS, A_L, LA_L, LPOS, IFLAG, IERROR, LDU, LDL,
      &        BEGS_BLR_L, CURRENT_BLR, BLR_L, NB_BLR_L, 
      &        FIRST_BLOCK, NELIM, UTRANS)
@@ -299,7 +296,7 @@ C
                  IFLAG  = -13
                  IERROR = NELIM * KL
                  write(*,*) 'Allocation problem in BLR routine 
-     &         ZMUMPS_BLR_UPDATE_NELIM_VAR_L: ',
+     &         ZMUMPS_BLR_UPD_NELIM_VAR_L: ',
      &         'not enough memory? memory requested = ', IERROR
                  GOTO 100
                ENDIF
@@ -322,7 +319,7 @@ C
 #if defined(BLR_MT) 
 !$OMP END MASTER
 #endif
-      END SUBROUTINE ZMUMPS_BLR_UPDATE_NELIM_VAR_L
+      END SUBROUTINE ZMUMPS_BLR_UPD_NELIM_VAR_L
       SUBROUTINE ZMUMPS_BLR_UPDATE_TRAILING(
      &        A, LA, POSELT, IFLAG, IERROR, NFRONT,
      &        BEGS_BLR_L, BEGS_BLR_U, CURRENT_BLR, BLR_L, NB_BLR_L, 

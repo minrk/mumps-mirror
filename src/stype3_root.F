@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -10,11 +10,15 @@ C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
 C  http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html
 C
-      SUBROUTINE SMUMPS_ASS_ROOT( NROW_SON, NCOL_SON, INDROW_SON, 
+      SUBROUTINE SMUMPS_ASS_ROOT( root, KEEP50,
+     &                     NROW_SON, NCOL_SON, INDROW_SON, 
      &                     INDCOL_SON, NSUPCOL, VAL_SON, VAL_ROOT,
      &                     LOCAL_M, LOCAL_N,
      &                     RHS_ROOT, NLOC_ROOT, CBP )
+      USE SMUMPS_STRUC_DEF, ONLY : SMUMPS_ROOT_STRUC
       IMPLICIT NONE
+      TYPE (SMUMPS_ROOT_STRUC) :: root
+      INTEGER, INTENT(IN) :: KEEP50
       INTEGER NCOL_SON, NROW_SON, NSUPCOL
       INTEGER, intent(in) :: CBP   
       INTEGER INDROW_SON( NROW_SON ), INDCOL_SON( NCOL_SON )
@@ -23,16 +27,28 @@ C
       REAL VAL_ROOT( LOCAL_M, LOCAL_N )
       INTEGER NLOC_ROOT
       REAL RHS_ROOT( LOCAL_M, NLOC_ROOT )
-      INTEGER I, J
+      INTEGER I, J, INDROW, INDCOL, IPOSROOT, JPOSROOT
       IF (CBP .EQ. 0) THEN
         DO I = 1, NROW_SON
+          INDROW = INDROW_SON(I)
+          IPOSROOT = (root%NPROW*((INDROW-1)/root%MBLOCK)+root%MYROW)
+     &             * root%MBLOCK + mod(INDROW-1,root%MBLOCK) + 1
           DO J = 1, NCOL_SON-NSUPCOL
-          VAL_ROOT( INDROW_SON( I ), INDCOL_SON( J ) ) =
-     &    VAL_ROOT( INDROW_SON( I ), INDCOL_SON( J ) ) + VAL_SON(J,I)
+          INDCOL = INDCOL_SON(J)
+          IF (KEEP50.NE.0) THEN
+            JPOSROOT = (root%NPCOL*((INDCOL-1)/root%NBLOCK)+root%MYCOL)
+     &               * root%NBLOCK + mod(INDCOL-1,root%NBLOCK) + 1
+            IF (IPOSROOT < JPOSROOT) THEN
+              CYCLE
+            ENDIF
+          ENDIF
+          VAL_ROOT( INDROW, INDCOL ) =
+     &    VAL_ROOT( INDROW, INDCOL ) + VAL_SON(J,I)
           END DO
           DO J = NCOL_SON-NSUPCOL+1, NCOL_SON
-            RHS_ROOT( INDROW_SON( I ), INDCOL_SON(J)) =
-     &      RHS_ROOT(INDROW_SON(I),INDCOL_SON(J)) + VAL_SON(J,I)
+            INDCOL = INDCOL_SON(J)
+            RHS_ROOT( INDROW, INDCOL ) =
+     &      RHS_ROOT( INDROW, INDCOL ) + VAL_SON(J,I)
           ENDDO
         END DO
       ELSE
@@ -493,7 +509,7 @@ C
      &        PTRR(STEP(ISON)), IW(PTRI(STEP(ISON))+XXD),
      &        IW(PTRI(STEP(ISON))+XXR),
      &        SONA_PTR, POSSONA_PTR, LSONA_PTR )
-              CALL SMUMPS_BUF_SEND_CONTRIB_TYPE3_IM( N, ISON,
+              CALL SMUMPS_BUF_SEND_CONTRIB_TYPE3_I( N, ISON,
      &        NBCOL, NBROW,
      &        IW( PTRI(STEP(ISON)) + SHIFT_LIST_COL_SON ),
      &        IW( PTRI(STEP(ISON)) + SHIFT_LIST_ROW_SON ),
@@ -645,7 +661,7 @@ C
              JLOC_ROOT = NBLOCK
      &                * ( ( JPOS_ROOT - 1 ) / ( NBLOCK * NPCOL ) )
      &                + mod( JPOS_ROOT - 1, NBLOCK ) + 1
-              RHS_ROOT(ILOC_ROOT, JLOC_ROOT) =  
+             RHS_ROOT(ILOC_ROOT, JLOC_ROOT) =  
      &            RHS_ROOT(ILOC_ROOT, JLOC_ROOT) + VAL_SON( J, I )
           ENDDO
         END DO
@@ -662,6 +678,7 @@ C
               J         = SUBSET_COL( JSUB )
               JGLOB     = INDCOL_SON( J )
               JPOS_ROOT = RG2L_COL( JGLOB )
+              IF (KEEP(50).NE.0. AND. JPOS_ROOT .GT. IPOS_ROOT) CYCLE
               JLOC_ROOT = NBLOCK
      &                * ( ( JPOS_ROOT - 1 ) / ( NBLOCK * NPCOL ) )
      &                + mod( JPOS_ROOT - 1, NBLOCK ) + 1

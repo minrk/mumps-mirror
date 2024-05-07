@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -110,7 +110,7 @@ C
       SUBROUTINE ALLOC_LRB(LRB_OUT,K,KSVD,M,N,ISLR,IFLAG,IERROR,KEEP8)
         TYPE(LRB_TYPE), INTENT(OUT) :: LRB_OUT
         INTEGER,INTENT(IN) :: K,KSVD,M,N
-        INTEGER,INTENT(OUT) :: IFLAG, IERROR
+        INTEGER,INTENT(INOUT) :: IFLAG, IERROR
         LOGICAL,INTENT(IN) :: ISLR
         INTEGER(8) :: KEEP8(150)
         INTEGER :: MEM, allocok
@@ -182,7 +182,7 @@ C        "ceinture et bretelles"
         TYPE(LRB_TYPE), INTENT(IN) :: ACC_LRB
         TYPE(LRB_TYPE), INTENT(OUT) :: LRB_OUT
         INTEGER,INTENT(IN) :: K, M, N, LorU
-        INTEGER,INTENT(OUT) :: IFLAG, IERROR
+        INTEGER,INTENT(INOUT) :: IFLAG, IERROR
         INTEGER(8) :: KEEP8(150)
         INTEGER :: I
         IF (LorU.EQ.1) THEN
@@ -424,7 +424,7 @@ CC
         INTEGER(8), intent(in)  :: LA
         REAL, intent(inout)  :: A(LA)
         INTEGER,INTENT(IN) :: NFRONT, SYM, NIV, TOL_OPT
-        INTEGER,INTENT(OUT) :: IFLAG, IERROR
+        INTEGER,INTENT(INOUT) :: IFLAG, IERROR
         INTEGER(8), INTENT(IN) :: POSELTT
         REAL, INTENT(IN), OPTIONAL :: DIAG(*)
         INTEGER,INTENT(IN), OPTIONAL :: LD_DIAG, IW2(*)
@@ -828,7 +828,7 @@ CC
         INTEGER(8), intent(in)  :: LA
         REAL, intent(inout)  :: A(LA)
         INTEGER,INTENT(IN) :: NFRONT, SYM, NIV, TOL_OPT
-        INTEGER,INTENT(OUT) :: IFLAG, IERROR
+        INTEGER,INTENT(INOUT) :: IFLAG, IERROR
         INTEGER,INTENT(IN) :: MAXI_CLUSTER, MAXI_RANK, K480
         INTEGER(8), INTENT(IN) :: POSELTT
         REAL, INTENT(IN), OPTIONAL :: DIAG(*)
@@ -2101,7 +2101,12 @@ C                 First NELIM columns
                   ENDDO
 C                 Remaining columns
                   APOS = POSEL1 + int(SON_IW(KK+K1-1)-1,8)*NFRONT8
-                  DO KK1 = FIRST_COL+NELIM, LAST_COL
+C                 DO KK1 = FIRST_COL+NELIM, LAST_COL
+C                 In case I=J and first block, one may have
+C                 LAST_COL > KK, but only lower triangular part
+C                 should be assembled. We use min(LAST_COL,KK)
+C                 below index to cover this case.
+                  DO KK1 = FIRST_COL+NELIM, min(LAST_COL,KK)
                    JJ2 = APOS + int(SON_IW(K1+KK1-1),8) - 1_8
                    A(JJ2) = A(JJ2) + SON_A(IACHK + int(KK1-FIRST_COL,8))
                   ENDDO

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -35,6 +35,9 @@ C
       USE DMUMPS_LR_DATA_M
       USE DMUMPS_STRUC_DEF, ONLY : DMUMPS_ROOT_STRUC
       USE DMUMPS_DYNAMIC_MEMORY_M, ONLY : DMUMPS_DM_SET_DYNPTR
+#if defined(BLR_MT)
+!$    USE OMP_LIB
+#endif
       IMPLICIT NONE
       TYPE (DMUMPS_ROOT_STRUC) :: root
       INTEGER ICNTL( 60 ), KEEP( 500 )
@@ -145,21 +148,11 @@ C
      &                 NB_BLR_U, 1, MPI_INTEGER,
      &                 COMM, IERR )
           CURRENT_BLR_U = 1 
-          ALLOCATE(BLR_U(max(NB_BLR_U,1)), stat=allocok)
+          ALLOCATE(BLR_U(max(NB_BLR_U,1)),
+     &             BEGS_BLR_U(NB_BLR_U+2), stat=allocok)
           if (allocok .GT. 0) THEN
-             write(*,*) MYID, ' : PB allocation BLR_U in blfac_slave '
-     &            , max(NB_BLR_U,1)
              IFLAG = -13 
-             IERROR = max(NB_BLR_U,1)
-             GOTO 700
-          endif
-          ALLOCATE(BEGS_BLR_U(NB_BLR_U+2), stat=allocok)
-          if (allocok .GT. 0) THEN
-             write(*,*) MYID, ' : PB allocation BEGS_BLR_U in '
-     &            ,'blfac_slave '
-     &            , max(NB_BLR_U,1)
-             IFLAG = -13 
-             IERROR = NB_BLR_U+2
+             IERROR = max(NB_BLR_U,1) + NB_BLR_U+2
              GOTO 700
           endif
           CALL DMUMPS_MPI_UNPACK_LR(BUFR, LBUFR, LBUFR_BYTES,
@@ -312,7 +305,7 @@ C
 #if defined(BLR_MT)          
 !$OMP PARALLEL
 #endif
-         CALL DMUMPS_BLR_UPDATE_TRAILING_IM (
+         CALL DMUMPS_BLR_UPDATE_TRAILING_I (
      &        A_PTR(POSELT), LA_PTR, 1_8,
      &        IFLAG, IERROR, NCOL1,
      &        BEGS_BLR_LS(1), size(BEGS_BLR_LS),
@@ -330,10 +323,10 @@ C
 #if defined(BLR_MT)          
 !$OMP END PARALLEL
 #endif          
-          IF (IFLAG.LT.0) GOTO 700
           CALL DEALLOC_BLR_PANEL (BLR_U, NB_BLR_U, KEEP8)
           IF (allocated(BLR_U)) DEALLOCATE(BLR_U)
           IF (associated(BEGS_BLR_U)) DEALLOCATE(BEGS_BLR_U)
+          IF (IFLAG.LT.0) GOTO 700
          IF (KEEP(486).EQ.3) THEN
          CALL DMUMPS_BLR_TRY_FREE_PANEL(IW(IOLDPS+XXF), IPANEL, 
      &                            KEEP8) 
@@ -440,19 +433,9 @@ C
               IF (allocok > 0 ) THEN
                 IFLAG  = -13
                 IERROR = OMP_NUM*(LWORK + MAXI_CLUSTER*(MAXI_CLUSTER+4))
-                write(6,*) 'ERROR 2 allocate temporary BLR blocks', 
-     &         ' during DMUMPS_PROCESS_SYM_BLOCFACTO', IERROR
                 GOTO 700
               ENDIF
-            ENDIF
-            CALL SYSTEM_CLOCK(T1)
-#if defined(BLR_MT)          
-!$OMP PARALLEL
-#endif
-            IF (COMPRESS_CB) THEN
-#if defined(BLR_MT)
-!$OMP MASTER
-#endif
+              CALL SYSTEM_CLOCK(T1)
               NFS4FATHER = -9999
               IF ( (KEEP(219).NE.0).AND.(KEEP(50).EQ.2) ) THEN
                CALL DMUMPS_BLR_RETRIEVE_NFS4FATHER ( IW(IOLDPS+XXF),
@@ -463,13 +446,14 @@ C
               IF (allocok.gt.0) THEN
                 IFLAG = -13
                 IERROR = max(NFS4FATHER,1)
+                GOTO 700
               ENDIF
               BEGS_BLR_COL(1+NPARTSASS_MASTER) = 
      &               BEGS_BLR_COL(1+NPARTSASS_MASTER) - NELIM
               NBROWSinF = 0
               IF ( (KEEP(219).NE.0).AND.(KEEP(50).EQ.2).AND.
      &             NFS4FATHER.GT.0  ) THEN
-               CALL DMUMPS_COMPUTE_NBROWSinF (
+                CALL DMUMPS_COMPUTE_NBROWSinF (
      &                N, INODE, FPERE, KEEP, 
      &                IOLDPS, HS, 
      &                IW, LIW, 
@@ -478,12 +462,10 @@ C
      &                NBROWSinF
      &                )
               ENDIF
-#if defined(BLR_MT)
-!$OMP END MASTER
-!$OMP BARRIER
+#if defined(BLR_MT)          
+!$OMP PARALLEL
 #endif
-              IF (IFLAG.LT.0) GOTO 650
-              CALL DMUMPS_COMPRESS_CB_IM(
+              CALL DMUMPS_COMPRESS_CB_I(
      &          A_PTR(POSELT), LA_PTR, 1_8, NCOL1,
      &          BEGS_BLR_LS(1), size(BEGS_BLR_LS),
      &          BEGS_BLR_COL(1), size(BEGS_BLR_COL),
@@ -498,12 +480,9 @@ C
      &          NFS4FATHER, NPIV1, KEEP(1), M_ARRAY,
      &          NELIM, NBROWSinF )
 #if defined(BLR_MT)
-!$OMP BARRIER
+!$OMP END PARALLEL
 #endif
               IF (IFLAG.LT.0) GOTO 650
-#if defined(BLR_MT)
-!$OMP  MASTER
-#endif
               IF ( (KEEP(219).NE.0).AND.(KEEP(50).EQ.2).AND.
      &             NFS4FATHER.GT.0  ) THEN
                  INFO_TMP(1) = IFLAG
@@ -513,28 +492,18 @@ C
                  IFLAG  = INFO_TMP(1) 
                  IERROR = INFO_TMP(2) 
               ENDIF
-              DEALLOCATE(M_ARRAY)
-#if defined(BLR_MT)
-!$OMP END MASTER
-!$OMP BARRIER
-#endif
-              IF (IFLAG.LT.0) GOTO 650
-#if defined(BLR_MT)
-!$OMP MASTER
-#endif
+ 650          CONTINUE         
               CALL SYSTEM_CLOCK(T2,COUNT_RATE)
               ACC_CB_DEMOTING_TIME = ACC_CB_DEMOTING_TIME + 
      &               DBLE(T2-T1)/DBLE(COUNT_RATE)
-              CALL SYSTEM_CLOCK(T1)
-#if defined(BLR_MT)
-!$OMP END MASTER
-#endif
-            ENDIF
- 650        CONTINUE         
-#if defined(BLR_MT)          
-!$OMP END PARALLEL
-#endif
-            IF (IFLAG.LT.0) GOTO 700
+              IF (allocated(M_ARRAY)) DEALLOCATE(M_ARRAY)
+              IF (allocated(BLOCKLR)) DEALLOCATE(BLOCKLR)
+              IF (allocated(RWORK)) DEALLOCATE(RWORK)
+              IF (allocated(TAU)) DEALLOCATE(TAU)
+              IF (allocated(JPVT)) DEALLOCATE(JPVT)
+              IF (allocated(WORK)) DEALLOCATE(WORK)           
+              IF (IFLAG.LT.0) GOTO 700
+            ENDIF 
           ENDIF
          CALL DMUMPS_END_FACTO_SLAVE( COMM_LOAD, ASS_IRECV, 
      &    N, INODE, FPERE, 
@@ -554,9 +523,21 @@ C
      &               , LRGROUPS
      &     )
        ENDIF 
- 600  CONTINUE
       RETURN
  700  CONTINUE
       CALL DMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
+ 600  CONTINUE
+      IF (allocated(BLR_U)) DEALLOCATE(BLR_U)
+      IF (COMPRESS_CB) THEN
+        IF (allocated(BLOCKLR)) DEALLOCATE(BLOCKLR)
+        IF (allocated(RWORK)) DEALLOCATE(RWORK)
+        IF (allocated(TAU)) DEALLOCATE(TAU)
+        IF (allocated(JPVT)) DEALLOCATE(JPVT)
+        IF (allocated(WORK)) DEALLOCATE(WORK)
+      ENDIF
+      IF (allocated(M_ARRAY)) DEALLOCATE(M_ARRAY)
+      IF (DYNAMIC) THEN
+       IF (allocated(UDYNAMIC)) DEALLOCATE(UDYNAMIC)
+      ENDIF
       RETURN
       END SUBROUTINE DMUMPS_PROCESS_BLFAC_SLAVE

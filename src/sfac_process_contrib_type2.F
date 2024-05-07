@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -215,7 +215,7 @@ C
      &              OPASSW, OPELIW, STEP, PTRIST, PTRAST,
      &              ITLOC, RHS_MUMPS,
      &              FILS, PTRARW, PTRAIW, INTARR, DBLARR, ICNTL,
-     &              KEEP,KEEP8, MYID )
+     &              KEEP,KEEP8, MYID, LRGROUPS )
             ELSE
                CALL SMUMPS_ELT_ASM_S_2_S_INIT(
      &              NELT, FRTPTR, FRTELT,
@@ -224,7 +224,7 @@ C
      &              OPASSW, OPELIW, STEP, PTRIST, PTRAST,
      &              ITLOC, RHS_MUMPS,
      &              FILS, PTRARW, PTRAIW, INTARR, DBLARR, ICNTL,
-     &              KEEP,KEEP8, MYID )
+     &              KEEP,KEEP8, MYID, LRGROUPS )
             ENDIF
             IF (CB_IS_LR) THEN
               CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -355,13 +355,14 @@ C
           CALL ZMUMPS_ASM_SLAVE_ARROWHEADS(INODE, N, IW, LIW,
      &       IOLDPS, A_PTR(POSELT), LA_PTR, 1_8, KEEP, KEEP8, ITLOC,
      &       FILS, PTRAIW,
-     &       PTRARW, INTARR, DBLARR, KEEP8(27), KEEP8(26), RHS_MUMPS)
+     &       PTRARW, INTARR, DBLARR, KEEP8(27), KEEP8(26), RHS_MUMPS, 
+     &       LRGROUPS)
         ELSE
           CALL ZMUMPS_ASM_SLAVE_ELEMENTS(INODE, N, NELT, IW, LIW,
      &       IOLDPS, A_PTR(POSELT), LA_PTR, 1_8, KEEP, KEEP8, ITLOC,
      &       FILS, PTRAIW,
      &       PTRARW, INTARR, DBLARR, KEEP8(27), KEEP8(26),
-     &       FRTPTR, FRTELT, RHS_MUMPS)
+     &       FRTPTR, FRTELT, RHS_MUMPS, LRGROUPS)
         ENDIF
       ENDIF
       NROW1  = IW( IOLDPS + 2 + KEEP(IXSZ))
@@ -612,7 +613,7 @@ C
 #if defined(BLR_MT)          
 !$OMP PARALLEL
 #endif
-          CALL ZMUMPS_COMPRESS_PANEL_IM_NOOPT
+          CALL ZMUMPS_COMPRESS_PANEL_I_NOOPT
      &        (A_PTR(POSELT), LA_PTR, 1_8,
      &        IFLAG, IERROR, NCOL1,
      &        BEGS_BLR_LS(1), size(BEGS_BLR_LS), NB_BLR_LS+1,
@@ -658,7 +659,7 @@ C
 !$OMP END MASTER
 #endif          
             IF (KEEP(486).NE.2) THEN
-              CALL ZMUMPS_DECOMPRESS_PANEL_IM_NOOPT(
+              CALL ZMUMPS_DECOMPRESS_PANEL_I_NOOPT(
      &        A_PTR(POSELT), LA_PTR, 1_8,
      &        NCOL1, NCOL1,
      &        .TRUE.,    
@@ -701,7 +702,7 @@ C
         NextPivDummy      = -8888 
         LIWFAC = IW(IOLDPS+XXI)
         LAST_CALL = .FALSE.
-        CALL ZMUMPS_OOC_IO_LU_PANEL_IM( STRAT, TYPEF_L,
+        CALL ZMUMPS_OOC_IO_LU_PANEL_I( STRAT, TYPEF_L,
      &       A_PTR(POSELT),
      &       LA_PTR, MonBloc, NextPivDummy, NextPivDummy,
      &       IW(IOLDPS), LIWFAC, MYID, KEEP8(31), IFLAG,LAST_CALL)
@@ -712,7 +713,7 @@ C
             LPOS2 = POSELT + int(NPIV1,8)
             UPOS = 1_8+int(NPIV,8)
             LPOS  = LPOS2 + int(NPIV,8)
-            CALL ZMUMPS_BLR_UPDATE_NELIM_VAR_L_IM(
+            CALL ZMUMPS_BLR_UPD_NELIM_VAR_L_I(
      &        A(POSBLOCFACTO), LA_BLOCFACTO, UPOS,
      &        A_PTR(POSELT), LA_PTR, LPOS-POSELT+1_8,
      &        IFLAG, IERROR, LD_BLOCFACTO, NCOL1,
@@ -723,7 +724,7 @@ C
 #if defined(BLR_MT)          
 !$OMP PARALLEL
 #endif          
-          CALL ZMUMPS_BLR_SLV_UPD_TRAIL_LDLT_IM(
+          CALL ZMUMPS_BLR_SLV_UPD_TRAIL_LDLT_I(
      &        A_PTR(POSELT), LA_PTR, 1_8, 
      &        IFLAG, IERROR, NCOL1, NROW1,
      &        A(POSBLOCFACTO), LA_BLOCFACTO,
@@ -987,13 +988,7 @@ C
               CALL ZMUMPS_BLR_SAVE_CB_LRB(IW(IOLDPS+XXF),CB_LRB)
             ENDIF
             CALL SYSTEM_CLOCK(T1)
-#if defined(BLR_MT)          
-!$OMP PARALLEL
-#endif
             IF (COMPRESS_CB) THEN
-#if defined(BLR_MT)
-!$OMP MASTER
-#endif
               NFS4FATHER = -9999
               IF ( (KEEP(219).NE.0).AND.(KEEP(50).EQ.2) ) THEN
                CALL ZMUMPS_BLR_RETRIEVE_NFS4FATHER ( IW(IOLDPS+XXF),
@@ -1022,33 +1017,29 @@ C
      &                NBROWSinF
      &                )
               ENDIF
-#if defined(BLR_MT)
-!$OMP END MASTER
-!$OMP BARRIER
+              IF (IFLAG.LT.0) GOTO 700
+#if defined(BLR_MT)          
+!$OMP PARALLEL
+#endif
+              CALL ZMUMPS_COMPRESS_CB_I(
+     &        A_PTR(POSELT), LA_PTR, 1_8, NCOL1,
+     &        BEGS_BLR_LS(1), size(BEGS_BLR_LS),
+     &        BEGS_BLR_COL(1), size(BEGS_BLR_COL),
+     &        NB_BLR_LS, NB_BLR_COL-NPARTSASS_COL,
+     &        NPARTSASS_COL, 
+     &        NROW1, NCOL1-NPIV1-NPIV, INODE,
+     &        IW(IOLDPS+XXF), 1, 2, IFLAG, IERROR,
+     &        DKEEP(8), KEEP(466), KEEP(484), KEEP(489),
+     &        CB_LRB(1,1),
+     &        WORK, TAU, JPVT, LWORK, RWORK, BLOCKLR,
+     &        MAXI_CLUSTER, KEEP8, OMP_NUM,
+     &        NFS4FATHER, NPIV1+NPIV, KEEP(1), M_ARRAY
+     &        , NELIM, NBROWSinF
+     &        )
+#if defined(BLR_MT)          
+!$OMP END PARALLEL
 #endif
               IF (IFLAG.LT.0) GOTO 650
-                CALL ZMUMPS_COMPRESS_CB_IM(
-     &          A_PTR(POSELT), LA_PTR, 1_8, NCOL1,
-     &          BEGS_BLR_LS(1), size(BEGS_BLR_LS),
-     &          BEGS_BLR_COL(1), size(BEGS_BLR_COL),
-     &          NB_BLR_LS, NB_BLR_COL-NPARTSASS_COL,
-     &          NPARTSASS_COL, 
-     &          NROW1, NCOL1-NPIV1-NPIV, INODE,
-     &          IW(IOLDPS+XXF), 1, 2, IFLAG, IERROR,
-     &          DKEEP(8), KEEP(466), KEEP(484), KEEP(489),
-     &          CB_LRB(1,1),
-     &          WORK, TAU, JPVT, LWORK, RWORK, BLOCKLR,
-     &          MAXI_CLUSTER, KEEP8, OMP_NUM,
-     &          NFS4FATHER, NPIV1+NPIV, KEEP(1), M_ARRAY
-     &          , NELIM, NBROWSinF
-     &          )
-#if defined(BLR_MT)
-!$OMP BARRIER
-#endif
-              IF (IFLAG.LT.0) GOTO 650
-#if defined(BLR_MT)
-!$OMP MASTER
-#endif
               IF ( (KEEP(219).NE.0).AND.(KEEP(50).EQ.2).AND.
      &             NFS4FATHER.GT.0  ) THEN
                  INFO_TMP(1) = IFLAG
@@ -1059,26 +1050,12 @@ C
                  IERROR = INFO_TMP(2) 
               ENDIF
               DEALLOCATE(M_ARRAY)
-#if defined(BLR_MT)
-!$OMP END MASTER
-!$OMP BARRIER
-#endif
-              IF (IFLAG.LT.0) GOTO 650
-#if defined(BLR_MT)
-!$OMP MASTER
-#endif
+ 650          CONTINUE         
               CALL SYSTEM_CLOCK(T2,COUNT_RATE)
               ACC_CB_DEMOTING_TIME = ACC_CB_DEMOTING_TIME + 
      &               DBLE(T2-T1)/DBLE(COUNT_RATE)
               CALL SYSTEM_CLOCK(T1)
-#if defined(BLR_MT)
-!$OMP END MASTER
-#endif
-            ENDIF
- 650        CONTINUE         
-#if defined(BLR_MT)          
-!$OMP END PARALLEL
-#endif
+            ENDIF 
             IF (IFLAG.LT.0) GOTO 700
           ENDIF
           CALL ZMUMPS_END_FACTO_SLAVE( COMM_LOAD, ASS_IRECV, 

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -831,11 +831,11 @@ C
      &                   +int(BEGS_BLR(CURRENT_BLR+1)-NELIM-1,8)
             LPOS = POSELT+int(BEGS_BLR(CURRENT_BLR+1)-1,8)*int(NFRONT,8)
      &                   +int(BEGS_BLR(CURRENT_BLR+1)-NELIM-1,8)
-            CALL ZMUMPS_BLR_UPDATE_NELIM_VAR_L(A, LA, UPOS, A, LA, LPOS,
+            CALL ZMUMPS_BLR_UPD_NELIM_VAR_L(A, LA, UPOS, A, LA, LPOS,
      &        IFLAG, IERROR, NFRONT, NFRONT,
      &        BEGS_BLR, CURRENT_BLR, BLR_L, NPARTSASS,
      &        CURRENT_BLR+1, NELIM, 'N') 
-            IF (IFLAG.LT.0) GOTO 400
+            IF (IFLAG.LT.0) GOTO 444
             IF (IEND_BLR.LT.NASS) THEN
               CALL ZMUMPS_BLR_UPD_PANEL_LEFT(A, LA, POSELT,
      &          NFRONT, IW(IOLDPS+XXF), 0, 
@@ -848,7 +848,7 @@ C
      &          KEEP(483), MAXI_CLUSTER, MAXI_RANK,
      &          KEEP(474), 0, BLR_U, KEEP8
      &          )
-              IF (IFLAG.LT.0) GOTO 400
+              IF (IFLAG.LT.0) GOTO 442
               CALL ZMUMPS_BLR_UPD_PANEL_LEFT(A, LA, POSELT,
      &          NFRONT, IW(IOLDPS+XXF), 1, 
      &          BEGS_BLR, BEGS_BLR, CURRENT_BLR, ACC_LUA,
@@ -861,8 +861,9 @@ C
      &          KEEP(474), 0, BLR_U, KEEP8,
      &          END_I_IN=END_I
      &          )
-              IF (IFLAG.LT.0) GOTO 400
+ 442          CONTINUE
             ENDIF
+ 444        CONTINUE
           ELSE
             CALL ZMUMPS_BLR_UPDATE_TRAILING(A, LA, POSELT, 
      &        IFLAG, IERROR, NFRONT,
@@ -874,6 +875,9 @@ C
           ENDIF
 #if defined(BLR_MT)          
 !$OMP BARRIER
+#endif
+          IF (IFLAG.LT.0) GOTO 400
+#if defined(BLR_MT)          
 !$OMP MASTER
 #endif          
           CALL SYSTEM_CLOCK(T2,COUNT_RATE)
@@ -1089,7 +1093,7 @@ C
 #if defined(BLR_MT)
 !$OMP BARRIER
 #endif
-                  IF (IFLAG.LT.0) GOTO 460
+                  IF (IFLAG.LT.0) GOTO 445
                 ENDDO
 #if defined(BLR_MT)
 !$OMP BARRIER
@@ -1111,6 +1115,7 @@ C
 #if defined(BLR_MT)
 !$OMP END MASTER
 #endif
+ 445          CONTINUE
             ENDIF 
  460        CONTINUE          
 #if defined(BLR_MT)          

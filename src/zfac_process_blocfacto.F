@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -337,13 +337,14 @@ C
           CALL ZMUMPS_ASM_SLAVE_ARROWHEADS(INODE, N, IW, LIW,
      &       IOLDPS, A_PTR(POSELT), LA_PTR, 1_8, KEEP, KEEP8, ITLOC,
      &       FILS, PTRAIW,
-     &       PTRARW, INTARR, DBLARR, KEEP8(27), KEEP8(26), RHS_MUMPS)
+     &       PTRARW, INTARR, DBLARR, KEEP8(27), KEEP8(26), RHS_MUMPS, 
+     &       LRGROUPS)
         ELSE
           CALL ZMUMPS_ASM_SLAVE_ELEMENTS(INODE, N, NELT, IW, LIW,
      &       IOLDPS, A_PTR(POSELT), LA_PTR, 1_8, KEEP, KEEP8, ITLOC,
      &       FILS, PTRAIW,
      &       PTRARW, INTARR, DBLARR, KEEP8(27), KEEP8(26),
-     &       FRTPTR, FRTELT, RHS_MUMPS)
+     &       FRTPTR, FRTELT, RHS_MUMPS, LRGROUPS)
         ENDIF
       ENDIF
       NROW1  = IW( IOLDPS + 2 +KEEP(IXSZ))
@@ -506,7 +507,7 @@ C
 #if defined(BLR_MT)          
 !$OMP PARALLEL
 #endif
-        CALL ZMUMPS_COMPRESS_PANEL_IM_NOOPT
+        CALL ZMUMPS_COMPRESS_PANEL_I_NOOPT
      &        (A_PTR(POSELT), LA_PTR, 1_8,
      &        IFLAG, IERROR, NCOL1,
      &        BEGS_BLR_L(1), size(BEGS_BLR_L), NB_BLR_L+1,
@@ -570,7 +571,7 @@ C
 !$OMP END MASTER
 #endif          
             IF (KEEP(486).NE.2) THEN
-              CALL ZMUMPS_DECOMPRESS_PANEL_IM_NOOPT(
+              CALL ZMUMPS_DECOMPRESS_PANEL_I_NOOPT(
      &        A_PTR(POSELT), LA_PTR, 1_8,
      &        NCOL1, NCOL1,
      &        .TRUE.,    
@@ -613,7 +614,7 @@ C
         NextPivDummy      = -8888 
         LIWFAC = IW(IOLDPS+XXI)
         LAST_CALL = .FALSE.
-        CALL ZMUMPS_OOC_IO_LU_PANEL_IM( STRAT, TYPEF_L,
+        CALL ZMUMPS_OOC_IO_LU_PANEL_I( STRAT, TYPEF_L,
      &       A_PTR(POSELT),
      &       LA_PTR, MonBloc, NextPivDummy, NextPivDummy,
      &       IW(IOLDPS), LIWFAC, MYID, KEEP8(31), IFLAG,LAST_CALL)
@@ -624,7 +625,7 @@ C
           IF (NELIM.GT.0) THEN
             UPOS = 1_8+int(NPIV,8)
             IF (DYNAMIC_ALLOC) THEN
-              CALL ZMUMPS_BLR_UPDATE_NELIM_VAR_L_IM(
+              CALL ZMUMPS_BLR_UPD_NELIM_VAR_L_I(
      &        DYN_BLOCFACTO, LA_BLOCFACTO, UPOS,
      &        A_PTR(POSELT), LA_PTR, LPOS-POSELT+1_8,
      &        IFLAG, IERROR, LD_BLOCFACTO, NCOL1,
@@ -632,7 +633,7 @@ C
      &        CURRENT_BLR, BLR_L(1), NB_BLR_L+1, 
      &        CURRENT_BLR+1, NELIM, 'N')
             ELSE
-              CALL ZMUMPS_BLR_UPDATE_NELIM_VAR_L_IM(
+              CALL ZMUMPS_BLR_UPD_NELIM_VAR_L_I(
      &        A(POSBLOCFACTO), LA_BLOCFACTO, UPOS,
      &        A_PTR(POSELT), LA_PTR, LPOS-POSELT+1_8,
      &        IFLAG, IERROR, LD_BLOCFACTO, NCOL1,
@@ -644,7 +645,7 @@ C
 #if defined(BLR_MT)          
 !$OMP PARALLEL
 #endif
-         CALL ZMUMPS_BLR_UPDATE_TRAILING_IM(
+         CALL ZMUMPS_BLR_UPDATE_TRAILING_I(
      &        A_PTR(POSELT), LA_PTR, 1_8, 
      &        IFLAG, IERROR, NCOL1,
      &        BEGS_BLR_L(1), size(BEGS_BLR_L),
@@ -789,7 +790,7 @@ C
 !$OMP PARALLEL
 #endif
          IF (COMPRESS_CB) THEN
-           CALL ZMUMPS_COMPRESS_CB_IM(
+           CALL ZMUMPS_COMPRESS_CB_I(
      &      A_PTR(POSELT), LA_PTR, 1_8, NCOL1,
      &      BEGS_BLR_L(1), size(BEGS_BLR_L),
      &      BEGS_BLR_COL(1), size(BEGS_BLR_COL),
@@ -803,7 +804,6 @@ C
      &      MAXI_CLUSTER, KEEP8, OMP_NUM,
      &      -9999, -9999, KEEP(1)
      &       )
-           IF (IFLAG.LT.0) GOTO 650
 #if defined(BLR_MT)
 !$OMP BARRIER
 !$OMP MASTER
@@ -816,7 +816,6 @@ C
 !$OMP END MASTER
 #endif
          ENDIF
- 650     CONTINUE         
 #if defined(BLR_MT)          
 !$OMP END PARALLEL
 #endif
@@ -877,7 +876,8 @@ C
       INTEGER, INTENT(IN)    :: NB_BLOCK_U, NELIM, NPIV
       CHARACTER(len=1) :: DIR
       INTEGER, INTENT(IN) :: COMM
-      INTEGER, INTENT(OUT) :: IERR, IFLAG, IERROR
+      INTEGER, INTENT(INOUT) :: IFLAG, IERROR
+      INTEGER, INTENT(OUT) :: IERR
       TYPE (LRB_TYPE), INTENT(OUT), 
      &          DIMENSION(max(NB_BLOCK_U,1)):: BLR_U
       INTEGER, INTENT(OUT), DIMENSION(NB_BLOCK_U+2)  :: BEGS_BLR_U 

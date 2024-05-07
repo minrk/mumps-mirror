@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -188,7 +188,7 @@ C
      &                   A( IPTRLU + 1_8 ), int(LREQA),
      &                   MPI_DOUBLE_COMPLEX, COMM, IERR )
          OPASSW = OPASSW + LREQA 
-         CALL ZMUMPS_ASS_ROOT( NSUPROW, NSUPCOL,
+         CALL ZMUMPS_ASS_ROOT( root, KEEP(50), NSUPROW, NSUPCOL,
      &                     IW( IWPOSCB + 1 ), 
      &                     IW( IWPOSCB + NSUPROW + 1 ), NSUPCOL,
      &                     A( IPTRLU + 1_8 ),
@@ -229,7 +229,8 @@ C
      &                   MPI_DOUBLE_COMPLEX, COMM, IERR )
           OPASSW = OPASSW + LREQA 
           IF (KEEP(60).EQ.0) THEN
-            CALL ZMUMPS_ASS_ROOT( NBROWS_PACKET, NSUBSET_COL_EFF,
+            CALL ZMUMPS_ASS_ROOT( root, KEEP(50),
+     &                     NBROWS_PACKET, NSUBSET_COL_EFF,
      &                     IW( IWPOSCB + 1 ),
      &                     IW( IWPOSCB + NBROWS_PACKET + 1 ),
      &                     NSUPCOL_EFF,
@@ -238,7 +239,8 @@ C
      &                  root%RHS_ROOT(1,1), root%RHS_NLOC,
      &                  0)   
           ELSE
-            CALL ZMUMPS_ASS_ROOT( NBROWS_PACKET, NSUBSET_COL_EFF,
+            CALL ZMUMPS_ASS_ROOT( root, KEEP(50),
+     &                     NBROWS_PACKET, NSUBSET_COL_EFF,
      &                     IW( IWPOSCB + 1 ),
      &                     IW( IWPOSCB + NBROWS_PACKET + 1 ),
      &                     NSUPCOL_EFF,

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -689,6 +689,7 @@ C     DOUBLE COMPLEX S(N),R(N)
       END
       LOGICAL FUNCTION MUMPS_IS_IN_PLACE( SENDBUF, CNT )
       INTEGER SENDBUF(*), CNT
+      LOGICAL, EXTERNAL :: MUMPS_CHECK_EQUAL
       INCLUDE 'mpif.h'
 C     Instead of checking the address, we modify the value
 C     of MPI_IN_PLACE, to check if SENDBUF = MPI_IN_PLACE.
@@ -697,13 +698,22 @@ C     of MPI_IN_PLACE, to check if SENDBUF = MPI_IN_PLACE.
         MPI_IN_PLACE = -1
         IF (SENDBUF(1) .EQ. MPI_IN_PLACE) THEN
           MPI_IN_PLACE = -9876543
-          IF (SENDBUF(1) .EQ. MPI_IN_PLACE) THEN
+          IF (MUMPS_CHECK_EQUAL(SENDBUF(1), MPI_IN_PLACE)) THEN
             MUMPS_IS_IN_PLACE = .TRUE.
           ENDIF
         ENDIF
       ENDIF
       RETURN
       END FUNCTION MUMPS_IS_IN_PLACE
+      LOGICAL FUNCTION MUMPS_CHECK_EQUAL(I,J)
+      INTEGER :: I,J
+      IF (I.EQ.J) THEN
+        MUMPS_CHECK_EQUAL = .TRUE. 
+      ELSE
+        MUMPS_CHECK_EQUAL = .FALSE. 
+      ENDIF
+      END FUNCTION MUMPS_CHECK_EQUAL
+
 
 
 C***********************************************************************

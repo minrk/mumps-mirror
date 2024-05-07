@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -411,8 +411,8 @@ C               -1         : root splitting and scalapack on
 C               0  or < -1 : root splitting off and sclalapack on
 C               > 0        : scalapack off
 C
-C  ICNTL(14) has default value 20 (or 30, or 5 depending on NSLAVES,
-C            SYM,...) and is the value for memory relaxation 
+C  ICNTL(14) has default value 20 (5 if NSLAVES=1 and SYM=1)
+C            and is the value for memory relaxation 
 C            so called "PERLU" in the following.
 C
 C
@@ -970,12 +970,11 @@ C     Default value for the memory relaxation
       IF (SYM.eq.1.AND.NSLAVES.EQ.1) THEN 
         ICNTL(14) = 5  ! it should work with 0
       ELSE
-        IF (SYM.EQ.1) THEN
-          ICNTL(14) = 10
-        ELSE
-          ICNTL(14) = 20
-        ENDIF
+        ICNTL(14) = 20
       END IF
+      IF (NSLAVES.GT.4) ICNTL(14) = ICNTL(14) + 5
+      IF (NSLAVES.GT.8) ICNTL(14) = ICNTL(14) + 5
+      IF (NSLAVES.GT.16) ICNTL(14)= ICNTL(14) + 5
 C     Distributed matrix entry
       ICNTL(18) = 0
 C     Schur  (default is not active)
@@ -1165,6 +1164,14 @@ C     strategy for MUMPS_BLOC2_GET_NSLAVESMIN
 #if defined(GEMMT_AVAILABLE)
       KEEP(421) = -1
 #endif
+C     Default size of KEEP(424) is defined below.
+C     It does not depend on arithmetic,
+C     it is related to L1 cache size: 250 * 64 bytes
+C     is about half of the cache size (32768 bytes).
+C     This leaves space in cache for the destination,
+C     of size 250*sizeof(arith). (4k bytes for z)
+C     At each new block of size KEEP(424), there is
+C     probably a cache miss on the pivot.
       KEEP(424) = 250
       KEEP(464) = 333
       KEEP(465) = 200
@@ -1211,6 +1218,11 @@ C
          id%KEEP(6)=2
          id%KEEP(9)=3
          id%KEEP(39)=300
+         id%KEEP(7) = 3
+         id%KEEP(8) = 2
+         id%KEEP(57)= 3
+         id%KEEP(58)= 2
+         id%KEEP(63)=3
          id%CNTL(1)=0.1E0  
          id%KEEP(213) = 101  
          id%KEEP(85)=2

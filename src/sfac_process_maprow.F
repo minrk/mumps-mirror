@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -383,7 +383,7 @@ C
      &     OPASSW, OPELIW,
      &     ITLOC, RHS_MUMPS, KEEP253_LOC,
      &     FILS, DAD, LPTRAR, PTRARW, PTRAIW, INTARR, DBLARR, ICNTL,
-     &     ITYPE_SON)
+     &     ITYPE_SON, LRGROUPS)
         LOCAL_ASSEMBLY_TO_BE_DONE = .FALSE.
         IF (IFLAG < 0) THEN
           GOTO 600
@@ -507,7 +507,7 @@ C
      &           OPASSW, OPELIW,
      &           ITLOC, RHS_MUMPS, KEEP253_LOC, FILS, DAD,
      &           LPTRAR, PTRARW, PTRAIW, INTARR, DBLARR, ICNTL,
-     &           ITYPE_SON)
+     &           ITYPE_SON, LRGROUPS)
                  LOCAL_ASSEMBLY_TO_BE_DONE = .FALSE.
                  IF (IFLAG < 0) THEN
                    GOTO 600
@@ -559,7 +559,7 @@ C
      &     OPASSW, OPELIW,
      &     ITLOC, RHS_MUMPS, KEEP253_LOC,
      &     FILS, DAD, LPTRAR, PTRARW, PTRAIW, INTARR, DBLARR, ICNTL,
-     &     ITYPE_SON)
+     &     ITYPE_SON, LRGROUPS)
         LOCAL_ASSEMBLY_TO_BE_DONE = .FALSE.
         IF (IFLAG < 0) THEN
           GOTO 600
@@ -890,7 +890,6 @@ C
              CALL MUMPS_SETI8TOI4(LA_TEMP,IERROR)
              IFLAG  = -13
             GOTO 700
-            RETURN
           ENDIF
           CALL SYSTEM_CLOCK(T1)
 #if defined(BLR_MT)             
@@ -1212,7 +1211,7 @@ C
      &           OPASSW, OPELIW,
      &           ITLOC, RHS_MUMPS, KEEP253_LOC, FILS, DAD,
      &           LPTRAR, PTRARW, PTRAIW, INTARR, DBLARR, ICNTL,
-     &           SON_NIV)
+     &           SON_NIV, LRGROUPS)
       USE SMUMPS_BUF, ONLY: SMUMPS_BUF_MAX_ARRAY_MINSIZE,
      &                              BUF_MAX_ARRAY
       USE SMUMPS_LR_TYPE
@@ -1261,6 +1260,7 @@ C
       INTEGER IPOOL( LPOOL )
       LOGICAL, intent(in) :: IS_ofType5or6
       INTEGER, intent(in) :: SON_NIV
+      INTEGER, intent(in) :: LRGROUPS(N)
       INCLUDE 'mumps_headers.h'
       INCLUDE 'mpif.h'
       INTEGER    :: ISTCHK, ISTCHK_LOC, NBCOLS,
@@ -1369,7 +1369,7 @@ C
      &            OPASSW, OPELIW, STEP, PTRIST, PTRAST,
      &            ITLOC, RHS_MUMPS,
      &            FILS, PTRARW, PTRAIW, INTARR, DBLARR, ICNTL,
-     &            KEEP,KEEP8, MYID )
+     &            KEEP,KEEP8, MYID, LRGROUPS )
                 ELSE
                   CALL SMUMPS_ELT_ASM_S_2_S_INIT(NELT, FRTPTR, FRTELT,
      &            N, IFATH, IW, LIW,
@@ -1377,7 +1377,7 @@ C
      &            OPASSW, OPELIW, STEP, PTRIST, PTRAST,
      &            ITLOC, RHS_MUMPS,
      &            FILS, PTRARW, PTRAIW, INTARR, DBLARR, ICNTL,
-     &            KEEP, KEEP8, MYID )
+     &            KEEP, KEEP8, MYID, LRGROUPS )
                 ENDIF
             ENDIF
             NROWS_ALREADY_STACKED = 0

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -3291,7 +3291,8 @@ C
       INTEGER, INTENT(IN) :: BUFR(LBUFR)
       INTEGER, INTENT(INOUT) :: POSITION
       INTEGER, INTENT(IN) :: COMM
-      INTEGER, INTENT(OUT) :: IERR, IFLAG, IERROR
+      INTEGER, INTENT(INOUT) :: IFLAG, IERROR
+      INTEGER, INTENT(OUT) :: IERR
       TYPE (LRB_TYPE), INTENT(OUT) :: LRB
       INTEGER(8) :: KEEP8(150)
       LOGICAL :: ISLR

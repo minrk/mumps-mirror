@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -419,7 +419,7 @@ C
       INTEGER,INTENT(OUT) :: SIZE_GEST
       INTEGER(8),intent(OUT) :: SIZE_VARIABLES
       INTEGER(8),intent(IN) :: TOTAL_FILE_SIZE,TOTAL_STRUC_SIZE
-      INTEGER,intent(OUT):: INFO(2)
+      INTEGER,intent(INOUT):: INFO(2)
       INTEGER,intent(IN):: SIZE_INT
       INTEGER(8),intent(INOUT):: size_read,size_allocated,size_written
       INTEGER:: NbRecords,NbSubRecords
@@ -541,7 +541,7 @@ C
       CHARACTER(len=*),intent(IN) :: mode
       INTEGER,INTENT(OUT) :: Local_SIZE_GEST
       INTEGER(8),intent(OUT) :: Local_SIZE_VARIABLES
-      INTEGER,intent(OUT):: INFO(2)
+      INTEGER,intent(INOUT):: INFO(2)
       INTEGER,intent(IN):: SIZE_INT
       INTEGER(8),intent(IN) :: TOTAL_FILE_SIZE,TOTAL_STRUC_SIZE
       INTEGER(8),intent(INOUT):: size_read,size_allocated,size_written
@@ -554,7 +554,7 @@ C
       INTEGER,dimension(NBVARIABLES_FDM_STRUC_T)::SIZE_GEST_FDM_STRUC_T
       INTEGER,dimension(NBVARIABLES_FDM_STRUC_T)::NbRecords_FDM_STRUC_T
       INTEGER:: size_array1,dummy,allocok
-      INTEGER:: err,i1,NbSubRecords,Local_Nbrecords
+      INTEGER:: err,i1,NbSubRecords,Local_NbRecords
       VARIABLES_FDM_STRUC_T(1)="NB_FREE_IDX"
       VARIABLES_FDM_STRUC_T(2)="STACK_FREE_IDX"
       VARIABLES_FDM_STRUC_T(3)="COUNT_ACCESS"

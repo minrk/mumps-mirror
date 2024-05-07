@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -128,7 +128,7 @@ C
      &    NBROWS, NBCOLS,
      &    OPASSW, OPELIW, STEP, PTRIST, PTRAST, ITLOC,
      &    RHS_MUMPS, FILS, PTRARW, PTRAIW, INTARR, DBLARR, 
-     &    ICNTL, KEEP,KEEP8, MYID)
+     &    ICNTL, KEEP,KEEP8, MYID, LRGROUPS)
       USE CMUMPS_DYNAMIC_MEMORY_M, ONLY : CMUMPS_DM_SET_DYNPTR
       IMPLICIT NONE
       INTEGER N,LIW
@@ -146,6 +146,7 @@ C
       INTEGER :: INTARR(KEEP8(27))
       COMPLEX :: DBLARR(KEEP8(26))
       DOUBLE PRECISION OPASSW, OPELIW
+      INTEGER, INTENT(IN)    :: LRGROUPS(N)
       INTEGER(8) :: POSELT
       COMPLEX, DIMENSION(:), POINTER :: A_PTR
       INTEGER(8) :: LA_PTR
@@ -170,7 +171,7 @@ C
      &           IOLDPS, A_PTR(POSELT), LA_PTR, 1_8, KEEP, KEEP8,
      &           ITLOC, FILS, PTRAIW, PTRARW, INTARR, DBLARR,
      &           KEEP8(27), KEEP8(26),
-     &           RHS_MUMPS)
+     &           RHS_MUMPS, LRGROUPS)
       ENDIF
       IF (NBROWS.GT.0) THEN
           K1 = IOLDPS + HF + NBROWF
@@ -610,8 +611,11 @@ C
       SUBROUTINE CMUMPS_ASM_SLAVE_ARROWHEADS(INODE, N, IW, LIW, IOLDPS,
      &           A, LA, POSELT, KEEP, KEEP8,
      &           ITLOC, FILS, PTRAIW, PTRARW, INTARR, DBLARR,
-     &           LINTARR, LDBLARR, RHS_MUMPS)
+     &           LINTARR, LDBLARR, RHS_MUMPS, LRGROUPS)
 !$    USE OMP_LIB
+      USE CMUMPS_ANA_LR,    ONLY : GET_CUT
+      USE CMUMPS_LR_CORE,   ONLY : MAX_CLUSTER
+      USE MUMPS_LR_COMMON,  ONLY : COMPUTE_BLR_VCS
       IMPLICIT NONE
       INTEGER, intent(in)    :: N, LIW, IOLDPS, INODE
       INTEGER(8), intent(in) :: LA, POSELT
@@ -626,6 +630,7 @@ C
       INTEGER, intent(in)    :: INTARR(LINTARR)
       INTEGER, intent(in)    :: FILS(N)
       INTEGER(8), intent(in) :: PTRAIW(N), PTRARW(N)
+      INTEGER, INTENT(IN)    :: LRGROUPS(N)
 !$    INTEGER :: NOMP
 !$    INTEGER(8) :: CHUNK8  
 !$    INTEGER    :: CHUNK
@@ -636,12 +641,18 @@ C
       INTEGER(8) :: J18, J28, JJ8, JK8
       INTEGER(8) :: APOS, ICT12
       INTEGER(8) :: AINPUT8
+      INTEGER, POINTER, DIMENSION(:) :: BEGS_BLR_LS
+      INTEGER :: NB_BLR_LS, NPARTSCB, NPARTSASS, MAXI_CLUSTER, 
+     &           IBCKSZ2, MINSIZE, TOPDIAG
+      INTEGER(8) :: JJ3
       INTEGER    :: K1RHS, K2RHS, JFirstRHS
       COMPLEX ZERO
       PARAMETER( ZERO = (0.0E0,0.0E0) )
       NBCOLF  = IW(IOLDPS+KEEP(IXSZ))
       NBROWF  = IW(IOLDPS+2+KEEP(IXSZ))
       NASS    = IW(IOLDPS+1+KEEP(IXSZ))
+      NSLAVES= IW(IOLDPS+5 + KEEP(IXSZ))
+      HF      = 6 + NSLAVES + KEEP(IXSZ)
 !$    NOMP = OMP_GET_MAX_THREADS()
       IF (KEEP(50) .EQ. 0 .OR. NBROWF .LT. KEEP(63)) THEN
 !$      CHUNK8 = int(KEEP(361),8)
@@ -653,18 +664,30 @@ C
         ENDDO
 !$OMP   END PARALLEL DO
       ELSE
+        TOPDIAG = 0
+        IF (IW(IOLDPS+XXLR).GE.1) THEN
+          CALL GET_CUT(IW(IOLDPS+HF:IOLDPS+HF+NBROWF-1), 0,
+     &                    NBROWF, LRGROUPS, NPARTSCB, 
+     &                    NPARTSASS, BEGS_BLR_LS)
+          NB_BLR_LS = NPARTSCB
+          call MAX_CLUSTER(BEGS_BLR_LS,NB_BLR_LS+1,MAXI_CLUSTER)
+          DEALLOCATE(BEGS_BLR_LS)
+          CALL COMPUTE_BLR_VCS(KEEP(472), IBCKSZ2, KEEP(488), NASS)
+          MINSIZE = int(IBCKSZ2 / 2)
+          TOPDIAG = max(2*MINSIZE + MAXI_CLUSTER-1, TOPDIAG)
+        ENDIF
 !$      CHUNK = max( KEEP(360)/2,
 !$   &               ((NBROWF+NOMP-1)/NOMP +2) / 3 )
-!$OMP   PARALLEL DO PRIVATE(APOS,JJ8) SCHEDULE(STATIC,CHUNK)
+!$OMP   PARALLEL DO PRIVATE(APOS,JJ3,JJ8) SCHEDULE(STATIC,CHUNK)
 !$OMP&  IF (NBROWF .GT. KEEP(360) .AND. NOMP .GT. 1)
         DO JJ8 = 0_8, int(NBROWF-1,8)
           APOS = POSELT+ JJ8*int(NBCOLF,8)
-          A(APOS: APOS+JJ8+int(NBCOLF-NBROWF,8)) = ZERO
+          JJ3  = min( int(NBCOLF,8)  - 1_8, 
+     &           JJ8 + int(NBCOLF-NBROWF,8) + TOPDIAG )
+          A(APOS: APOS+JJ3) = ZERO
         ENDDO
 !$OMP   END PARALLEL DO
       ENDIF
-      NSLAVES= IW(IOLDPS+5 + KEEP(IXSZ))
-      HF      = 6 + NSLAVES + KEEP(IXSZ)
       K1 = IOLDPS + HF + NBROWF
       K2 = K1 + NASS - 1
       JPOS = 1

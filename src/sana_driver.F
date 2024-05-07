@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -2837,19 +2837,19 @@ C     or matrix is in element form, or Schur is asked
 C     or initial matrix is distributed
 C     --------------------------------------------
          IF (id%KEEP(23).LT.0.OR.id%KEEP(23).GT.7) id%KEEP(23) = 7
-C        still forbid max trans for LLT
+C        still forbid max trans for SYM=1 case
          IF ( id%KEEP(50) .EQ. 1 ) THEN
             IF (id%KEEP(23) .NE. 0) THEN
                IF (PROKG) THEN
                   WRITE(MPG,'(A)')
-     & ' ** Max-trans not needed with LLT factorization'
+     & ' ** Max-trans not needed with SYM=1 factorization'
                END IF
                id%KEEP(23) = 0
             ENDIF
             IF (id%KEEP(95) .GT. 1) THEN
                IF (PROKG) THEN
                   WRITE(MPG,'(A)')
-     & ' ** ICNTL(12) ignored: not needed with LLT factorization'
+     & ' ** ICNTL(12) ignored: not needed with SYM=1 factorization'
                END IF
             ENDIF
             id%KEEP(95) = 1

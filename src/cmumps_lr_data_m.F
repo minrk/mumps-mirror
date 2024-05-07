@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -685,7 +685,7 @@ C
      &    "IWHANDLER=", IWHANDLER
          CALL MUMPS_ABORT()
        ENDIF
-       IF (LORU.EQ.0) THEN
+       IF (LorU.EQ.0) THEN
          IF ( .NOT. associated(BLR_ARRAY(IWHANDLER)%PANELS_L)) THEN
            WRITE(*,*) 
      &     "Internal error 2 in CMUMPS_BLR_EMPTY_PANEL_LORU, ",
@@ -705,7 +705,7 @@ C
      &   associated(BLR_ARRAY(IWHANDLER)%PANELS_U(IPANEL)%LRB_PANEL)
        ENDIF
        RETURN
-       END FUNCTION CMUMPS_BLR_EMPTY_PANEL_LorU
+       END FUNCTION CMUMPS_BLR_EMPTY_PANEL_LORU
        SUBROUTINE CMUMPS_BLR_RETRIEVE_PANEL_LORU
      &                          (IWHANDLER, LORU, IPANEL,
      &                           THELRBPANEL)
@@ -1090,7 +1090,7 @@ C
       INTEGER,INTENT(OUT) :: SIZE_GEST
       INTEGER(8),intent(OUT) :: SIZE_VARIABLES
       INTEGER(8),intent(IN) :: TOTAL_FILE_SIZE,TOTAL_STRUC_SIZE
-      INTEGER,intent(OUT):: INFO(2)
+      INTEGER,intent(INOUT):: INFO(2)
       INTEGER,intent(IN):: SIZE_INT, SIZE_ARITH_DEP, SIZE_LOGICAL
       INTEGER(8),intent(INOUT):: size_read,size_allocated,size_written
       INTEGER:: j1,NbRecords,NbSubRecords,size_array1,dummy,allocok,err
@@ -1267,7 +1267,7 @@ C
       CHARACTER(len=*),intent(IN) :: mode
       INTEGER,INTENT(OUT) :: Local_SIZE_GEST
       INTEGER(8),intent(OUT) :: Local_SIZE_VARIABLES
-      INTEGER,intent(OUT):: INFO(2)
+      INTEGER,intent(INOUT):: INFO(2)
       INTEGER,intent(IN):: SIZE_INT, SIZE_ARITH_DEP, SIZE_LOGICAL
       INTEGER(8),intent(IN) :: TOTAL_FILE_SIZE,TOTAL_STRUC_SIZE
       INTEGER(8),intent(INOUT):: size_read,size_allocated,size_written
@@ -1280,7 +1280,7 @@ C
       INTEGER,dimension(NBVARIABLES_BLR_STRUC_T)::SIZE_GEST_BLR_STRUC_T
       INTEGER,dimension(NBVARIABLES_BLR_STRUC_T)::NbRecords_BLR_STRUC_T
       INTEGER:: size_array1,size_array2,dummy,allocok
-      INTEGER:: err,i1,j1,j2,NbSubRecords,Local_Nbrecords
+      INTEGER:: err,i1,j1,j2,NbSubRecords,Local_NbRecords
       INTEGER::SIZE_GEST_PANELS_L,SIZE_GEST_PANELS_L_j1
       INTEGER(8)::SIZE_VARIABLES_PANELS_L,SIZE_VARIABLES_PANELS_L_j1
       INTEGER::SIZE_GEST_PANELS_U,SIZE_GEST_PANELS_U_j1
@@ -2314,7 +2314,7 @@ C
       CHARACTER(len=*),intent(IN) :: mode
       INTEGER,INTENT(OUT) :: Local_SIZE_GEST
       INTEGER(8),intent(OUT) :: Local_SIZE_VARIABLES
-      INTEGER,intent(OUT):: INFO(2)
+      INTEGER,intent(INOUT):: INFO(2)
       INTEGER,intent(IN):: SIZE_INT, SIZE_ARITH_DEP, SIZE_LOGICAL
       INTEGER(8),intent(IN) :: TOTAL_FILE_SIZE,TOTAL_STRUC_SIZE
       INTEGER(8),intent(INOUT):: size_read,size_allocated,size_written
@@ -2329,7 +2329,7 @@ C
       INTEGER,dimension(NBVARIABLES_LRB_TYPE)::
      &     NbRecords_LRB_TYPE
       INTEGER:: size_array1,size_array2,dummy,allocok
-      INTEGER:: err,i1,NbSubRecords,Local_Nbrecords
+      INTEGER:: err,i1,NbSubRecords,Local_NbRecords
       VARIABLES_LRB_TYPE(1)="Q"
       VARIABLES_LRB_TYPE(2)="R"
       VARIABLES_LRB_TYPE(3)="LRFORM"
@@ -2685,12 +2685,12 @@ C
      &     ,size_read,size_allocated,size_written
      &     ,INFO)
       INCLUDE 'mpif.h'
-      TYPE(BLR_PANEL_TYPE) :: BLR_PANEL_T
+      TYPE(blr_panel_type) :: BLR_PANEL_T
       INTEGER,intent(IN)::unit,MYID
       CHARACTER(len=*),intent(IN) :: mode
       INTEGER,INTENT(OUT) :: Local_SIZE_GEST
       INTEGER(8),intent(OUT) :: Local_SIZE_VARIABLES
-      INTEGER,intent(OUT):: INFO(2)
+      INTEGER,intent(INOUT):: INFO(2)
       INTEGER,intent(IN):: SIZE_INT, SIZE_ARITH_DEP, SIZE_LOGICAL
       INTEGER(8),intent(IN) :: TOTAL_FILE_SIZE,TOTAL_STRUC_SIZE
       INTEGER(8),intent(INOUT):: size_read,size_allocated,size_written
@@ -2705,7 +2705,7 @@ C
       INTEGER,dimension(NBVARIABLES_BLR_PANEL_TYPE)::
      &     NbRecords_BLR_PANEL_TYPE
       INTEGER:: size_array1,dummy,allocok
-      INTEGER:: err,i1,j1,NbSubRecords,Local_Nbrecords
+      INTEGER:: err,i1,j1,NbSubRecords,Local_NbRecords
       INTEGER:: SIZE_GEST_LRB_PANEL_j1,SIZE_GEST_LRB_PANEL
       INTEGER(8)::SIZE_VARIABLES_LRB_PANEL_j1,SIZE_VARIABLES_LRB_PANEL
       VARIABLES_BLR_PANEL_TYPE(1)="NB_ACCESSES_LEFT"
@@ -2908,12 +2908,12 @@ C
      &     ,size_read,size_allocated,size_written
      &     ,INFO)
       INCLUDE 'mpif.h'
-      TYPE(DIAG_BLOCK_TYPE) :: DIAG_BLOCK_T
+      TYPE(diag_block_type) :: DIAG_BLOCK_T
       INTEGER,intent(IN)::unit,MYID
       CHARACTER(len=*),intent(IN) :: mode
       INTEGER,INTENT(OUT) :: Local_SIZE_GEST
       INTEGER(8),intent(OUT) :: Local_SIZE_VARIABLES
-      INTEGER,intent(OUT):: INFO(2)
+      INTEGER,intent(INOUT):: INFO(2)
       INTEGER,intent(IN):: SIZE_INT, SIZE_ARITH_DEP
       INTEGER(8),intent(IN) :: TOTAL_FILE_SIZE,TOTAL_STRUC_SIZE
       INTEGER(8),intent(INOUT):: size_read,size_allocated,size_written

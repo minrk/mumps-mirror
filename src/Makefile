@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.2.0, released
-#  on Thu Apr 18 09:55:07 UTC 2019
+#  This file is part of MUMPS 5.2.1, released
+#  on Fri Jun 14 14:46:05 UTC 2019
 #
 #
 #  This file is part of MUMPS 5.0beta, built on Tue Jan 10 16:43:31 UTC 2012
@@ -200,8 +200,10 @@ $(ARITH)ana_lr.o:                $(ARITH)lr_core.o\
 $(ARITH)fac_asm_master_ELT_m.o: omp_tps_common_m.o \
                                 fac_ibct_data_m.o \
                                 fac_asm_build_sort_index_ELT_m.o \
+                                lr_common.o \
                                 $(ARITH)fac_mem_dynamic.o \
                                 $(ARITH)lr_core.o \
+                                $(ARITH)ana_lr.o \
                                 $(ARITH)mumps_lr_data_m.o \
                                 $(ARITH)mumps_struc_def.o \
                                 $(ARITH)omp_tps_m.o \
@@ -210,8 +212,10 @@ $(ARITH)fac_asm_master_ELT_m.o: omp_tps_common_m.o \
 $(ARITH)fac_asm_master_m.o:     omp_tps_common_m.o \
                                 fac_ibct_data_m.o \
                                 fac_asm_build_sort_index_m.o \
+                                lr_common.o \
                                 $(ARITH)fac_mem_dynamic.o \
                                 $(ARITH)lr_core.o \
+                                $(ARITH)ana_lr.o \
                                 $(ARITH)mumps_lr_data_m.o \
                                 $(ARITH)mumps_struc_def.o \
                                 $(ARITH)omp_tps_m.o \

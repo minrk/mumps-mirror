@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.2.0, released
-C  on Thu Apr 18 09:55:07 UTC 2019
+C  This file is part of MUMPS 5.2.1, released
+C  on Fri Jun 14 14:46:05 UTC 2019
 C
 C
 C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -582,13 +582,13 @@ C
      &        1, KEEP(483), KEEP8,
      &        K480=KEEP(480)
      &        )
-#if defined(BLR_MT)          
+#if defined(BLR_MT)
 !$OMP BARRIER
 #endif          
           IF (IFLAG.LT.0) GOTO 400
 #if defined(BLR_MT)          
 !$OMP MASTER
-#endif          
+#endif
           CALL SYSTEM_CLOCK(T2,COUNT_RATE)
           LOC_DEMOTING_TIME = LOC_DEMOTING_TIME + 
      &              dble(T2-T1)/dble(COUNT_RATE)
@@ -617,7 +617,7 @@ C
      &             +int(BEGS_BLR(CURRENT_BLR+1)-NELIM-1,8)*int(NFRONT,8)
             LPOS = POSELT+int(BEGS_BLR(CURRENT_BLR+1)-1,8)*int(NFRONT,8)
      &                   +int(BEGS_BLR(CURRENT_BLR+1)-NELIM-1,8)
-            CALL ZMUMPS_BLR_UPDATE_NELIM_VAR_L(A, LA, UPOS, A, LA, LPOS,
+            CALL ZMUMPS_BLR_UPD_NELIM_VAR_L(A, LA, UPOS, A, LA, LPOS,
      &        IFLAG, IERROR, NFRONT, NFRONT,
      &        BEGS_BLR, CURRENT_BLR, BLR_L, NB_BLR,
      &        FIRST_BLOCK, NELIM, 'T')
@@ -632,8 +632,8 @@ C
 #if defined(BLR_MT)          
 !$OMP END MASTER
 #endif          
-            IF (IFLAG.LT.0) GOTO 400
           ENDIF
+          IF (IFLAG.LT.0) GOTO 400
 #if defined(BLR_MT)          
 !$OMP MASTER
 #endif          
@@ -840,7 +840,7 @@ C
 #if defined(BLR_MT)
 !$OMP END SINGLE
 #endif
-            IF (IFLAG.LT.0) GOTO 450
+            IF (IFLAG.LT.0) GOTO 447
             IF (UU.GT.0) THEN
               DO IP=1,NPARTSASS
                 NELIM_LOC = BEGS_BLR_TMP(IP+1)-BEGS_BLR(IP+1)
@@ -866,7 +866,7 @@ C
 #if defined(BLR_MT)
 !$OMP BARRIER
 #endif
-                IF (IFLAG.LT.0) GOTO 450
+                IF (IFLAG.LT.0) GOTO 445
 #if defined(BLR_MT)
 !$OMP SINGLE
 #endif
@@ -886,7 +886,9 @@ C
 #if defined(BLR_MT)
 !$OMP END MASTER
 #endif
+ 445          CONTINUE
             ENDIF 
+ 447        CONTINUE
           ENDIF 
         IF (KEEP(480) .GE. 2) THEN
 #if defined(BLR_MT)
@@ -908,9 +910,6 @@ C
      &          KEEP(484), KEEP8)
 #if defined(BLR_MT)
 !$OMP BARRIER
-#endif
-          IF (IFLAG.LT.0) GOTO 450
-#if defined(BLR_MT)
 !$OMP MASTER
 #endif
           CALL SYSTEM_CLOCK(T2,COUNT_RATE)
@@ -920,6 +919,7 @@ C
 !$OMP END MASTER
 #endif
         END IF
+        IF (IFLAG.LT.0) GOTO 450
 #if defined(BLR_MT)
 !$OMP MASTER
 #endif
@@ -973,7 +973,7 @@ C
 !$OMP END MASTER
 !$OMP BARRIER
 #endif
-            IF (IFLAG.LT.0) GOTO 450
+            IF (IFLAG.LT.0) GOTO 448
             CALL ZMUMPS_COMPRESS_CB(A, LA, POSELT, NFRONT,
      &      BEGS_BLR, BEGS_BLR, NPARTSCB, NPARTSCB, NPARTSASS,
      &      NFRONT-NASS, NFRONT-NASS, INODE,
@@ -986,7 +986,7 @@ C
 #if defined(BLR_MT)
 !$OMP BARRIER
 #endif
-            IF (IFLAG.LT.0) GOTO 450
+            IF (IFLAG.LT.0) GOTO 448
 #if defined(BLR_MT)
 !$OMP  MASTER
 #endif
@@ -1004,7 +1004,7 @@ C
 !$OMP END MASTER
 !$OMP BARRIER
 #endif
-            IF (IFLAG.LT.0) GOTO 450
+ 448        CONTINUE         
 #if defined(BLR_MT)
 !$OMP MASTER
 #endif
