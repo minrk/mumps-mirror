@@ -201,11 +201,12 @@ def main(clean, no_cache, push):
         print("Up-to-date")
         return
     print(f"New versions to add: {new_versions}")
-    for version in new_versions[:1]:
+    repo = Repo(repo_path)
+    for version in new_versions:
         add_version(repo_path, version, no_cache=no_cache)
-    if push:
-        print(f"Pushing versions: {new_versions}")
-        Repo(repo_path).remotes.origin.push(mirror_branch, follow_tags=True)
+        if push:
+            print(f"Pushing {version}")
+            repo.remotes.origin.push(mirror_branch, follow_tags=True)
 
 
 if __name__ == "__main__":
