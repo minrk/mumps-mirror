@@ -192,7 +192,7 @@ def main(clean, no_cache, push):
     missing_versions = [
         v
         for v in available_versions
-        if (v not in existing_tags and _v(v) < _v(latest_tag))
+        if (v not in (set(existing_tags) | _skip_versions) and _v(v) < _v(latest_tag))
     ]
     if missing_versions:
         print(f"Missing versions: {missing_versions}")
