@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -74,13 +74,14 @@ C
      &                   FLAG, STATUS, IERR )
       END IF
       IF (FLAG) THEN
+         KEEP(266)=KEEP(266)-1
          MSGSOU=STATUS(MPI_SOURCE)
          MSGTAG=STATUS(MPI_TAG)
          CALL MPI_GET_COUNT( STATUS, MPI_PACKED, MSGLEN, IERR )
          IF ( MSGLEN .GT. LBUFR_BYTES ) THEN
            INFO(1) = -20
            INFO(2) = MSGLEN
-           CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+           CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
          ELSE
            CALL MPI_RECV(BUFR, LBUFR_BYTES, MPI_PACKED, MSGSOU,
      &                   MSGTAG, COMM, STATUS, IERR)
@@ -371,7 +372,7 @@ C
      &                                MSGSOU, 
      &                                BACKSLV_UPDATERHS,
      &                                JBDEB, JBFIN,
-     &                                COMM, IERR )
+     &                                KEEP, COMM, IERR )
         IF ( IERR .EQ. -1 ) THEN
           CALL ZMUMPS_BACKSLV_RECV_AND_TREAT(
      &     .FALSE., FLAG,
@@ -696,7 +697,7 @@ C
             MYLEAFE = MYLEAFE - 1
             IF (MYLEAFE .EQ. 0) THEN
               CALL ZMUMPS_MCAST2( DUMMY, 1, MPI_INTEGER, MYID, COMM,
-     &                       FEUILLE, SLAVEF )
+     &                       FEUILLE, SLAVEF, KEEP )
               NBFINF = NBFINF - 1
             ENDIF
             IWCB( PTRICB(STEP(INODE)) + 1 ) = 0
@@ -736,6 +737,7 @@ C
      &          LIELL, LIELL-KEEP(253),
      &          IW( POSINDICES ) ,
      &          W( PTRACB(STEP(INODE)) ), JBDEB, JBFIN,
+     &          KEEP,
      &          PROCDEST, NOEUD, COMM, IERR )
                 IF ( IERR .EQ. -1 ) THEN
                   CALL ZMUMPS_BACKSLV_RECV_AND_TREAT(
@@ -774,7 +776,7 @@ C
                    MYLEAFE = MYLEAFE - 1
                    IF (MYLEAFE .EQ. 0) THEN
                       CALL ZMUMPS_MCAST2( DUMMY, 1, MPI_INTEGER, MYID, 
-     &                     COMM, FEUILLE, SLAVEF )
+     &                     COMM, FEUILLE, SLAVEF, KEEP )
                       NBFINF = NBFINF - 1
                    ENDIF
                    IWCB( PTRICB(STEP(INODE)) + 1 ) = 0
@@ -807,11 +809,11 @@ C
       ENDIF
       GO TO 270
  260  CONTINUE
-      CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+      CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
  270  CONTINUE
       DEALLOCATE(DEJA_SEND)
       RETURN
-      CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+      CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
       RETURN
       END SUBROUTINE ZMUMPS_BACKSLV_TRAITER_MESSAGE
       SUBROUTINE ZMUMPS_BUILD_PANEL_POS(PANEL_SIZE, PANEL_POS,

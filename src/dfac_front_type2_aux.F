@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -22,7 +22,8 @@ C
      &                   SEUIL,KEEP,KEEP8,PIVSIZ,
      &                   DKEEP,PIVNUL_LIST,LPN_LIST,
      &                   PP_FIRST2SWAP_L, PP_LastPanelonDisk,
-     &                   PP_LastPIVRPTRIndexFilled)
+     &                   PP_LastPIVRPTRIndexFilled, 
+     &                   Inextpiv, IEND_BLR)
       USE MUMPS_OOC_COMMON, ONLY : TYPEF_L   
       USE DMUMPS_FAC_FRONT_AUX_M
       IMPLICIT NONE
@@ -33,6 +34,8 @@ C
       INTEGER NASS2, IBEG_BLOCK_FOR_TIPIV, IEND_BLOCK, NNEG
       INTEGER TIPIV( NASS2 )
       INTEGER PIVSIZ,LPIV
+      INTEGER, intent(in)    :: IEND_BLR
+      INTEGER, intent(inout) :: Inextpiv
       INTEGER(8) :: LA
       DOUBLE PRECISION A(LA) 
       DOUBLE PRECISION UU, UULOC, SEUIL
@@ -50,12 +53,11 @@ C
       include 'mpif.h'
       INTEGER(8) :: POSPV1,POSPV2,OFFDAG,APOSJ
       INTEGER JMAX
-      DOUBLE PRECISION RMAX,AMAX,TMAX,TOL,RMAX_NORELAX
+      DOUBLE PRECISION RMAX,AMAX,TMAX,RMAX_NORELAX
       DOUBLE PRECISION MAXPIV, ABS_PIVOT
       DOUBLE PRECISION RMAX_NOSLAVE, TMAX_NOSLAVE
       DOUBLE PRECISION PIVOT,DETPIV
       DOUBLE PRECISION    ABSDETPIV
-      PARAMETER(TOL = 1.0D-20)
       INCLUDE 'mumps_headers.h'
       INTEGER(8) :: APOSMAX
       INTEGER(8) :: APOS
@@ -73,6 +75,7 @@ C
       DOUBLE PRECISION FIXA
       INTEGER NPIV,IPIV,K219
       INTEGER NPIVP1,ILOC,K,J
+      INTEGER ISHIFT, K206
       INTRINSIC max
       INTEGER I_PIVRPTR, I_PIVR, NBPANELS_L
       DOUBLE PRECISION GW_FACT 
@@ -82,6 +85,7 @@ C
       TMAX = RZERO
       RMAX_NOSLAVE = RZERO
       PIVOT = ONE
+      K206  = KEEP(206)
       PIVNUL = DKEEP(1)
       FIXA   = DKEEP(2)
       CSEUIL = SEUIL
@@ -153,20 +157,27 @@ C
          ENDDO
         ENDIF
       ENDIF
-        DO 460 IPIV=NPIVP1,IEND_BLOCK
+      ISHIFT = 0   
+      IF (K206.GE.1) THEN
+        IF (Inextpiv.GT.NPIVP1.AND.Inextpiv.LE.IEND_BLOCK) THEN
+          ISHIFT = Inextpiv - NPIVP1
+        ENDIF
+      ENDIF  
+ 450  CONTINUE
+        DO 460 IPIV=NPIVP1+ISHIFT,IEND_BLOCK
             APOS = POSELT + LDAFS8*int(IPIV-1,8) + int(NPIV,8)
             POSPV1 = APOS + int(IPIV - NPIVP1,8)
             PIVOT     = A(POSPV1)
             ABS_PIVOT = abs(PIVOT)
             IF (UULOC.EQ.RZERO) THEN 
-              IF (abs(A(APOS)).EQ.RZERO) GO TO 630
-              IF (A(APOS).LT.RZERO) NNEG = NNEG+1
+              IF (ABS_PIVOT.EQ.RZERO) GO TO 630 
+              IF (PIVOT.LT.RZERO) NNEG = NNEG+1
               IF (KEEP(258) .NE. 0) THEN
                 CALL DMUMPS_UPDATEDETER(A(APOS), DKEEP(6), KEEP(259))
               ENDIF
               GO TO 420
             ENDIF
-            AMAX = RZERO
+            AMAX = -RONE
             JMAX = 0
             J1 = APOS
             J2 = POSPV1 - 1_8
@@ -220,15 +231,15 @@ C
             RMAX_NOSLAVE = max(RMAX_NORELAX,RMAX_NOSLAVE)
             RMAX         = max(RMAX,RMAX_NOSLAVE)
             IF (max(AMAX,RMAX,ABS_PIVOT).LE.PIVNUL) THEN
-             KEEP(109) = KEEP(109)+1
-             PIVNUL_LIST(KEEP(109)) = -1
-             IF (dble(FIXA).GT.RZERO) THEN
+              KEEP(109) = KEEP(109)+1
+              PIVNUL_LIST(KEEP(109)) = -1
+              IF (dble(FIXA).GT.RZERO) THEN
                 IF(dble(PIVOT) .GE. RZERO) THEN
                   A(POSPV1) = FIXA
                 ELSE
                   A(POSPV1) = -FIXA
                 ENDIF
-             ELSE
+              ELSE
                J1 = APOS
                J2 = POSPV1 - 1_8
                DO JJ=J1,J2
@@ -245,36 +256,25 @@ C
                ENDDO
                 VALTMP = max(1.0D10*RMAX, sqrt(huge(RMAX))/1.0D8)
                 A(POSPV1) = VALTMP
-             ENDIF
-             PIVOT = A(POSPV1)
-             ABS_PIVOT = abs(PIVOT)
-             GO TO 415
+              ENDIF
+              PIVOT = A(POSPV1)
+              ABS_PIVOT = abs(PIVOT)
+              GO TO 415
             ENDIF
-        IF ((KEEP(19).EQ.0).AND.(KEEP(110).EQ.0)) THEN
-         IF (max(AMAX,RMAX,ABS_PIVOT).LE.TOL) THEN
-            IF(SEUIL .GT. epsilon(SEUIL)) THEN
-               IF(dble(PIVOT) .GE. RZERO) THEN
-                  A(POSPV1) = CSEUIL
-               ELSE
-                  A(POSPV1) = -CSEUIL
-                  NNEG = NNEG+1
-               ENDIF
-               PIVOT = A(POSPV1)
-               WRITE(*,*) 'WARNING matrix may be singular'
-               KEEP(98) = KEEP(98)+1
-               GO TO 415
-            ENDIF
-         ENDIF
-        ENDIF
-        IF (max(AMAX,ABS_PIVOT) .LE. TOL) GOTO 460
-        IF (ABS_PIVOT.GT.max(UULOC*max(RMAX,AMAX),SEUIL)) THEN
+        IF (ABS_PIVOT.GT.max(UULOC*max(RMAX,AMAX),SEUIL, tiny(RMAX)))
+     &    THEN
           IF (A(POSPV1).LT.RZERO) NNEG = NNEG+1
           IF (KEEP(258) .NE.0 ) THEN
             CALL DMUMPS_UPDATEDETER(PIVOT, DKEEP(6), KEEP(259))
           ENDIF
           GO TO 415
         END IF
-            IF (AMAX.LE.TOL) GO TO 460
+         IF (NPIVP1.EQ.IEND_BLOCK) THEN
+           GOTO 460
+         ENDIF
+         IF (max(abs(PIVOT),RMAX,AMAX).LE.tiny(RMAX)) THEN
+           GOTO 460
+         ENDIF
             IF (RMAX_NOSLAVE.LT.AMAX) THEN
                J1 = APOS
                J2 = POSPV1 - 1_8
@@ -350,15 +350,20 @@ C
             DETPIV = A(POSPV1)*A(POSPV2) - A(OFFDAG)*A(OFFDAG)
             ABSDETPIV = abs(DETPIV)
             IF (SEUIL.GT.RZERO) THEN
-               IF (sqrt(ABSDETPIV) .LE. SEUIL ) GOTO 460
+               IF (sqrt(ABSDETPIV) .LE. SEUIL ) THEN
+                 GOTO 460
+               ENDIF
             ENDIF
             MAXPIV = max(abs(A(POSPV1)),abs(A(POSPV2)))
             IF (MAXPIV.EQ.RZERO) MAXPIV = RONE
-            IF ( ABSDETPIV/MAXPIV.LE.TOL) GO TO 460
-            IF ((abs(A(POSPV2))*RMAX+AMAX*TMAX)*UULOC.GT.
-     &            ABSDETPIV) GO TO 460
-            IF ((abs(A(POSPV1))*TMAX+AMAX*RMAX)*UULOC.GT.
-     &           ABSDETPIV) GO TO 460
+            IF ((abs(A(POSPV2))*RMAX+AMAX*TMAX)*UULOC.GE.
+     &            ABSDETPIV) THEN
+              GO TO 460
+            ENDIF
+            IF ((abs(A(POSPV1))*TMAX+AMAX*RMAX)*UULOC.GE.
+     &           ABSDETPIV) THEN
+              GO TO 460
+            ENDIF
            IF (KEEP(258).NE.0) THEN
              CALL DMUMPS_UPDATEDETER(DETPIV, DKEEP(6), KEEP(259))
            ENDIF
@@ -370,6 +375,9 @@ C
              NNEG = NNEG+2
            ENDIF
  415       CONTINUE
+           IF (K206.GE.1) THEN
+             Inextpiv = IPIV + PIVSIZ 
+           ENDIF
            DO K=1,PIVSIZ
               IF (PIVSIZ .EQ. 2 ) THEN
                 IF (K==1) THEN
@@ -408,6 +416,21 @@ C
            ENDIF
            GOTO 420
   460   CONTINUE
+      IF (ISHIFT.GT.0.AND.K206.GE.1) THEN
+       IF (K206.EQ.1) THEN
+         ISHIFT = 0 
+         Inextpiv = NPIVP1 
+         GOTO 450
+       ELSE  
+        IF (IEND_BLOCK.EQ.IEND_BLR) THEN
+         ISHIFT = 0 
+         Inextpiv = NPIVP1 
+         GOTO 450
+        ELSE 
+         Inextpiv = IEND_BLOCK+1
+        ENDIF
+       ENDIF 
+      ENDIF
       IF (IEND_BLOCK.EQ.NASS) THEN
        INOPV = 1
       ELSE
@@ -677,7 +700,7 @@ C
           WIDTH = NSLAVES   
           CALL DMUMPS_BUF_SEND_BLOCFACTO( INODE, LDA_FS, NCOL, 
      &               NPIV, FPERE, LASTBL, TIPIV, A(APOS),
-     &               IW(PDEST), NSLAVES, KEEP(50), KEEP(34),
+     &               IW(PDEST), NSLAVES, KEEP,
      &               NB_BLOC_FAC,
      &               NSLAVES, WIDTH, COMM,
      &        IERR )
@@ -720,7 +743,7 @@ C
       ENDIF
       GOTO 500
   300 CONTINUE
-      CALL DMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+      CALL DMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
   500 CONTINUE
       RETURN
       END SUBROUTINE  DMUMPS_SEND_FACTORED_BLOCK

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -544,7 +544,7 @@ C
      & (NA,N,NZ, IRN, ICN, IW, LW, IPE, LEN,
      & IQ, FLAG, IWFR,
      & NRORM, NIORM, IFLAG,IERROR, ICNTL, 
-     & symmetry, SYM, MedDens, NBQD, AvgDens, 
+     & symmetry, SYM, NBQD, AvgDens, 
      & LISTVAR_SCHUR, SIZE_SCHUR, ATOAO, AOTOA,
      & KEEP264)
       IMPLICIT NONE
@@ -558,7 +558,7 @@ C
       INTEGER, INTENT(OUT) :: ATOAO(NA)  
       INTEGER, INTENT(OUT) :: LEN(N), IPE(N+1)
       INTEGER, INTENT(OUT) :: symmetry, 
-     &                        MedDens, NBQD, AvgDens
+     &                        NBQD, AvgDens
       INTEGER, INTENT(OUT) :: FLAG(N), IW(LW), IQ(N)
       INTEGER, INTENT(OUT) :: KEEP264
       INTEGER MP, MPG
@@ -757,29 +757,17 @@ C
       THRESH  = AvgDens*50 - AvgDens/10 + 1
       NBQD    = 0
       IF (N.GT.2) THEN
-        IQ(1:N) = 0
         DO I= 1, N
           K = max(LEN(I),1)
-          IQ(K) = IQ(K) + 1
           IF (K.GT.THRESH) NBQD = NBQD+1
         ENDDO
-        K = 0
-        MedDens = 0
-        DO WHILE (K .LT. (N/2))
-         MedDens = MedDens + 1
-         K       = K+IQ(MedDens)
-        ENDDO
-      ELSE
-        MedDens = AvgDens
       ENDIF
-         IF (MPG .GT. 0)
-     &  write(MPG,'(A,3I5)') 
-     &  ' Density: NBdense, Average, Median   =',
-     &  NBQD, AvgDens, MedDens
+        IF (MPG .GT. 0)
+     &  write(MPG,'(A,1I5)') 
+     &  ' Average density of rows/columns =', AvgDens
         IF (MP.GT.0 .AND. MPG.NE.MP)
-     &  write(MP,'(A,3I5)') 
-     &  ' Density: NBdense, Average, Median   =',
-     &  NBQD, AvgDens, MedDens
+     &  write(MPG,'(A,1I5)') 
+     &  ' Average density of rows/columns =', AvgDens
       RETURN
 99999 FORMAT (/'*** Warning message from analysis routine ***')
       END SUBROUTINE CMUMPS_GNEW_SCHUR

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -566,6 +566,14 @@ C     related to CMUMPS
 C     ---------------------------
        COMM_SAVE = id%COMM
        CALL MPI_COMM_DUP( COMM_SAVE, id%COMM, IERR )
+C
+C     Default setting for printing
+      LP = 6
+      MP = 0
+      MPG = 0
+      LPOK  = .TRUE.
+      PROK  = .FALSE.
+      PROKG = .FALSE.
 C     -------------------------
 C     Check if value of JOB is
 C     the same on all processes
@@ -579,14 +587,6 @@ C     -------------------------
         id%INFO(2) = JOB
         GOTO 499
       END IF
-C
-C     Default setting for printing
-      LP = 6
-      MP = 0
-      MPG = 0
-      LPOK  = .TRUE.
-      PROK  = .FALSE.
-      PROKG = .FALSE.
 C   
 C     Check value of JOB and previous value of JOB
 C
@@ -1400,10 +1400,17 @@ C
           IF ( id%root%yes ) THEN
             IF ( associated( id%SCHUR_CINTERFACE )) THEN
 C             Called from C interface...
-C             
-              id%SCHUR=>id%SCHUR_CINTERFACE
-     &          (1:id%SCHUR_LLD*(id%root%SCHUR_NLOC-1)+
-     &          id%root%SCHUR_MLOC)
+C             The next instruction may cause
+C             bound check errors at runtime
+C             id%SCHUR=>id%SCHUR_CINTERFACE
+C    &          (1:id%SCHUR_LLD*(id%root%SCHUR_NLOC-1)+
+C    &          id%root%SCHUR_MLOC)
+C             Instead, we set a temporary
+C             pointer and then retrieve it
+              CALL CMUMPS_SET_TMP_PTR(id%SCHUR_CINTERFACE(1),
+     &         id%SCHUR_LLD*(id%root%SCHUR_NLOC-1)+
+     &         id%root%SCHUR_MLOC)
+              CALL CMUMPS_GET_TMP_PTR(id%SCHUR)
             ENDIF
 C           Check that SCHUR_LLD is large enough
             IF (id%SCHUR_LLD < id%root%SCHUR_MLOC) THEN
@@ -1616,7 +1623,7 @@ C     -------------------------
        id%COMM = COMM_SAVE
       RETURN
 *
-99995 FORMAT (' ** ERROR RETURN ** FROM CMUMPS INFO(1)=', I3)
+99995 FORMAT (' ** ERROR RETURN ** FROM CMUMPS INFO(1)=', I5)
 99994 FORMAT (' ** INFO(2)=', I10)
 99993 FORMAT (' ** Allocation error: could not permute JCN.')
       END SUBROUTINE CMUMPS

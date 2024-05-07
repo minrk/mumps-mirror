@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -27,7 +27,7 @@ C
       INTEGER IERR
       INTEGER K,I,L1,L2,IWFR,NCMPA,LLIW, IN, IFSON
       INTEGER NEMIN, LP, MP, LDIAG, ITEMP, symmetry
-      INTEGER MedDens, NBQD, AvgDens
+      INTEGER NBQD, AvgDens
       LOGICAL PROK, COMPRESS_SCHUR
       INTEGER NBBUCK
       INTEGER, DIMENSION(:), ALLOCATABLE :: HEAD
@@ -100,7 +100,7 @@ C
      &        IW(L2), PTRAR(1,2),
      &        PTRAR, IW(L1), IWFR, KEEP(113), KEEP(114),
      &        INFO(1), INFO(2), ICNTL, symmetry, 
-     &        KEEP(50), MedDens, NBQD, AvgDens, 
+     &        KEEP(50), NBQD, AvgDens, 
      &        LISTVAR_SCHUR, SIZE_SCHUR, 
      &        FRERE,FILS, KEEP(264))
          IORD = 5
@@ -112,7 +112,7 @@ C
      &        IW(L2), PTRAR(1,2),
      &        PTRAR, IW(L1), IWFR, KEEP(113), KEEP(114),
      &        INFO(1), INFO(2), ICNTL, symmetry, 
-     &        KEEP(50), MedDens, NBQD, AvgDens, KEEP(264))
+     &        KEEP(50), NBQD, AvgDens, KEEP(264))
 #if defined(metis) || defined(parmetis) || defined(metis4) || defined(parmetis3)
       ENDIF
 #endif
@@ -137,7 +137,7 @@ C
         IORD = 2 
       ENDIF
       CALL MUMPS_SET_ORDERING( N, KEEP(50), NSLAVES, IORD, 
-     &     symmetry, MedDens, NBQD, AvgDens,
+     &     symmetry, NBQD, AvgDens,
      &     PROK, MP )
       IF(KEEP(50) .EQ. 2) THEN
          IF(KEEP(95) .EQ. 3 .AND. IORD .NE. 2) THEN
@@ -233,7 +233,7 @@ C
      &                 (N,NZ,IRN, ICN, IW(1), LLIW, IW(L2), PTRAR(1,2), 
      &                 PTRAR, IW(L1), IWFR, KEEP(113), KEEP(114), 
      &                 INFO(1), INFO(2), ICNTL, symmetry, KEEP(50),
-     &                 MedDens, NBQD, AvgDens, KEEP(264))
+     &                 NBQD, AvgDens, KEEP(264))
                   INFO(8) = symmetry
                   NCMP = N
                ELSE
@@ -509,7 +509,7 @@ C
      &              IW(L2), PTRAR(1,2),
      &              PTRAR, IW(L1), IWFR, KEEP(113), KEEP(114),
      &              INFO(1), INFO(2), ICNTL, symmetry, KEEP(50),
-     &              MedDens, NBQD, AvgDens, KEEP(264))
+     &              NBQD, AvgDens, KEEP(264))
                INFO(8) = symmetry
             ENDIF
             COMPRESS = 0
@@ -2470,12 +2470,12 @@ C
      & (N, NZ, IRN, ICN, IW, LW, IPE, LEN,
      & IQ, FLAG, IWFR,
      & NRORM, NIORM, IFLAG,IERROR, ICNTL, 
-     & symmetry, SYM, MedDens, NBQD, AvgDens,
+     & symmetry, SYM, NBQD, AvgDens,
      & KEEP264)
       IMPLICIT NONE
       INTEGER N,NZ,LW,IFLAG,IERROR,NRORM,NIORM,IWFR
       INTEGER symmetry, SYM
-      INTEGER MedDens, NBQD, AvgDens
+      INTEGER NBQD, AvgDens
       INTEGER ICNTL(40)
       INTEGER  IRN(NZ), ICN(NZ) 
       INTEGER LEN(N)
@@ -2663,21 +2663,17 @@ C
       THRESH  = AvgDens*50 - AvgDens/10 + 1
       NBQD    = 0
       IF (N.GT.2) THEN
-        IQ(1:N) = 0
         DO I= 1, N
           K = max(LEN(I),1)
-          IQ(K) = IQ(K) + 1
           IF (K.GT.THRESH) NBQD = NBQD+1
         ENDDO
-        K = 0
-        MedDens = 0
-        DO WHILE (K .LT. (N/2))
-         MedDens = MedDens + 1
-         K       = K+IQ(MedDens)
-        ENDDO
-      ELSE
-        MedDens = AvgDens
       ENDIF
+      IF (MPG .GT. 0.AND.(ICNTL(4).GE.2))
+     &  write(MPG,'(A,1I5)') 
+     &  ' Average density of rows/columns =', AvgDens
+        IF (MP.GT.0 .AND. MPG.NE.MP.AND.(ICNTL(4).GE.2))
+     &  write(MPG,'(A,1I5)') 
+     &  ' Average density of rows/columns =', AvgDens
       RETURN
 99999 FORMAT (/'*** Warning message from analysis routine ***')
       END SUBROUTINE ZMUMPS_ANA_GNEW

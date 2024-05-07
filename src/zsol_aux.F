@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -821,7 +821,7 @@ C
       DO I = 1, N
         TAU = (R_W(I, 2) * DXMAX + abs(RHS(I))) * dble(N) * CTAU
         DD = R_W(I, 1) + abs(RHS(I))
-        IF ((DD + TAU) .GT. TAU) THEN
+        IF (DD .GT. TAU * epsilon(CTAU)) THEN
           OMEGA(1) = max(OMEGA(1), abs(Y(I)) / DD)
           IW(I, 1) = 1
         ELSE
@@ -967,16 +967,84 @@ C
   170 CONTINUE
       RETURN
       END SUBROUTINE ZMUMPS_SOL_LCOND
+      SUBROUTINE ZMUMPS_SOL_CPY_FS2RHSCOMP( JBDEB, JBFIN, NBROWS,
+     &   RHSCOMP, NRHS, LRHSCOMP, FIRST_ROW_RHSCOMP, W, LD_W,
+     &   FIRST_ROW_W )
+         INTEGER :: JBDEB, JBFIN, NBROWS
+         INTEGER :: NRHS, LRHSCOMP
+         INTEGER :: FIRST_ROW_RHSCOMP
+#        if defined(RHSCOMP_BYROWS)
+         COMPLEX(kind=8), INTENT(INOUT) :: RHSCOMP(NRHS,LRHSCOMP)
+#        else
+         COMPLEX(kind=8), INTENT(INOUT) :: RHSCOMP(LRHSCOMP,NRHS)
+#        endif
+         INTEGER :: LD_W, FIRST_ROW_W
+         COMPLEX(kind=8) :: W(LD_W*(JBFIN-JBDEB+1))
+         INTEGER :: JJ, K, ISHIFT
+#if defined(RHSCOMP_BYROWS)
+         DO JJ = 0, NBROWS-1
+           ISHIFT = FIRST_ROW_W+JJ
+           DO K = JBDEB, JBFIN
+             RHSCOMP(K,FIRST_ROW_RHSCOMP+JJ) =
+     &       W(ISHIFT+LD_W*(K-JBDEB))
+           END DO
+         END DO
+#else
+         DO K = JBDEB, JBFIN
+           ISHIFT = FIRST_ROW_W + LD_W * (K-JBDEB)
+           DO JJ = 0, NBROWS-1
+              RHSCOMP(FIRST_ROW_RHSCOMP+JJ,K) = W(ISHIFT+JJ)
+           END DO
+         END DO
+#endif
+      RETURN
+      END SUBROUTINE ZMUMPS_SOL_CPY_FS2RHSCOMP
+      SUBROUTINE ZMUMPS_SOL_BWD_GTHR( JBDEB, JBFIN, J1, J2,
+     &   RHSCOMP, NRHS, LRHSCOMP, W, LD_W, FIRST_ROW_W,
+     &   IW, LIW, KEEP, N, POSINRHSCOMP_BWD )
+      INTEGER, INTENT(IN) :: JBDEB, JBFIN, J1, J2
+      INTEGER, INTENT(IN) :: NRHS, LRHSCOMP
+      INTEGER, INTENT(IN) :: FIRST_ROW_W, LD_W, LIW
+      INTEGER, INTENT(IN) :: IW(LIW)
+      INTEGER, INTENT(IN) :: KEEP(500)
+#     if defined(RHSCOMP_BYROWS)
+      COMPLEX(kind=8), INTENT(INOUT) :: RHSCOMP(NRHS,LRHSCOMP)
+#     else
+      COMPLEX(kind=8), INTENT(INOUT) :: RHSCOMP(LRHSCOMP,NRHS)
+#     endif
+      COMPLEX(kind=8) :: W(LD_W*(JBFIN-JBDEB+1))
+      INTEGER, INTENT(IN) :: N
+      INTEGER, INTENT(IN) :: POSINRHSCOMP_BWD(N)
+      INTEGER :: ISHIFT, JJ, K, IPOSINRHSCOMP
+#if defined(RHSCOMP_BYROWS)
+             DO JJ = J1, J2-KEEP(253)   
+               ISHIFT = FIRST_ROW_W+JJ-J1
+               IPOSINRHSCOMP =  abs(POSINRHSCOMP_BWD(IW(JJ)))
+               DO K=JBDEB, JBFIN
+                 W(ISHIFT+(K-JBDEB)*LD_W) = RHSCOMP(K,IPOSINRHSCOMP)
+               ENDDO
+             ENDDO
+#else
+             DO K=JBDEB, JBFIN
+               ISHIFT = FIRST_ROW_W+(K-JBDEB)*LD_W
+               DO JJ = J1, J2-KEEP(253)   
+                 IPOSINRHSCOMP =  abs(POSINRHSCOMP_BWD(IW(JJ)))
+                 W(ISHIFT+JJ-J1)= RHSCOMP(IPOSINRHSCOMP,K)
+               ENDDO
+             ENDDO
+#endif
+      RETURN
+      END SUBROUTINE ZMUMPS_SOL_BWD_GTHR
       SUBROUTINE ZMUMPS_SOL_Q(MTYPE, IFLAG, N, NZ,
-     &    LHS, WRHS, W, RHS, GIVNORM, SOL, ANORM, XNORM, SCLNRM,
+     &    LHS, WRHS, W, RES, GIVNORM, ANORM, XNORM, SCLNRM,
      &    MPRINT, ICNTL, KEEP,KEEP8)
       INTEGER MTYPE,N,NZ,IFLAG,ICNTL(40), KEEP(500)
       INTEGER(8) KEEP8(150)
-      COMPLEX(kind=8) RHS(N),LHS(N)
-      COMPLEX(kind=8) WRHS(N),SOL(*)
+      COMPLEX(kind=8) RES(N),LHS(N)
+      COMPLEX(kind=8) WRHS(N)
       DOUBLE PRECISION W(N)
       DOUBLE PRECISION RESMAX,RESL2,XNORM, SCLNRM
-      DOUBLE PRECISION ANORM,DZERO,EPSI
+      DOUBLE PRECISION ANORM,DZERO
       LOGICAL GIVNORM,PROK
       INTEGER MPRINT, MP
       INTEGER K
@@ -984,28 +1052,37 @@ C
       MP = ICNTL(2)
       PROK = (MPRINT .GT. 0)
       DZERO = 0.0D0
-      EPSI = 0.1D-9
       IF (.NOT.GIVNORM) ANORM = DZERO
       RESMAX = DZERO
-      RESL2 = DZERO
+      RESL2  = DZERO
       DO 40 K = 1, N
-        RESMAX = max(RESMAX, abs(RHS(K)))
-        RESL2 = RESL2 + abs(RHS(K)) * abs(RHS(K))
+        RESMAX = max(RESMAX, abs(RES(K)))
+        RESL2 = RESL2 + abs(RES(K)) * abs(RES(K))
         IF (.NOT.GIVNORM) ANORM = max(ANORM, W(K))
    40 CONTINUE
       XNORM = DZERO
       DO 50 K = 1, N
         XNORM = max(XNORM, abs(LHS(K)))
    50 CONTINUE
-      IF (XNORM .GT. EPSI) THEN
-        SCLNRM = RESMAX / (ANORM * XNORM)
+      IF ( XNORM .EQ. DZERO .OR. (exponent(XNORM) .LT.
+     &      minexponent(XNORM) + KEEP(122) ) 
+     &     .OR.
+     &        ( exponent(ANORM)+exponent(XNORM) .LT.
+     &           minexponent(XNORM) + KEEP(122) )
+     &     .OR.
+     &       ( exponent(ANORM) + exponent(XNORM) -exponent(RESMAX) 
+     &       .LT. minexponent(XNORM) + KEEP(122) )
+     &      ) THEN
+            IF (mod(IFLAG/2,2) .EQ. 0) THEN
+              IFLAG = IFLAG + 2
+            ENDIF
+            IF ((MP .GT. 0) .AND. (ICNTL(4) .GE. 2)) WRITE( MP, * )
+     &    ' max-NORM of computed solut. is zero or close to zero. '
+      ENDIF
+      IF (RESMAX .EQ. DZERO) THEN
+        SCLNRM = DZERO
       ELSE
-        IF (mod(IFLAG/2,2) .EQ. 0) THEN
-          IFLAG = IFLAG + 2
-        ENDIF
-        IF ((MP .GT. 0) .AND. (ICNTL(4) .GE. 2)) WRITE( MP, * ) 
-     &' max-NORM of computed solut. is zero'
-        SCLNRM = RESMAX / ANORM
+        SCLNRM = RESMAX / (ANORM * XNORM)
       ENDIF
       RESL2 = sqrt(RESL2)
       IF (PROK) WRITE( MPRINT, 90 ) RESMAX, RESL2, ANORM, XNORM, 

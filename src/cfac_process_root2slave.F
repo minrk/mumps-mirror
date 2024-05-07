@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -283,7 +283,7 @@ C
       END IF
       RETURN
  700  CONTINUE
-      CALL CMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+      CALL CMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
       RETURN
       END SUBROUTINE CMUMPS_PROCESS_ROOT2SLAVE
       SUBROUTINE CMUMPS_COPY_ROOT

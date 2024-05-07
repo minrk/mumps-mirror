@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.0.1, released
- *  on Thu Jul 23 17:08:29 UTC 2015
+ *  This file is part of MUMPS 5.0.2, released
+ *  on Fri Jul 15 09:12:54 UTC 2016
  *
  *
- *  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -132,31 +132,31 @@ ouput:
   /* -----------------------------------------------------------
      fill the two arrays corresponding to the MUMPS tree structure
      ----------------------------------------------------------- */
-  count = 0;
-  for (K = firstPostorder(T); K != -1; K = nextPostorder(T, K))
+   count = 0;
+   for (K = firstPostorder(T); K != -1; K = nextPostorder(T, K))
      {
        vertex_root = first[K];
        if (vertex_root == -1)
-          {
+	 {
             /* JY: I think this cannot happen */
-            printf(" Internal error in mumps_pord (cf JY), %d\n",K);
-            exit(-1);
-          }
+	   printf(" Internal error in mumps_pord (cf JY), %d\n",K);
+	   exit(-1);
+	 }
        /* for the principal column of the supervariable */
        if (parent[K] == -1)
-          xadj_pe[vertex_root] = 0; /* root of the tree */
+	 xadj_pe[vertex_root] = 0; /* root of the tree */
        else
-          xadj_pe[vertex_root] = - (first[parent[K]]+1);
-          nv[vertex_root] = ncolfactor[K] + ncolupdate[K];
-          count++;
+	 xadj_pe[vertex_root] = - (first[parent[K]]+1);
+       nv[vertex_root] = ncolfactor[K] + ncolupdate[K];
+       count++;
        for (vertex = link[vertex_root]; vertex != -1; vertex = link[vertex])
         /* for the secondary columns of the supervariable */
-       {
-         xadj_pe[vertex] = - (vertex_root+1);
-         nv[vertex] = 0;
-         count++;
-        }
-  }
+	 {
+	   xadj_pe[vertex] = - (vertex_root+1);
+	   nv[vertex] = 0;
+	   count++;
+	 }
+     }
   /* ----------------------
      free memory and return
      ---------------------- */
@@ -256,28 +256,28 @@ ouput:
   count = 0;
   for (K = firstPostorder(T); K != -1; K = nextPostorder(T, K))
      {
-        vertex_root = first[K];
-        if (vertex_root == -1)
-          {
-            /* JY: I think this cannot happen */
-            printf(" Internal error in mumps_pord (cf JY), %d\n",K);
-            exit(-1);
-          }
+       vertex_root = first[K];
+       if (vertex_root == -1)
+	 {
+	   /* JY: I think this cannot happen */
+	   printf(" Internal error in mumps_pord (cf JY), %d\n",K);
+	   exit(-1);
+	 }
          /* for the principal column of the supervariable */
-        if (parent[K] == -1)
-          xadj_pe[vertex_root] = 0; /* root of the tree */
-        else
-          xadj_pe[vertex_root] = - (first[parent[K]]+1);
-          nv[vertex_root] = ncolfactor[K] + ncolupdate[K];
-          count++;
-          for (vertex = link[vertex_root]; vertex != -1; vertex = link[vertex])
-          /* for the secondary columns of the supervariable */
-            {
-              xadj_pe[vertex] = - (vertex_root+1);
-              nv[vertex] = 0;
-              count++;
-        }
-  }
+       if (parent[K] == -1)
+	 xadj_pe[vertex_root] = 0; /* root of the tree */
+       else
+	 xadj_pe[vertex_root] = - (first[parent[K]]+1);
+       nv[vertex_root] = ncolfactor[K] + ncolupdate[K];
+       count++;
+       for (vertex = link[vertex_root]; vertex != -1; vertex = link[vertex])
+	 /* for the secondary columns of the supervariable */
+	 {
+	   xadj_pe[vertex] = - (vertex_root+1);
+	   nv[vertex] = 0;
+	   count++;
+	 }
+     }
   /* ----------------------
      free memory and return
      ---------------------- */

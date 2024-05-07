@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -128,8 +128,8 @@ C
       TYPE(IO_BLOCK) :: MonBloc
       INCLUDE 'mumps_headers.h'
       DOUBLE PRECISION    OPASSW, OPELIW
-      ASS_IRECV = MPI_REQUEST_NULL
       ITLOC(1:N+KEEP(253)) =0
+      ASS_IRECV = MPI_REQUEST_NULL
       PTRIST(1:KEEP(28))=0
       PTLUST(1:KEEP(28))=0
       PTRAST(1:KEEP(28))=0_8
@@ -199,7 +199,7 @@ C
      &      ISTEP_TO_INIV2, TAB_POS_IN_PERE,
      &      STACK_RIGHT_AUTHORIZED
      &       )
-      CALL DMUMPS_LOAD_RECV_MSGS(COMM_LOAD, KEEP)
+      CALL DMUMPS_LOAD_RECV_MSGS(COMM_LOAD)
       IF (MESSAGE_RECEIVED) THEN
           IF ( INFO(1) .LT. 0 ) GO TO 640
           IF ( NBFIN .eq. 0 ) GOTO 640
@@ -254,7 +254,7 @@ C
             IF (SLAVEF.GT.1) THEN
                 DUMMY(1) = NBROOT
                 CALL DMUMPS_MCAST2(DUMMY, 1, MPI_INTEGER, MYID_NODES,
-     &          COMM_NODES, RACINE, SLAVEF)
+     &          COMM_NODES, RACINE, SLAVEF, KEEP )
             END IF
          ENDIF
          IF (NBFIN.EQ.0) GOTO 640
@@ -531,7 +531,7 @@ C
             IF (SLAVEF.GT.1) THEN
                 DUMMY(1) = NBROOT
                 CALL DMUMPS_MCAST2( DUMMY(1), 1, MPI_INTEGER,
-     &          MYID_NODES, COMM_NODES, RACINE, SLAVEF)
+     &          MYID_NODES, COMM_NODES, RACINE, SLAVEF, KEEP )
             END IF
         ENDIF
         IF (NBFIN.EQ.0)THEN
@@ -566,17 +566,20 @@ C
       ENDIF
       GO TO 20
  635  CONTINUE
-      CALL DMUMPS_BDC_ERROR( MYID_NODES, SLAVEF, COMM_NODES )
+      CALL DMUMPS_BDC_ERROR( MYID_NODES, SLAVEF, COMM_NODES, KEEP )
  640  CONTINUE
-        CALL DMUMPS_MPI_CANCEL( INFO(1),
+        CALL DMUMPS_CANCEL_IRECV( INFO(1),
+     &       KEEP,
      &       ASS_IRECV, BUFR, LBUFR,
      &       LBUFR_BYTES,
      &       COMM_NODES,
      &       MYID_NODES, SLAVEF)
-       CALL DMUMPS_CLEAN_PENDING( INFO(1),
+       CALL DMUMPS_CLEAN_PENDING( INFO(1), KEEP,
      &      BUFR, LBUFR,
      &      LBUFR_BYTES,
-     &      COMM_NODES, COMM_LOAD, SLAVEF, MP)
+     &      COMM_NODES, COMM_LOAD, SLAVEF,
+     &      .TRUE.,
+     &      .TRUE.)
       CALL MPI_BARRIER( COMM_NODES, IERR )
        IF ( INFO(1) .GE. 0 ) THEN
           IF( KEEP(38) .NE. 0 .OR. KEEP(20).NE.0) THEN

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -92,7 +92,7 @@ C
         ITRANS = NROWS
         IF (NIV1) THEN
           write(6,*) MYID, ':',
-     &    ' Internal error 2 in MUMPS_BUILD_SORT_INDEX ',
+     &    ' Internal error 2 in MUMPS_ELT_BUILD_SORT ',
      &    ' interior split node of type 1 '
           CALL MUMPS_ABORT()
         ENDIF
@@ -101,7 +101,7 @@ C
      &              SLAVEF)
         IF (LEVEL1_SON.or.J.LT.4) THEN
            write(6,*) MYID, ':',
-     &     ' Internal error 3 in MUMPS_BUILD_SORT_INDEX ',
+     &     ' Internal error 3 in MUMPS_ELT_BUILD_SORT ',
      &     ' son', IFSON, 
      &     ' of interior split node', INODE, ' of type 1 ', 
      &     ' NSLSON =', NSLSON, ' TYPE_SON=', I, 'TYPESPLIT_SON=', J
@@ -444,7 +444,7 @@ C
             ENDDO
           ELSE
               IF (.not. NIV1) THEN
-                WRITE(*,*) "Internal error 1 in CMUMPS_BUILD_SORT_INDEX"
+                WRITE(*,*) "Internal error 1 in MUMPS_ELT_BUILD_SORT"
                 CALL MUMPS_ABORT() 
               ENDIF
               IF (.not.LEVEL1_SON) THEN

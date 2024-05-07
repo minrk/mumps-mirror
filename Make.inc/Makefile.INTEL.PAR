@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.0.1, released
-#  on Thu Jul 23 17:08:29 UTC 2015
+#  This file is part of MUMPS 5.0.2, released
+#  on Fri Jul 15 09:12:54 UTC 2016
 #
 #Begin orderings
 
@@ -85,14 +85,14 @@ INCSEQ = -I$(topdir)/libseq
 LIBSEQ  =  -L$(topdir)/libseq -lmpiseq
 #LIBBLAS = -L/usr/lib/xmm/ -lf77blas -latlas
 LIBBLAS = -L$(MKLROOT) -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core 
-LIBOTHERS = -lpthread -openmp
+LIBOTHERS = -lpthread
 #Preprocessor defs for calling Fortran from C (-DAdd_ or -DAdd__ or -DUPPER)
 CDEFS   = -DAdd_
 
 #Begin Optimized options
-OPTF    = -O  -DALLOW_NON_INIT -nofor_main
-OPTL    = -O -nofor_main
-OPTC    = -O
+OPTF    = -O -DALLOW_NON_INIT -nofor_main -openmp # or -qopenmp for most recent compilers
+OPTL    = -O -nofor_main -openmp
+OPTC    = -O -openmp
 #End Optimized options
 INCS = $(INCPAR)
 LIBS = $(LIBPAR)

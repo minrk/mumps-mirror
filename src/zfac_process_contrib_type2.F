@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -137,7 +137,7 @@ C
             IF ( LRLUS .LT. LREQA ) THEN
                IFLAG = -9
                CALL MUMPS_SET_IERROR( LREQA - LRLUS, IERROR )
-               CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+               CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
                RETURN
             END IF
             CALL ZMUMPS_COMPRE_NEW(N, KEEP(28), IW, LIW, A, LA,
@@ -150,13 +150,13 @@ C
                WRITE(*,*) 'LRLU,LRLUS=',LRLU,LRLUS
                IFLAG = -9
                CALL MUMPS_SET_IERROR( LREQA - LRLUS, IERROR )
-               CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+               CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
                RETURN
             END IF
             IF ( IWPOS + LREQI - 1 .GT. IWPOSCB ) THEN
                IFLAG  = -8
                IERROR = IWPOS + LREQI - 1 - IWPOSCB
-               CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+               CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
                RETURN
             END IF
          END IF
@@ -273,10 +273,10 @@ C
                IF(NFS4FATHER .GT. 0) THEN
                   CALL ZMUMPS_BUF_MAX_ARRAY_MINSIZE(NFS4FATHER,IERR)
                   IF (IERR .NE. 0) THEN
-                        IERROR         = BUF_LMAX_ARRAY
-                        IFLAG          = -13
-                        CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
-                        RETURN
+                      IERROR         = BUF_LMAX_ARRAY
+                      IFLAG          = -13
+                      CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
+                      RETURN
                   ENDIF
                   CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION,
      &                 BUF_MAX_ARRAY,

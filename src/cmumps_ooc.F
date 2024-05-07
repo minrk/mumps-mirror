@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -527,7 +527,9 @@ C
                DO J=1,id%OOC_FILE_NAME_LENGTH(K)
                   TMP_NAME(J)=id%OOC_FILE_NAMES(K,J)
                ENDDO
-               CALL MUMPS_OOC_REMOVE_FILE_C(IERR, TMP_NAME(1))
+               IF(.NOT. id%IF_RESTARTING) THEN
+                  CALL MUMPS_OOC_REMOVE_FILE_C(IERR, TMP_NAME(1))
+               ENDIF
                IF(IERR.LT.0)THEN
                   IF (ICNTL1.GT.0)THEN
                      WRITE(ICNTL1,*)MYID_OOC,': ',
@@ -559,7 +561,7 @@ C
       TYPE(CMUMPS_STRUC), TARGET :: id
       INTEGER IERR
       IERR=0
-      IF(.NOT. id%IF_RESTARTING) CALL CMUMPS_OOC_CLEAN_FILES(id,IERR)
+      CALL CMUMPS_OOC_CLEAN_FILES(id,IERR)
       IF(associated(id%OOC_TOTAL_NB_NODES))THEN
          DEALLOCATE(id%OOC_TOTAL_NB_NODES)
          NULLIFY(id%OOC_TOTAL_NB_NODES)
@@ -672,7 +674,7 @@ C
          NULLIFY(SIZE_OF_BLOCK)
       ENDIF
       IF(associated(OOC_INODE_SEQUENCE))THEN
-         NULLIFY(OOC_VADDR)
+         NULLIFY(OOC_INODE_SEQUENCE)
       ENDIF
       OOC_NB_FILE_TYPE=id%OOC_NB_FILE_TYPE
       CALL MUMPS_OOC_INIT_FILETYPE(TYPEF_L, TYPEF_U, TYPEF_CB,
@@ -3363,7 +3365,7 @@ C
       INTEGER, INTENT(IN) :: NNMAX
       INTEGER CMUMPS_OOC_GET_PANEL_SIZE
       CMUMPS_OOC_PANEL_SIZE=CMUMPS_OOC_GET_PANEL_SIZE(
-     &     HBUF_SIZE, NNMAX, KEEP_OOC(227),KEEP_OOC(50))
+     &     int(KEEP_OOC(223),8), NNMAX, KEEP_OOC(227),KEEP_OOC(50))
       RETURN
       END FUNCTION CMUMPS_OOC_PANEL_SIZE
       SUBROUTINE CMUMPS_OOC_SKIP_NULL_SIZE_NODE()

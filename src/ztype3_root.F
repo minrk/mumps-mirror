@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -168,7 +168,7 @@ C
       IF (IFLAG.LT.0) THEN
          IF (LP > 0) write(6,*) MYID, ' : MEMORY ALLOCATION ',
      &     'FAILURE in ZMUMPS_BUILD_AND_SEND_CB_ROOT'
-         CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+         CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
          RETURN
       ENDIF
       SKIPLAST_RHS_ROWS = ((KEEP(253).GT.0).AND.(KEEP(50).EQ.0))
@@ -364,7 +364,7 @@ C
            KEEP(121) = -1 
 #endif
            IF (IFLAG.LT.0) THEN
-                CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+                CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
                 RETURN
            ENDIF
         ELSE
@@ -524,7 +524,7 @@ C
               IERROR = SIZE_MSG
               IF (LP > 0) WRITE(LP, *) "FAILURE, SEND BUFFER TOO
      & SMALL DURING ZMUMPS_BUILD_AND_SEND_CB_ROOT"
-              CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+              CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
               GOTO 500
             ENDIF
             IF ( IERR == -3 ) THEN
@@ -532,7 +532,7 @@ C
      & SMALL DURING ZMUMPS_BUILD_AND_SEND_CB_ROOT"
               IFLAG  = -20
               IERROR = SIZE_MSG
-              CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+              CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
               GOTO 500
             ENDIF
           END IF

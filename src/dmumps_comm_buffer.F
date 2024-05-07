@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -43,8 +43,9 @@ C
         TYPE ( DMUMPS_COMM_BUFFER_TYPE ), SAVE :: BUF_SMALL
         TYPE ( DMUMPS_COMM_BUFFER_TYPE ), SAVE :: BUF_LOAD
         INTEGER, SAVE :: SIZE_RBUF_BYTES
-        INTEGER BUF_LMAX_ARRAY
-        DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: BUF_MAX_ARRAY
+        INTEGER, SAVE ::  BUF_LMAX_ARRAY
+        DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE
+     &       , SAVE :: BUF_MAX_ARRAY
         PUBLIC :: BUF_LMAX_ARRAY, BUF_MAX_ARRAY
       CONTAINS
         SUBROUTINE DMUMPS_BUF_TRY_FREE_CB()
@@ -217,10 +218,11 @@ C
      &                                INODE, FPERE, NFRONT, LCONT,
      &                                NASS, NPIV,
      &                                IWROW, IWCOL, A, COMPRESSCB,
-     &                                DEST, TAG, COMM, IERR )
+     &                                DEST, TAG, COMM, KEEP, IERR )
         IMPLICIT NONE
         INTEGER DEST, TAG, COMM, IERR
         INTEGER NBROWS_ALREADY_SENT
+        INTEGER, INTENT(INOUT) :: KEEP(500)
         INTEGER INODE, FPERE, NFRONT, LCONT, NASS, NPIV 
         INTEGER IWROW( LCONT ), IWCOL( LCONT )
         DOUBLE PRECISION A( * )
@@ -387,6 +389,7 @@ C
            END DO
           ENDIF
         END IF
+        KEEP(266)=KEEP(266)+1
         CALL MPI_ISEND( BUF_CB%CONTENT( IPOS ), POSITION, MPI_PACKED,
      &                DEST, TAG, COMM, BUF_CB%CONTENT( IREQ ), IERR )
         IF ( SIZE_PACK .LT. POSITION ) THEN
@@ -408,12 +411,13 @@ C
      &             EFF_CB_SIZE, LD_CB, LD_PIV, NPIV, 
      &             JBDEB, JBFIN,
      &             CB, SOL,
-     &             DEST, COMM, IERR )
+     &             DEST, COMM, KEEP, IERR )
         IMPLICIT NONE
         INTEGER NRHS, INODE, IFATH, EFF_CB_SIZE, LD_CB, LD_PIV, NPIV 
         INTEGER DEST, COMM, IERR, JBDEB, JBFIN
         DOUBLE PRECISION CB( LD_CB*(NRHS-1)+EFF_CB_SIZE )
         DOUBLE PRECISION SOL( max(1, LD_PIV*(NRHS-1)+NPIV) )
+        INTEGER, INTENT(INOUT) :: KEEP(500)
         INCLUDE 'mpif.h'
         INCLUDE 'mumps_tags.h'
         INTEGER SIZE, SIZE1, SIZE2, K
@@ -467,6 +471,7 @@ C
      &                         POSITION, COMM, IERR )
           ENDDO
         END IF
+        KEEP(266)=KEEP(266)+1
         CALL MPI_ISEND( BUF_CB%CONTENT( IPOS ), POSITION, MPI_PACKED,
      &                  DEST, Master2Slave, COMM,
      &                  BUF_CB%CONTENT( IREQ ), IERR )
@@ -481,12 +486,14 @@ C
         SUBROUTINE DMUMPS_BUF_SEND_VCB( NRHS, NODE1, NODE2, NCB, LDW,
      &             LONG,
      &             IW, W, JBDEB, JBFIN,
+     &             KEEP,
      &             DEST, TAG, COMM, IERR )
         IMPLICIT NONE
         INTEGER LDW, DEST, TAG, COMM, IERR
         INTEGER NRHS, NODE1, NODE2, NCB, LONG, JBDEB, JBFIN
         INTEGER IW( max( 1, LONG ) )
         DOUBLE PRECISION W( max( 1, LDW * NRHS ) )
+        INTEGER, INTENT(INOUT) :: KEEP(500)
         INCLUDE 'mpif.h'
         INTEGER POSITION, IREQ, IPOS
         INTEGER SIZE1, SIZE2, SIZE, K
@@ -543,15 +550,18 @@ C
      &                        POSITION, COMM, IERR )
           END DO
         END IF
+        KEEP(266)=KEEP(266)+1
         CALL MPI_ISEND( BUF_CB%CONTENT( IPOS ), POSITION, MPI_PACKED,
      &                  DEST, TAG, COMM, BUF_CB%CONTENT( IREQ ), IERR )
         IF ( SIZE .NE. POSITION ) CALL BUF_ADJUST( BUF_CB, POSITION )
         RETURN
         END SUBROUTINE DMUMPS_BUF_SEND_VCB
-        SUBROUTINE DMUMPS_BUF_SEND_1INT( I, DEST, TAG, COMM, IERR )
+        SUBROUTINE DMUMPS_BUF_SEND_1INT( I, DEST, TAG, COMM,
+     &                                   KEEP, IERR )
         IMPLICIT NONE
         INTEGER I
         INTEGER DEST, TAG, COMM, IERR
+        INTEGER, INTENT(INOUT) :: KEEP(500)
         INCLUDE 'mpif.h'
         INTEGER IPOS, IREQ, MSG_SIZE, POSITION
         INTEGER IONE
@@ -574,18 +584,27 @@ C
      &                 MPI_INTEGER, BUF_SMALL%CONTENT( IPOS ),
      &                 MSG_SIZE,
      &                 POSITION, COMM, IERR )
+        KEEP(266)=KEEP(266)+1
         CALL MPI_ISEND( BUF_SMALL%CONTENT(IPOS), MSG_SIZE,
      &                  MPI_PACKED, DEST, TAG, COMM,
      &                  BUF_SMALL%CONTENT( IREQ ), IERR )
         RETURN
         END SUBROUTINE DMUMPS_BUF_SEND_1INT
-        SUBROUTINE DMUMPS_BUF_ALL_EMPTY(FLAG)
-        LOGICAL FLAG
+        SUBROUTINE DMUMPS_BUF_ALL_EMPTY(CHECK_COMM_NODES,
+     &             CHECK_COMM_LOAD,FLAG)
+        LOGICAL, INTENT(IN)  :: CHECK_COMM_NODES, CHECK_COMM_LOAD
+        LOGICAL, INTENT(OUT) :: FLAG
         LOGICAL FLAG1, FLAG2, FLAG3
-        CALL DMUMPS_BUF_EMPTY( BUF_SMALL, FLAG1 )
-        CALL DMUMPS_BUF_EMPTY( BUF_CB, FLAG2 )
-        CALL DMUMPS_BUF_EMPTY( BUF_LOAD, FLAG3 )
-        FLAG = FLAG1 .AND. FLAG2 .AND. FLAG3
+        FLAG = .TRUE.
+        IF (CHECK_COMM_NODES) THEN
+          CALL DMUMPS_BUF_EMPTY( BUF_SMALL, FLAG1 )
+          CALL DMUMPS_BUF_EMPTY( BUF_CB, FLAG2 )
+          FLAG = FLAG .AND. FLAG1 .AND. FLAG2
+        ENDIF
+        IF ( CHECK_COMM_LOAD ) THEN
+          CALL DMUMPS_BUF_EMPTY( BUF_LOAD, FLAG3 )
+          FLAG = FLAG .AND. FLAG3
+        ENDIF
         RETURN
         END SUBROUTINE DMUMPS_BUF_ALL_EMPTY
         SUBROUTINE DMUMPS_BUF_EMPTY( B, FLAG )
@@ -718,7 +737,7 @@ C
       SUBROUTINE DMUMPS_BUF_SEND_DESC_BANDE(
      &             INODE, NBPROCFILS, NLIG, ILIG, NCOL, ICOL,
      &             NASS, NSLAVES, LIST_SLAVES,
-     &             DEST, IBC_SOURCE, NFRONT, COMM, IERR
+     &             DEST, IBC_SOURCE, NFRONT, COMM, KEEP, IERR
      &)
       IMPLICIT NONE
         INTEGER COMM, IERR, NFRONT
@@ -729,6 +748,7 @@ C
         INTEGER ICOL( NCOL )
         INTEGER, INTENT(IN) :: IBC_SOURCE
         INTEGER LIST_SLAVES( NSLAVES )
+        INTEGER, INTENT(INOUT) :: KEEP(500)
         INCLUDE 'mpif.h'
         INCLUDE 'mumps_tags.h'
         INTEGER SIZE_INT, SIZE_BYTES, POSITION, IPOS, IREQ
@@ -740,7 +760,7 @@ C
         SIZE_INT = ( 7 + NLIG + NCOL + NSLAVES + 1 )
         SIZE_BYTES = SIZE_INT * SIZEofINT
         IF (SIZE_INT.GT.SIZE_RBUF_BYTES ) THEN
-         IERR = -2
+         IERR = -3
          RETURN
         END IF
         CALL BUF_LOOK( BUF_CB, IPOS, IREQ, SIZE_BYTES, IERR, 
@@ -781,6 +801,7 @@ C
      &               ' wrong estimated size'
           CALL MUMPS_ABORT()
         END IF
+        KEEP(266)=KEEP(266)+1
         CALL MPI_ISEND( BUF_CB%CONTENT( IPOS ), SIZE_BYTES,
      &                  MPI_PACKED,
      &                  DEST, MAITRE_DESC_BANDE, COMM,
@@ -944,6 +965,7 @@ C
      &               POSITION, COMM, IERR )
           ENDDO
         ENDIF
+        KEEP(266)=KEEP(266)+1
         CALL MPI_ISEND( BUF_CB%CONTENT( IPOS ), POSITION, MPI_PACKED,
      &                  DEST, MAITRE2, COMM,
      &                  BUF_CB%CONTENT( IREQ ), IERR )
@@ -1163,6 +1185,10 @@ C
             IERR = -1
             GOTO 100
         ENDIF
+        IF (SIZE_PACK.GT.SIZE_RBUF_BYTES ) THEN
+          IERR = -3
+          GOTO 100
+        ENDIF
         CALL BUF_LOOK( BUF_CB, IPOS, IREQ, SIZE_PACK, IERR, 
      &                 IONE , PDEST2
      &               )
@@ -1171,10 +1197,6 @@ C
           IF (NBROWS_PACKET > 0 ) GOTO 10
         ENDIF
         IF ( IERR .LT. 0 ) GOTO 100
-          IF (SIZE_PACK.GT.SIZE_RBUF_BYTES ) THEN
-             IERR = -3
-             GOTO 100
-          ENDIF
         POSITION = 0
         CALL MPI_PACK( IPERE, 1, MPI_INTEGER,
      &                 BUF_CB%CONTENT( IPOS ), SIZE_PACK,
@@ -1346,6 +1368,7 @@ C
            ENDIF
         ENDIF 
       ENDIF  
+        KEEP(266)=KEEP(266)+1
         CALL MPI_ISEND( BUF_CB%CONTENT( IPOS ), POSITION, MPI_PACKED,
      &                  PDEST, CONTRIB_TYPE2, COMM,
      &                  BUF_CB%CONTENT( IREQ ), IERR )
@@ -1403,16 +1426,16 @@ C
           IF ( NSLAVES.GT.0 ) THEN
              SIZE = SIZE + SIZEofINT * ( NSLAVES + 1 )
           ENDIF
+          IF (SIZE.GT.SIZE_RBUF_BYTES ) THEN
+            IERR = -3
+            RETURN
+          END IF
           CALL BUF_LOOK( BUF_CB, IPOS, IREQ, SIZE, IERR, 
      &                 IONE, DEST
      &                 )
           IF (IERR .LT. 0 ) THEN
-             RETURN
+            RETURN
           ENDIF
-          IF (SIZE.GT.SIZE_RBUF_BYTES ) THEN
-             IERR = -3
-             RETURN
-          END IF
               POSITION = IPOS
               BUF_CB%CONTENT( POSITION ) = INODE
               POSITION = POSITION + 1
@@ -1448,6 +1471,7 @@ C
      &                     ' wrong estimated size'
                 CALL MUMPS_ABORT()
               END IF
+              KEEP(266)=KEEP(266)+1
               CALL MPI_ISEND( BUF_CB%CONTENT( IPOS ), SIZE,
      &                        MPI_PACKED,
      &                        DEST( NDEST ), MAPLIG, COMM,
@@ -1480,17 +1504,17 @@ C
              SIZE = SIZE + SIZEofINT * ( NSLAVES + 1 )
             ENDIF
             IF ( MYID .NE. DEST( IDEST ) ) THEN
-              CALL BUF_LOOK( BUF_CB, IPOS, IREQ, SIZE, IERR,
-     &                       IONE, DEST(IDEST)
-     &                     )
-              IF ( IERR .LT. 0 )  THEN
-                 WRITE(*,*) 'Problem in BUF_LOOK: IERR<0'
-                 CALL MUMPS_ABORT()
-              END IF
               IF (SIZE.GT.SIZE_RBUF_BYTES) THEN
-                 IERR = -3
-                 RETURN
+                IERR = -3
+                RETURN
               ENDIF
+              CALL BUF_LOOK( BUF_CB, IPOS, IREQ, SIZE, IERR,
+     &                       IONE, DEST(IDEST) )
+              IF ( IERR .LT. 0 )  THEN
+                WRITE(*,*) 'Internal error DMUMPS_BUF_SEND_MAPLIG',
+     &                     'IERR after BUF_LOOK=',IERR
+                CALL MUMPS_ABORT()
+              END IF
               POSITION = IPOS
               BUF_CB%CONTENT( POSITION ) = INODE
               POSITION = POSITION + 1
@@ -1526,6 +1550,7 @@ C
      &          'Wrong estimated size'
                CALL MUMPS_ABORT()
               END IF
+              KEEP(266)=KEEP(266)+1
               CALL MPI_ISEND( BUF_CB%CONTENT( IPOS ), SIZE,
      &                        MPI_PACKED,
      &                        DEST( IDEST ), MAPLIG, COMM,
@@ -1539,7 +1564,7 @@ C
         END SUBROUTINE DMUMPS_BUF_SEND_MAPLIG
         SUBROUTINE DMUMPS_BUF_SEND_BLOCFACTO( INODE, NFRONT,
      &             NCOL, NPIV, FPERE, LASTBL, IPIV, VAL,
-     &             PDEST, NDEST, KEEP50, K34, NB_BLOC_FAC,
+     &             PDEST, NDEST, KEEP, NB_BLOC_FAC,
      &             NSLAVES_TOT,
      &             WIDTH, COMM,
      &
@@ -1550,7 +1575,8 @@ C
         INTEGER, intent(in) :: IPIV( NPIV )
         DOUBLE PRECISION, intent(in) :: VAL( NFRONT, * )
         INTEGER, intent(in) :: PDEST( NDEST ) 
-        INTEGER, intent(in) :: KEEP50, K34, NB_BLOC_FAC,
+        INTEGER, intent(inout) :: KEEP(500)
+        INTEGER, intent(in) :: NB_BLOC_FAC,
      &                         NSLAVES_TOT, COMM, WIDTH
         LOGICAL, intent(in) :: LASTBL
         INTEGER, intent(inout) :: IERR
@@ -1567,7 +1593,7 @@ C
         LRELAY_INFO = 0
         NBMSGS = NDEST
         IF ( LASTBL ) THEN
-          IF ( KEEP50 .eq. 0 ) THEN
+          IF ( KEEP(50) .eq. 0 ) THEN
             CALL MPI_PACK_SIZE( 4 + NPIV + ( NBMSGS - 1 ) * OVHSIZE +
      &                          1+LRELAY_INFO,
      &                          MPI_INTEGER, COMM, SIZE1, IERR )
@@ -1577,7 +1603,7 @@ C
      &                          MPI_INTEGER, COMM, SIZE1, IERR )
           END IF
         ELSE
-          IF ( KEEP50 .eq. 0 ) THEN
+          IF ( KEEP(50) .eq. 0 ) THEN
           CALL MPI_PACK_SIZE( 3 + NPIV + ( NBMSGS - 1 ) * OVHSIZE + 
      &                        1+LRELAY_INFO,
      &                        MPI_INTEGER, COMM, SIZE1, IERR )
@@ -1594,6 +1620,31 @@ C
             SIZE2 = SIZE2+SIZE3
         ENDIF
         SIZET = SIZE1 + SIZE2 
+        IF (SIZET.GT.SIZE_RBUF_BYTES) THEN
+          SSS = 0 
+          IF ( LASTBL ) THEN
+           IF ( KEEP(50) .eq. 0 ) THEN
+            CALL MPI_PACK_SIZE( 4 + NPIV + 1+LRELAY_INFO,
+     &                        MPI_INTEGER, COMM, SSS, IERR )
+           ELSE
+            CALL MPI_PACK_SIZE( 6 + NPIV + 1+LRELAY_INFO, 
+     &                           MPI_INTEGER, COMM, SSS, IERR )
+           END IF
+          ELSE
+           IF ( KEEP(50) .eq. 0 ) THEN
+            CALL MPI_PACK_SIZE( 3 + NPIV + 1+LRELAY_INFO,
+     &                        MPI_INTEGER, COMM, SSS, IERR )
+           ELSE
+            CALL MPI_PACK_SIZE( 4 + NPIV + 1+LRELAY_INFO,
+     &                        MPI_INTEGER, COMM, SSS, IERR )
+           END IF
+          END IF
+          SSS = SSS + SIZE2  
+          IF (SSS.GT.SIZE_RBUF_BYTES) THEN
+           IERR = -3 
+           RETURN
+          ENDIF
+        ENDIF
         IF (LRELAY_INFO.GT.0) THEN
          CALL BUF_LOOK( BUF_CB, IPOS, IREQ, SIZET, IERR, 
      &                 NBMSGS , RELAY_INFO(2)
@@ -1604,32 +1655,7 @@ C
      &               )
         ENDIF
         IF ( IERR .LT. 0 ) THEN
-           RETURN
-        ENDIF
-        IF (SIZET.GT.SIZE_RBUF_BYTES) THEN
-          SSS = 0 
-          IF ( LASTBL ) THEN
-           IF ( KEEP50 .eq. 0 ) THEN
-            CALL MPI_PACK_SIZE( 4 + NPIV + 1+LRELAY_INFO,
-     &                        MPI_INTEGER, COMM, SSS, IERR )
-           ELSE
-            CALL MPI_PACK_SIZE( 6 + NPIV + 1+LRELAY_INFO, 
-     &                           MPI_INTEGER, COMM, SSS, IERR )
-           END IF
-          ELSE
-           IF ( KEEP50 .eq. 0 ) THEN
-            CALL MPI_PACK_SIZE( 3 + NPIV + 1+LRELAY_INFO,
-     &                        MPI_INTEGER, COMM, SSS, IERR )
-           ELSE
-            CALL MPI_PACK_SIZE( 4 + NPIV + 1+LRELAY_INFO,
-     &                        MPI_INTEGER, COMM, SSS, IERR )
-           END IF
-          END IF
-          SSS = SSS + SIZE2  
-          IF (SSS.GT.SIZE_RBUF_BYTES) THEN
-           IERR = -2 
-           RETURN
-          ENDIF
+          RETURN
         ENDIF
         BUF_CB%ILASTMSG = BUF_CB%ILASTMSG + ( NBMSGS - 1 ) * OVHSIZE
         IPOS = IPOS - OVHSIZE
@@ -1648,12 +1674,12 @@ C
         CALL MPI_PACK( NPIVSENT, 1, MPI_INTEGER,
      &                        BUF_CB%CONTENT( IPOSMSG ), SIZET,
      &                        POSITION, COMM, IERR )
-        IF ( LASTBL .or. KEEP50.ne.0 ) THEN
+        IF ( LASTBL .or. KEEP(50).ne.0 ) THEN
           CALL MPI_PACK( FPERE, 1, MPI_INTEGER,
      &                   BUF_CB%CONTENT( IPOSMSG ), SIZET,
      &                   POSITION, COMM, IERR )
         END IF
-        IF ( LASTBL .AND. KEEP50 .NE. 0 ) THEN
+        IF ( LASTBL .AND. KEEP(50) .NE. 0 ) THEN
             CALL MPI_PACK( NSLAVES_TOT, 1, MPI_INTEGER,
      &                   BUF_CB%CONTENT( IPOSMSG ), SIZET,
      &                   POSITION, COMM, IERR )
@@ -1688,14 +1714,16 @@ C
           ELSE
             DEST_BLOCFACTO = PDEST(IDEST)
           ENDIF
-          IF ( KEEP50 .EQ. 0) THEN
+          IF ( KEEP(50) .EQ. 0) THEN
             TAG_BLOCFACTO = BLOC_FACTO
+            KEEP(266)=KEEP(266)+1
             CALL MPI_ISEND( BUF_CB%CONTENT( IPOSMSG ), POSITION, 
      &                MPI_PACKED,
      &                DEST_BLOCFACTO, TAG_BLOCFACTO, COMM,
      &                BUF_CB%CONTENT( IREQ + ( IDEST-1 ) * OVHSIZE ),
      &                IERR )
           ELSE
+            KEEP(266)=KEEP(266)+1
             CALL MPI_ISEND( BUF_CB%CONTENT( IPOSMSG ), POSITION, 
      &                MPI_PACKED,
      &                DEST_BLOCFACTO, BLOC_FACTO_SYM, COMM,
@@ -1714,13 +1742,14 @@ C
         END SUBROUTINE DMUMPS_BUF_SEND_BLOCFACTO
         SUBROUTINE DMUMPS_BUF_SEND_BLFAC_SLAVE( INODE,
      &             NPIV, FPERE, IPOSK, JPOSK, UIP21K, NCOLU,
-     &             NDEST, PDEST, COMM, 
+     &             NDEST, PDEST, COMM, KEEP,
      &             IERR )
         IMPLICIT NONE
         INTEGER INODE, NCOLU, IPOSK, JPOSK, NPIV, NDEST, FPERE
         DOUBLE PRECISION UIP21K( NPIV, * )
         INTEGER PDEST( NDEST ) 
         INTEGER   COMM, IERR
+        INTEGER, INTENT(INOUT) :: KEEP(500)
         INCLUDE 'mpif.h'
         INCLUDE 'mumps_tags.h'
         INTEGER POSITION, IREQ, IPOS, SIZE1, SIZE2, SIZET,
@@ -1780,6 +1809,7 @@ C
      &                        BUF_CB%CONTENT( IPOSMSG ), SIZET,
      &                        POSITION, COMM, IERR )
         DO IDEST = 1, NDEST
+        KEEP(266)=KEEP(266)+1
         CALL MPI_ISEND( BUF_CB%CONTENT( IPOSMSG ), POSITION, MPI_PACKED,
      &                  PDEST(IDEST), BLOC_FACTO_SYM_SLAVE, COMM,
      &                  BUF_CB%CONTENT( IREQ + ( IDEST-1 ) * OVHSIZE ),
@@ -1917,14 +1947,14 @@ C
           N_PACKET = 0
           CALL MPI_PACK_SIZE(8,MPI_INTEGER, COMM, SIZE_PACK, IERR )
         END IF
-        CALL BUF_LOOK( BUF_CB, IPOS, IREQ, SIZE_PACK, IERR, 
-     &                 IONE, PDEST2
-     &               )
-        IF ( IERR .LT. 0 ) GOTO 100
         IF ( SIZE_PACK.GT.SIZE_RBUF_BYTES ) THEN
              IERR = -3
              GOTO 100
         ENDIF
+        CALL BUF_LOOK( BUF_CB, IPOS, IREQ, SIZE_PACK, IERR, 
+     &                 IONE, PDEST2
+     &               )
+        IF ( IERR .LT. 0 ) GOTO 100
         POSITION = 0
         CALL MPI_PACK( ISON, 1, MPI_INTEGER,
      &                 BUF_CB%CONTENT( IPOS ),
@@ -2120,6 +2150,7 @@ C
             END IF
           ENDIF
         END IF
+        KEEP(266)=KEEP(266)+1
         CALL MPI_ISEND( BUF_CB%CONTENT( IPOS ), POSITION, MPI_PACKED,
      &                PDEST, TAG, COMM, BUF_CB%CONTENT( IREQ ), IERR )
         IF ( SIZE_PACK .LT. POSITION ) THEN
@@ -2138,11 +2169,12 @@ C
         END SUBROUTINE DMUMPS_BUF_SEND_CONTRIB_TYPE3
         SUBROUTINE DMUMPS_BUF_SEND_RTNELIND( ISON, NELIM,
      &             NELIM_ROW, NELIM_COL, NSLAVES, SLAVES,
-     &             DEST, COMM, IERR )
+     &             DEST, COMM, KEEP, IERR )
         INTEGER ISON, NELIM
         INTEGER NSLAVES, DEST, COMM, IERR
         INTEGER NELIM_ROW( NELIM ), NELIM_COL( NELIM )
         INTEGER SLAVES( NSLAVES )
+        INTEGER, INTENT(INOUT) :: KEEP(500)
         INCLUDE 'mpif.h'
         INCLUDE 'mumps_tags.h'
         INTEGER SIZE, POSITION, IPOS, IREQ
@@ -2152,16 +2184,16 @@ C
         DEST2(1) = DEST
         IERR = 0
         SIZE = ( 3 + NSLAVES + 2 * NELIM ) * SIZEofINT
+        IF (SIZE.GT.SIZE_RBUF_BYTES) THEN
+             IERR = -3
+             RETURN
+        ENDIF
         CALL BUF_LOOK( BUF_CB, IPOS, IREQ, SIZE, IERR, 
      &                 IONE, DEST2
      &               )
         IF ( IERR .LT. 0 ) THEN
            RETURN
         ENDIF
-          IF (SIZE.GT.SIZE_RBUF_BYTES) THEN
-             IERR = -3
-             RETURN
-          ENDIF
         POSITION = IPOS
         BUF_CB%CONTENT( POSITION ) = ISON
         POSITION = POSITION + 1
@@ -2181,6 +2213,7 @@ C
      &               'wrong estimated size'
            CALL MUMPS_ABORT()
         END IF
+        KEEP(266)=KEEP(266)+1
         CALL MPI_ISEND( BUF_CB%CONTENT( IPOS ), SIZE, 
      &                  MPI_PACKED,
      &                  DEST, ROOT_NELIM_INDICES, COMM,
@@ -2188,9 +2221,10 @@ C
         RETURN
         END SUBROUTINE DMUMPS_BUF_SEND_RTNELIND
         SUBROUTINE DMUMPS_BUF_SEND_ROOT2SON( ISON, NELIM_ROOT,
-     &             DEST, COMM, IERR )
+     &             DEST, COMM, KEEP, IERR )
         IMPLICIT NONE
         INTEGER ISON, NELIM_ROOT, DEST, COMM, IERR
+        INTEGER, INTENT(INOUT) :: KEEP(500)
         INCLUDE 'mpif.h'
         INCLUDE 'mumps_tags.h'
         INTEGER IPOS, IREQ, SIZE
@@ -2208,10 +2242,11 @@ C
           CALL MUMPS_ABORT()
         END IF
         IF ( IERR .LT. 0 ) THEN
-           RETURN
+          RETURN
         ENDIF
         BUF_SMALL%CONTENT( IPOS )     = ISON
         BUF_SMALL%CONTENT( IPOS + 1 ) = NELIM_ROOT
+        KEEP(266)=KEEP(266)+1
         CALL MPI_ISEND( BUF_SMALL%CONTENT( IPOS ), SIZE, 
      &                  MPI_PACKED,
      &                  DEST, ROOT_2SON, COMM,
@@ -2219,9 +2254,10 @@ C
         RETURN
         END SUBROUTINE DMUMPS_BUF_SEND_ROOT2SON
         SUBROUTINE DMUMPS_BUF_SEND_ROOT2SLAVE
-     &  ( TOT_ROOT_SIZE, TOT_CONT2RECV, DEST, COMM, IERR )
+     &  ( TOT_ROOT_SIZE, TOT_CONT2RECV, DEST, COMM, KEEP, IERR )
         IMPLICIT NONE
         INTEGER TOT_ROOT_SIZE, TOT_CONT2RECV, DEST, COMM, IERR
+        INTEGER, INTENT(INOUT) :: KEEP(500)
         INCLUDE 'mpif.h'
         INCLUDE 'mumps_tags.h'
         INTEGER SIZE, IPOS, IREQ
@@ -2243,6 +2279,7 @@ C
         ENDIF
         BUF_SMALL%CONTENT( IPOS     ) = TOT_ROOT_SIZE
         BUF_SMALL%CONTENT( IPOS + 1 ) = TOT_CONT2RECV
+        KEEP(266)=KEEP(266)+1
         CALL MPI_ISEND( BUF_SMALL%CONTENT( IPOS ), SIZE, 
      &                  MPI_PACKED,
      &                  DEST, ROOT_2SLAVE, COMM,
@@ -2250,12 +2287,13 @@ C
         RETURN
         END SUBROUTINE DMUMPS_BUF_SEND_ROOT2SLAVE
         SUBROUTINE DMUMPS_BUF_SEND_BACKVEC
-     &             ( NRHS, INODE, W, LW, LD_W, DEST,MSGTAG,
-     &               JBDEB, JBFIN, COMM,IERR )
+     &             ( NRHS, INODE, W, LW, LD_W, DEST, MSGTAG,
+     &               JBDEB, JBFIN, KEEP, COMM, IERR )
         IMPLICIT NONE
         INTEGER NRHS, INODE,LW,COMM,IERR,DEST,MSGTAG, LD_W
         INTEGER, intent(in) :: JBDEB, JBFIN
-        DOUBLE PRECISION W(LD_W, *)
+        DOUBLE PRECISION :: W(LD_W, *)
+        INTEGER, INTENT(INOUT) :: KEEP(500)
         INCLUDE 'mpif.h'
         INTEGER SIZE, SIZE1, SIZE2
         INTEGER POSITION, IREQ, IPOS
@@ -2292,6 +2330,7 @@ C
      &                        BUF_CB%CONTENT( IPOS ), SIZE,
      &                        POSITION, COMM, IERR )
         END DO
+        KEEP(266)=KEEP(266)+1
         CALL MPI_ISEND( BUF_CB%CONTENT( IPOS ), POSITION, MPI_PACKED,
      &                  DEST, MSGTAG, COMM,
      &                  BUF_CB%CONTENT( IREQ ), IERR )
@@ -2310,9 +2349,10 @@ C
 #if ! defined(OLD_LOAD_MECHANISM)
      &               FUTURE_NIV2,
 #endif
-     &               MYID, IERR)
+     &               MYID, KEEP, IERR)
         IMPLICIT NONE
         INTEGER COMM, NPROCS, MYID, IERR
+        INTEGER, INTENT(INOUT) :: KEEP(500)
 #if ! defined(OLD_LOAD_MECHANISM)
         INTEGER FUTURE_NIV2(NPROCS)
 #endif
@@ -2402,6 +2442,7 @@ C
         IF ( I .ne. MYID ) THEN
 #endif
             IDEST = IDEST + 1
+            KEEP(267)=KEEP(267)+1
             CALL MPI_ISEND( BUF_LOAD%CONTENT( IPOSMSG ),
      &                      POSITION, MPI_PACKED, I,
      &                      UPDATE_LOAD, COMM,
@@ -2424,11 +2465,12 @@ C
 #if ! defined(OLD_LOAD_MECHANISM)
      &               FUTURE_NIV2,
 #endif
-     &               LOAD,UPD_LOAD,
-     &               MYID, IERR)
+     &               LOAD, UPD_LOAD,
+     &               MYID, KEEP, IERR)
         IMPLICIT NONE
         INTEGER COMM, NPROCS, MYID, IERR, WHAT
         DOUBLE PRECISION LOAD,UPD_LOAD
+        INTEGER, INTENT(INOUT) :: KEEP(500)
         INCLUDE 'mpif.h'
         INCLUDE 'mumps_tags.h'
         INTEGER POSITION, IREQ, IPOS, SIZE1, SIZE2, SIZE
@@ -2504,6 +2546,7 @@ C
           IF ( I .ne. MYID ) THEN
 #endif
             IDEST = IDEST + 1
+            KEEP(267)=KEEP(267)+1
             CALL MPI_ISEND( BUF_LOAD%CONTENT( IPOSMSG ),
      &                      POSITION, MPI_PACKED, I,
      &                      UPDATE_LOAD, COMM,
@@ -2523,7 +2566,7 @@ C
         END SUBROUTINE DMUMPS_BUF_BROADCAST
         SUBROUTINE DMUMPS_BUF_SEND_FILS
      &             ( WHAT, COMM, NPROCS,
-     &               FATHER_NODE,INODE,NCB,K81,
+     &               FATHER_NODE,INODE,NCB,KEEP,
      &               MYID,REMOTE, IERR)
         IMPLICIT NONE
         INTEGER COMM, NPROCS, MYID, IERR, WHAT,REMOTE
@@ -2532,7 +2575,7 @@ C
         INCLUDE 'mumps_tags.h'
         INTEGER POSITION, IREQ, IPOS, SIZE
         INTEGER NDEST, IDEST, IPOSMSG
-        INTEGER IZERO,NCB,K81
+        INTEGER IZERO,NCB,KEEP(500)
         INTEGER MYID2(1)
         PARAMETER ( IZERO=0 )
         MYID2(1) = MYID
@@ -2540,7 +2583,7 @@ C
         IF ( NDEST .eq. 0 ) THEN
            RETURN
         ENDIF
-        IF((K81.EQ.2).OR.(K81.EQ.3))THEN
+        IF((KEEP(81).EQ.2).OR.(KEEP(81).EQ.3))THEN
            CALL MPI_PACK_SIZE( 4 + OVHSIZE, 
      &          MPI_INTEGER, COMM,
      &          SIZE, IERR )
@@ -2570,7 +2613,7 @@ C
         CALL MPI_PACK( FATHER_NODE, 1, MPI_INTEGER,
      &                 BUF_LOAD%CONTENT( IPOSMSG ), SIZE,
      &                 POSITION, COMM, IERR )
-        IF((K81.EQ.2).OR.(K81.EQ.3))THEN
+        IF((KEEP(81).EQ.2).OR.(KEEP(81).EQ.3))THEN
            CALL MPI_PACK( INODE, 1, MPI_INTEGER,
      &          BUF_LOAD%CONTENT( IPOSMSG ), SIZE,
      &          POSITION, COMM, IERR )
@@ -2579,6 +2622,7 @@ C
      &          POSITION, COMM, IERR )
         ENDIF
         IDEST = 1
+        KEEP(267)=KEEP(267)+1
         CALL MPI_ISEND( BUF_LOAD%CONTENT( IPOSMSG ),
      &                 POSITION, MPI_PACKED, REMOTE,
      &                 UPDATE_LOAD, COMM,
@@ -2595,13 +2639,14 @@ C
         RETURN
         END SUBROUTINE DMUMPS_BUF_SEND_FILS
         SUBROUTINE DMUMPS_BUF_SEND_NOT_MSTR( COMM, MYID, NPROCS,
-     &  MAX_SURF_MASTER,IERR)
+     &  MAX_SURF_MASTER,KEEP,IERR)
         IMPLICIT NONE
         INCLUDE 'mpif.h'
         INCLUDE 'mumps_tags.h'
         INTEGER IPOS, IREQ, IDEST, IPOSMSG, POSITION, I
         INTEGER COMM, MYID, IERR, NPROCS
         DOUBLE PRECISION MAX_SURF_MASTER
+        INTEGER, INTENT(INOUT) :: KEEP(500)
         INTEGER IZERO
         INTEGER MYID2(1)
         PARAMETER ( IZERO=0 )
@@ -2644,6 +2689,7 @@ C
         DO I = 0, NPROCS - 1
            IF ( I .ne. MYID ) THEN
               IDEST = IDEST + 1
+              KEEP(267)=KEEP(267)+1
               CALL MPI_ISEND( BUF_LOAD%CONTENT( IPOSMSG ),
      &             POSITION, MPI_PACKED, I,
      &             UPDATE_LOAD, COMM,
@@ -2669,6 +2715,7 @@ C
      &      NSLAVES,
      &      LIST_SLAVES,INODE,
      &      MEM_INCREMENT, FLOPS_INCREMENT,CB_BAND, WHAT,
+     &      KEEP,
      &      IERR )
         IMPLICIT NONE
         INCLUDE 'mpif.h'
@@ -2682,6 +2729,7 @@ C
         DOUBLE PRECISION MEM_INCREMENT(NSLAVES)
         DOUBLE PRECISION FLOPS_INCREMENT(NSLAVES)
         DOUBLE PRECISION CB_BAND(NSLAVES)
+        INTEGER, INTENT(INOUT) :: KEEP(500)
         INTEGER NDEST, NINTS, NREALS, SIZE1, SIZE2, SIZE
         INTEGER IPOS, IPOSMSG, IREQ, POSITION
         INTEGER I, IDEST, WHAT
@@ -2765,6 +2813,7 @@ C
         IF ( I .NE. MYID ) THEN
 #endif
             IDEST = IDEST + 1
+            KEEP(267)=KEEP(267)+1
             CALL MPI_ISEND( BUF_LOAD%CONTENT( IPOSMSG ),
      &                      POSITION, MPI_PACKED, I,
      &                      UPDATE_LOAD, COMM,

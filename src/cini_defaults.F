@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -117,7 +117,7 @@ C     If the matrix A is diagonally dominant, then
 C     setting CNTL(1) to zero will decrease the factorization 
 C     time while still providing a stable decomposition.
 C
-C  CNTL(2) must be set to the tolerance for convegence of iterative
+C  CNTL(2) must be set to the tolerance for convergence of iterative
 C     refinement. 
 C     Default value is sqrt(macheps).
 C     Values less than zero are treated as sqrt(macheps).
@@ -1088,6 +1088,9 @@ C     Forcing proportional is ok with strategy 5
 #if ! defined(NO_XXNBPR)
       KEEP(121)=-999999
 #endif
+      KEEP(122)=15
+      KEEP(206)=1 
+      IF (SYM.EQ.0) KEEP(206) = 0
       KEEP(211)=2
       IF (NSLAVES .EQ. 2) THEN
         KEEP(213) = 101
@@ -1126,6 +1129,8 @@ C     Forcing proportional is ok with strategy 5
       KEEP(261) = 1
       KEEP(262) = 0
       KEEP(263) = 0
+      KEEP(266) = 0
+      KEEP(267) = 0
       KEEP(488) =  4*KEEP(6)   ! if KEEP(6)=32 then 128
       KEEP(496) = 1
       KEEP(495) = -1

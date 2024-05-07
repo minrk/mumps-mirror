@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -114,6 +114,7 @@ C
      &         MUMPS_TYPENODE, 
      &         MUMPS_IN_OR_ROOT_SSARBR
       DUMMY(1)=0
+      KEEP(266)=0
       ALLOCATE(DEJA_SEND( 0:SLAVEF-1 ), stat=allocok)
       if(allocok.ne.0) then
          WRITE(6,*) ' Allocation error of DEJA_SEND in '
@@ -160,7 +161,7 @@ C
       NBFINF = SLAVEF
       IF (MYLEAFE .EQ. 0) THEN
         CALL CMUMPS_MCAST2(DUMMY, 1, MPI_INTEGER, MYID, COMM, FEUILLE,
-     &                  SLAVEF)
+     &                  SLAVEF, KEEP)
         NBFINF = NBFINF - 1
         IF (NBFINF .EQ. 0) THEN
           GOTO 340
@@ -235,7 +236,7 @@ C
             MYLEAFE = MYLEAFE - 1
             IF (MYLEAFE .EQ. 0) THEN
                CALL CMUMPS_MCAST2( DUMMY, 1, MPI_INTEGER, MYID, COMM,
-     &              FEUILLE, SLAVEF )
+     &              FEUILLE, SLAVEF, KEEP )
                NBFINF = NBFINF - 1
                IF (NBFINF .EQ. 0) GOTO 340
             ENDIF
@@ -283,7 +284,7 @@ C
  600              CALL CMUMPS_BUF_SEND_VCB( NRHS_B, IF, 0, 0,
      &                 LONG, LONG, IW( J1 ),
      &                 RHS_ROOT( 1+NPIV*(JBDEB-1) ), 
-     &                 JBDEB, JBFIN, PROCDEST,
+     &                 JBDEB, JBFIN, KEEP, PROCDEST,
      &                 NOEUD, COMM, IERR )
                   IF ( IERR .EQ. -1 ) THEN
                      CALL CMUMPS_BACKSLV_RECV_AND_TREAT(
@@ -324,7 +325,7 @@ C
             MYLEAFE = MYLEAFE - 1
             IF (MYLEAFE .EQ. 0) THEN
                CALL CMUMPS_MCAST2( DUMMY, 1, MPI_INTEGER, MYID, COMM,
-     &              FEUILLE, SLAVEF )
+     &              FEUILLE, SLAVEF, KEEP )
                NBFINF = NBFINF - 1
                IF (NBFINF .EQ. 0) GOTO 340
                GOTO 50
@@ -435,7 +436,7 @@ C
      &             EffectiveSize, 
      &             NCB, DEST,
      &             BACKSLV_MASTER2SLAVE, JBDEB, JBFIN,
-     &             COMM, IERR )
+     &             KEEP, COMM, IERR )
               IF ( IERR .EQ. -1 ) THEN
                  CALL CMUMPS_BACKSLV_RECV_AND_TREAT(
      &                .FALSE., FLAG,
@@ -811,7 +812,7 @@ C
         MYLEAFE = MYLEAFE - 1
         IF (MYLEAFE .EQ. 0) THEN
           CALL CMUMPS_MCAST2( DUMMY, 1, MPI_INTEGER, MYID, COMM,
-     &                     FEUILLE, SLAVEF )
+     &                     FEUILLE, SLAVEF, KEEP )
           NBFINF = NBFINF - 1
           IF (NBFINF .EQ. 0) GOTO 340
         ENDIF
@@ -851,7 +852,7 @@ C
             MYLEAFE = MYLEAFE - 1
             IF (MYLEAFE .EQ. 0) THEN
                CALL CMUMPS_MCAST2( DUMMY, 1, MPI_INTEGER, MYID, COMM,
-     &              FEUILLE, SLAVEF )
+     &              FEUILLE, SLAVEF, KEEP )
                NBFINF = NBFINF - 1
                IF (NBFINF .EQ. 0) GOTO 340
                GOTO 50
@@ -884,7 +885,7 @@ C
      &         LIELL - KEEP(253),
      &         IW( POSINDICES ), 
      &         W   ( PTRACB(STEP( INODE )) ), 
-     &         JBDEB, JBFIN, PROCDEST,
+     &         JBDEB, JBFIN, KEEP, PROCDEST,
      &         NOEUD, COMM, IERR )
               IF ( IERR .EQ. -1 ) THEN
                 CALL CMUMPS_BACKSLV_RECV_AND_TREAT(
@@ -922,7 +923,7 @@ C
            MYLEAFE = MYLEAFE - 1
            IF (MYLEAFE .EQ. 0) THEN
               CALL CMUMPS_MCAST2( DUMMY, 1, MPI_INTEGER, MYID, COMM,
-     &             FEUILLE, SLAVEF )
+     &             FEUILLE, SLAVEF, KEEP )
               NBFINF = NBFINF - 1
               IF (NBFINF .EQ. 0) GOTO 340
               GOTO 50
@@ -941,10 +942,11 @@ C
       GOTO 50
   330 CONTINUE
       CALL CMUMPS_MCAST2(DUMMY, 1, MPI_INTEGER, MYID, COMM, TERREUR,
-     & SLAVEF)
+     & SLAVEF, KEEP)
   340 CONTINUE
-      CALL CMUMPS_FINISH_RECV( MYID,COMM,BUFR,
-     &                            LBUFR,LBUFR_BYTES )
+      CALL CMUMPS_CLEAN_PENDING(INFO(1), KEEP, BUFR, LBUFR,LBUFR_BYTES,
+     &     COMM, DUMMY(1),  
+     &     SLAVEF, .TRUE., .FALSE.) 
       IF (ALLOCATED(DEJA_SEND)) DEALLOCATE(DEJA_SEND)
       RETURN
       END SUBROUTINE CMUMPS_SOL_S

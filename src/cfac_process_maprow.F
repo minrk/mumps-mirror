@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -548,7 +548,7 @@ C
       DEALLOCATE(SLAVES_PERE)
  700  CONTINUE
       IF (IFLAG .LT. 0 .AND. .NOT. IS_ERROR_BROADCASTED) THEN
-        CALL CMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+        CALL CMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
       ENDIF
       RETURN
       END SUBROUTINE CMUMPS_MAPLIG
@@ -974,7 +974,7 @@ C
       DEALLOCATE(SLAVES_PERE)
       RETURN
  700  CONTINUE
-      CALL CMUMPS_BDC_ERROR(MYID, SLAVEF, COMM )
+      CALL CMUMPS_BDC_ERROR(MYID, SLAVEF, COMM, KEEP )
       RETURN
       END SUBROUTINE CMUMPS_MAPLIG_FILS_NIV1
       SUBROUTINE CMUMPS_LOCAL_ASSEMBLY_TYPE2(I, PDEST, MYID,

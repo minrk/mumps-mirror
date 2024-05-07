@@ -1,9 +1,9 @@
 !
-!  This file is part of MUMPS 5.0.1, released
-!  on Thu Jul 23 17:08:29 UTC 2015
+!  This file is part of MUMPS 5.0.2, released
+!  on Fri Jul 15 09:12:54 UTC 2016
 !
 !
-!  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+!  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 !  University of Bordeaux.
 !
 !  This version of MUMPS is provided to you free of charge. It is
@@ -190,9 +190,9 @@
 !       For heterogeneous architecture
         INTEGER, DIMENSION(:), POINTER :: MEM_DIST
 !       Compressed RHS
+        LOGICAL  :: POSINRHSCOMP_COL_ALLOC
         INTEGER, DIMENSION(:),   POINTER :: POSINRHSCOMP_ROW
         INTEGER, DIMENSION(:),   POINTER :: POSINRHSCOMP_COL
-        LOGICAL  :: POSINRHSCOMP_COL_ALLOC, pad111
         REAL, DIMENSION(:),   POINTER :: RHSCOMP
 !       Info on the subtrees to be used during factorization
         DOUBLE PRECISION, DIMENSION(:), POINTER :: MEM_SUBTREE
@@ -259,7 +259,7 @@
         INTEGER, DIMENSION(:), POINTER :: L0_OMP_MAPPING
 ! To avoid JOB -2 to suppress OOC files
         LOGICAL :: IF_RESTARTING
-! for RR on root (#define try_null_space)
+! for RR on root
         REAL, DIMENSION(:), POINTER :: SINGULAR_VALUES
         INTEGER ::  NB_SINGULAR_VALUES
       END TYPE SMUMPS_STRUC

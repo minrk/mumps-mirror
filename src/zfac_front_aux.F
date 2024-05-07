@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -81,13 +81,13 @@ C
               RMAX = max(abs(A(J1)),RMAX)
               J1 = J1 + NFRONT8
   360       CONTINUE
-  370       IF (RMAX.EQ.RZERO) GO TO 460
+  370       IF (RMAX.LE.tiny(RMAX)) GO TO 460
             IDIAG = APOS + int(IPIV - NPIVP1,8)*NFRONT8
-            IF (abs(A(IDIAG)).GE.max(UU*RMAX,SEUIL)) THEN
+            IF (abs(A(IDIAG)).GT.max(UU*RMAX,SEUIL,tiny(RMAX))) THEN
               JMAX = IPIV - NPIV
               GO TO 380
             ENDIF
-            IF (AMROW.LT.max(UU*RMAX,SEUIL)) GO TO 460
+            IF (AMROW.LE.max(UU*RMAX,SEUIL,tiny(RMAX))) GO TO 460
             NOFFW = NOFFW + 1
   380       CONTINUE
             IF (KEEP(258) .NE. 0) THEN
@@ -597,7 +597,8 @@ C
             IF (UU.GT.RZERO) GO TO 340
             IF (A(APOS).EQ.ZERO) GO TO 630 
             GO TO 380 
-  340       AMROW = RZERO
+  340       CONTINUE
+            AMROW = RZERO
             J1 = APOS
             J2 = APOS +int(- NPIV + NASS - 1,8)
              J     = NASS -NPIV
@@ -617,9 +618,8 @@ C
                  IF (IEND_BLOCK.NE.NASS ) THEN 
                    GOTO 460
                  ENDIF
-                 J1 = IDIAG
-                 J1=POSELT+int(IPIV-1,8)+NPIV*NFRONT
-                 J2=POSELT+int(IPIV-1,8)+(LAST_ROW-1)*NFRONT8
+                 J1=POSELT+int(IPIV-1,8)+int(NPIV,8)*NFRONT8
+                 J2=POSELT+int(IPIV-1,8)+int(LAST_ROW-1,8)*NFRONT8
                ELSE
                  J1=POSELT+int(IPIV-1,8)
                  J2=POSELT+int(IPIV-1,8)+int(LAST_ROW-1,8)*NFRONT8
@@ -650,11 +650,11 @@ C
                JMAX = IPIV - NPIV
                GOTO 385   
             ENDIF
-            IF (abs(A(IDIAG)).GT.max(UU*RMAX,SEUIL)) THEN
+            IF (abs(A(IDIAG)).GT.max(UU*RMAX,SEUIL,tiny(RMAX))) THEN
                JMAX = IPIV - NPIV
                GO TO 380
             ENDIF
-            IF (AMROW .LE. max(UU*RMAX,SEUIL)) GO TO 460
+            IF (AMROW .LE. max(UU*RMAX,SEUIL,tiny(RMAX))) GO TO 460
             NOFFW = NOFFW + 1
   380       CONTINUE
             IF (KEEP(258) .NE. 0) THEN
@@ -734,13 +734,16 @@ C
      &    IFLAG,IOLDPS,POSELT,UU, SEUIL,KEEP,KEEP8,PIVSIZ,
      &     DKEEP,PIVNUL_LIST,LPN_LIST, XSIZE,
      &     PP_FIRST2SWAP_L, PP_LastPanelonDisk,
-     &     PP_LastPIVRPTRIndexFilled,MAXFROMM,IS_MAXFROMM_AVAIL)
+     &     PP_LastPIVRPTRIndexFilled,MAXFROMM,IS_MAXFROMM_AVAIL, 
+     &     Inextpiv, IEND_BLR)
       USE MUMPS_OOC_COMMON 
       IMPLICIT NONE
       INTEGER(8) :: POSELT, LA
       INTEGER NFRONT,NASS,LIW,INODE,IFLAG,INOPV,
      &        IOLDPS, NNEG
       INTEGER, intent(in) :: IEND_BLOCK
+      INTEGER, intent(in)    :: IEND_BLR
+      INTEGER, intent(inout) :: Inextpiv
       INTEGER PIVSIZ,LPIV, XSIZE
       COMPLEX(kind=8) A(LA) 
       DOUBLE PRECISION UU, UULOC, SEUIL
@@ -757,19 +760,19 @@ C
       include 'mpif.h'
       INTEGER (8) :: POSPV1,POSPV2,OFFDAG,APOSJ
       INTEGER JMAX
-      DOUBLE PRECISION RMAX,AMAX,TMAX,TOL
+      DOUBLE PRECISION RMAX,AMAX,TMAX
       DOUBLE PRECISION MAXPIV
       DOUBLE PRECISION PIVNUL
       COMPLEX(kind=8) FIXA, CSEUIL
       COMPLEX(kind=8) PIVOT,DETPIV
-      PARAMETER(TOL = 1.0D-20)
       INCLUDE 'mumps_headers.h'
       INTEGER :: J
       INTEGER(8) :: APOS, J1, J2, JJ, NFRONT8, KK, J1_ini, JJ_ini
       INTEGER    :: LDA
       INTEGER(8) :: LDA8
       INTEGER NPIV,IPIV
-      INTEGER NPIVP1,K
+      INTEGER NPIVP1,K 
+      INTEGER ISHIFT, K206
       INTRINSIC max
       COMPLEX(kind=8) ZERO, ONE
       PARAMETER( ZERO = (0.0D0,0.0D0) )
@@ -784,6 +787,7 @@ C
       LDA     = NFRONT
       LDA8    = int(LDA,8)
       NFRONT8 = int(NFRONT,8)
+      K206    = KEEP(206)
       IF (KEEP(201).EQ.1 .AND. KEEP(50).NE.1) THEN
              CALL ZMUMPS_GET_OOC_PERM_PTR(TYPEF_L, NBPANELS_L, 
      &       I_PIVRPTR, I_PIVR, IOLDPS+2*NFRONT+6+KEEP(IXSZ),
@@ -815,7 +819,26 @@ C
          GO TO 420
       ENDIF
       INOPV   = 0
-      DO 460 IPIV=NPIVP1,IEND_BLOCK
+      ISHIFT = 0   
+      IF (K206.GE.1) THEN
+        IF (Inextpiv.GT.NPIVP1.AND.Inextpiv.LE.IEND_BLOCK) THEN
+          ISHIFT = Inextpiv - NPIVP1
+        ENDIF
+        IF (ISHIFT.GT.0.AND.IS_MAXFROMM_AVAIL) THEN
+           IPIV = NPIVP1
+           APOS = POSELT + LDA8*int(IPIV-1,8) + int(NPIV,8)
+           POSPV1 = APOS + int(IPIV - NPIVP1,8)
+           PIVOT = A(POSPV1)
+           IF ( MAXFROMM .GT. PIVNUL ) THEN
+               IF ( abs(PIVOT) .GT. max(UULOC*MAXFROMM,SEUIL)
+     &         .AND. abs(PIVOT) .GT. tiny(MAXFROMM) ) THEN
+                 ISHIFT = 0
+               ENDIF
+           ENDIF
+        ENDIF  
+      ENDIF  
+ 450  CONTINUE
+      DO 460 IPIV=NPIVP1+ISHIFT,IEND_BLOCK
          APOS = POSELT + LDA8*int(IPIV-1,8) + int(NPIV,8)
          POSPV1 = APOS + int(IPIV - NPIVP1,8)
          PIVOT = A(POSPV1)
@@ -826,11 +849,10 @@ C
             ENDIF
             GO TO 420
          ENDIF
-         AMAX = RZERO
-         JMAX = 0
          IF ( IS_MAXFROMM_AVAIL ) THEN
-            IF ( MAXFROMM > PIVNUL .AND. abs(PIVOT) > TOL) THEN
-               IF ( abs(PIVOT) .GT. max(UULOC*MAXFROMM,SEUIL) ) THEN
+            IF ( MAXFROMM .GT. PIVNUL ) THEN
+               IF ( abs(PIVOT) .GT. max(UULOC*MAXFROMM,SEUIL)
+     &         .AND. abs(PIVOT) .GT. tiny(MAXFROMM) ) THEN
                  IF (KEEP(258) .NE. 0) THEN
                    CALL ZMUMPS_UPDATEDETER(PIVOT, DKEEP(6), KEEP(259))
                  ENDIF
@@ -839,6 +861,8 @@ C
             ENDIF
             IS_MAXFROMM_AVAIL = .FALSE.
          ENDIF
+         AMAX = -RONE
+         JMAX = 0
          J1 = APOS
          J2 = POSPV1 - 1_8
          DO JJ=J1,J2
@@ -897,33 +921,21 @@ C
             PIVOT = A(POSPV1)
             GO TO 415
          ENDIF
-         IF ((KEEP(19).EQ.0).AND.(KEEP(110).EQ.0)) THEN
-           IF (max(AMAX,RMAX,abs(PIVOT)).LE.TOL) THEN
-            IF(SEUIL .GT. epsilon(SEUIL)) THEN
-               IF(dble(PIVOT) .GE. RZERO) THEN
-                  A(POSPV1) = CSEUIL
-               ELSE
-                  A(POSPV1) = -CSEUIL
-               ENDIF
-               PIVOT = A(POSPV1)
-               KEEP(98) = KEEP(98)+1
-               GO TO 415
-            ENDIF
-           ENDIF
-         ENDIF
-         IF (max(AMAX,abs(PIVOT)).LE.TOL) then
-           GO TO 460
-         ENDIF
-         IF (abs(PIVOT).GT.max(UULOC*max(RMAX,AMAX),SEUIL)) THEN
+         IF (abs(PIVOT).GT.max(UULOC*max(RMAX,AMAX),SEUIL)
+     &       .AND. abs(PIVOT) .GT. tiny(RMAX)) THEN
                IF (KEEP(258) .NE.0 ) THEN
                  CALL ZMUMPS_UPDATEDETER(PIVOT, DKEEP(6), KEEP(259))
                ENDIF
                GO TO 415
          END IF
-         IF (  (AMAX.LE.TOL).OR.
-     &   (
+         IF (NPIVP1.EQ.IEND_BLOCK) THEN
+           GOTO 460
+         ENDIF
+         IF (max(abs(PIVOT),RMAX,AMAX).LE.tiny(RMAX)) THEN
+           GOTO 460
+         ENDIF
+         IF (
      &   (KEEP(19).NE.0).AND.(max(AMAX,RMAX,abs(PIVOT)).LE.SEUIL)
-     &   ) 
      &      )
      &       THEN
            GO TO 460
@@ -952,7 +964,7 @@ C
               OFFDAG = APOS + int(JMAX - NPIVP1,8)
            END IF
            TMAX = RZERO
-           IF(JMAX .LT. IPIV) THEN
+           IF (JMAX .LT. IPIV) THEN
               JJ_ini = POSPV2
               OMP_FLAG = (NFRONT-JMAX-KEEP(253). GE. 300)
 !$OMP PARALLEL DO IF (OMP_FLAG)
@@ -990,14 +1002,11 @@ C
            ENDIF
            MAXPIV = max(abs(A(POSPV1)),abs(A(POSPV2)))
            IF (MAXPIV.EQ.RZERO) MAXPIV = RONE
-           IF (abs(DETPIV)/MAXPIV.LE.TOL) THEN
-             GO TO 460
-           ENDIF
-           IF ((abs(A(POSPV2))*RMAX+AMAX*TMAX)*UULOC.GT.
+           IF ((abs(A(POSPV2))*RMAX+AMAX*TMAX)*UULOC.GE.
      &          abs(DETPIV)) THEN
              GO TO 460
            ENDIF
-           IF ((abs(A(POSPV1))*TMAX+AMAX*RMAX)*UULOC.GT.
+           IF ((abs(A(POSPV1))*TMAX+AMAX*RMAX)*UULOC.GE.
      &          abs(DETPIV)) THEN
              GO TO 460
            ENDIF
@@ -1007,6 +1016,9 @@ C
            PIVSIZ = 2
            KEEP(103) = KEEP(103)+1
  415       CONTINUE
+          IF (K206.GE.1) THEN
+             Inextpiv = IPIV + PIVSIZ 
+          ENDIF
            DO K=1,PIVSIZ
               IF (PIVSIZ .EQ. 2) THEN
                 IF (K==1) THEN
@@ -1017,9 +1029,7 @@ C
               ELSE
                 LPIV = IPIV
               ENDIF
-              IF (LPIV.EQ.NPIVP1) THEN
-                 GOTO 416
-              ENDIF
+              IF (LPIV.EQ.NPIVP1) GOTO 416 
               CALL ZMUMPS_SWAP( A, LA, IW, LIW,
      &             IOLDPS, NPIVP1, LPIV, POSELT, NASS,
      &             LDA, NFRONT, 1, KEEP(219), KEEP(50),
@@ -1037,6 +1047,21 @@ C
            ENDIF
            GOTO 420
   460   CONTINUE
+      IF (ISHIFT.GT.0.AND.K206.GE.1) THEN
+       IF (K206.EQ.1) THEN
+         ISHIFT = 0 
+         Inextpiv = NPIVP1 
+         GOTO 450
+       ELSE  
+        IF (IEND_BLOCK.EQ.IEND_BLR) THEN
+         ISHIFT = 0 
+         Inextpiv = NPIVP1 
+         GOTO 450
+        ELSE 
+         Inextpiv = IEND_BLOCK+1
+        ENDIF
+       ENDIF 
+      ENDIF
       IF (IEND_BLOCK.EQ.NASS) THEN
        INOPV = 1
       ELSE

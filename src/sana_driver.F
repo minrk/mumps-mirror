@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -282,6 +282,26 @@ C        ************************************************
 C        BEGINNING OF MASTER CODE FOR SEQUENTIAL ANALYSIS
 C        ************************************************
          IF ( id%MYID .eq. MASTER ) THEN
+C           Prepare arguments for call to SMUMPS_ANA_F and
+C           SMUMPS_ANA_F_ELT in case id%SCHUR was not allocated
+C           by user. The objective is to avoid passing a null
+C           pointer. Done before 1234 label in order to avoid
+C           two allocations of size 1 and a memory leak in case
+C           there are two passes (see 1234 label below and
+C           "GOTO 1234" statement)
+            IF ( .NOT. associated( id%LISTVAR_SCHUR ) ) THEN
+               SIZE_SCHUR_PASSED = 1
+               LISTVAR_SCHUR_2BE_FREED=.TRUE.
+               allocate( id%LISTVAR_SCHUR( 1 ), STAT=allocok )
+               IF ( allocok .GT. 0 ) THEN
+                  WRITE(*,*)
+     &                 'PB allocating an array of size 1 in Schur '
+                  CALL MUMPS_ABORT()
+               END IF
+            ELSE
+               SIZE_SCHUR_PASSED=id%SIZE_SCHUR
+               LISTVAR_SCHUR_2BE_FREED = .FALSE.
+            END IF
  1234       CONTINUE
 C     new case for :
 C     - MTRANS scaling
@@ -430,23 +450,6 @@ C     Note that id%PERM_IN has been checked before.
             INFOG(2) = 0
 C           Initialize structural symmetry value to not yet computed.
             INFOG(8) = -1
-C            -------------------------------------------
-C            We allocate something only to avoid passing
-C            null pointers or arrays of size 0.
-C            -------------------------------------------
-            IF ( .NOT. associated( id%LISTVAR_SCHUR ) ) THEN
-               SIZE_SCHUR_PASSED = 1
-               LISTVAR_SCHUR_2BE_FREED=.TRUE.
-               allocate( id%LISTVAR_SCHUR( 1 ), STAT=allocok )
-               IF ( allocok .GT. 0 ) THEN
-                  WRITE(*,*)
-     &                 'PB allocating an array of size 1 in Schur '
-                  CALL MUMPS_ABORT()
-               END IF
-            ELSE
-               SIZE_SCHUR_PASSED=id%SIZE_SCHUR
-               LISTVAR_SCHUR_2BE_FREED = .FALSE.
-            END IF
             IF (KEEP(55) .EQ. 0) THEN
                CALL SMUMPS_ANA_F(id%N, id%NZ, id%IRN(1), id%JCN(1),
      &              LIW, id%IS1(IKEEP),
@@ -1669,29 +1672,29 @@ C     it always available in a keep(71)
      &        NB_NIV2, id%MYID_NODES,
      &        id%CANDIDATES(1,1), id%I_AM_CAND(1) )
       ENDIF
-#if ! defined(OLD_LOAD_MECHANISM)
-      IF (associated(id%FUTURE_NIV2)) THEN
-         deallocate(id%FUTURE_NIV2)
-         NULLIFY(id%FUTURE_NIV2)
-      ENDIF
-      allocate(id%FUTURE_NIV2(id%NSLAVES), stat=allocok)
-      IF (allocok .gt.0) THEN
-         IF ( LPOK ) THEN
-            WRITE(LP, 150) 'FUTURE_NIV2'
-         END IF
-         INFO(1)= -7
-         INFO(2)= id%NSLAVES
-         GOTO 321
-      ENDIF
-      id%FUTURE_NIV2=0
-      DO INIV2 = 1, NB_NIV2
-         IDEST = MUMPS_PROCNODE(
-     &        id%PROCNODE_STEPS(abs(id%STEP(PAR2_NODES(INIV2)))),
-     &        id%NSLAVES)
-         id%FUTURE_NIV2(IDEST+1)=id%FUTURE_NIV2(IDEST+1)+1
-      ENDDO
-#endif
       IF ( I_AM_SLAVE ) THEN
+#if ! defined(OLD_LOAD_MECHANISM)
+         IF (associated(id%FUTURE_NIV2)) THEN
+            deallocate(id%FUTURE_NIV2)
+            NULLIFY(id%FUTURE_NIV2)
+         ENDIF
+         allocate(id%FUTURE_NIV2(id%NSLAVES), stat=allocok)
+         IF (allocok .gt.0) THEN
+            IF ( LPOK ) THEN
+               WRITE(LP, 150) 'FUTURE_NIV2'
+            END IF
+            INFO(1)= -7
+            INFO(2)= id%NSLAVES
+            GOTO 321
+         ENDIF
+         id%FUTURE_NIV2=0
+         DO INIV2 = 1, NB_NIV2
+            IDEST = MUMPS_PROCNODE(
+     &           id%PROCNODE_STEPS(abs(id%STEP(PAR2_NODES(INIV2)))),
+     &           id%NSLAVES)
+            id%FUTURE_NIV2(IDEST+1)=id%FUTURE_NIV2(IDEST+1)+1
+         ENDDO
+#endif
 C     Allocate id%TAB_POS_IN_PERE, 
 C     TAB_POS_IN_PERE is an array of size (id%NSLAVES+2,NB_NIV2)
 C     where NB_NIV2 is the number of type 2 nodes in the tree.
@@ -2330,8 +2333,10 @@ C     -----------------------------------------
          IF ( id%KEEP( 60 ) .LE. 0 ) id%KEEP( 60 ) = 0
          IF ( id%KEEP( 60 ) .GT. 3 ) id%KEEP( 60 ) = 0
          IF (id%KEEP(60) .NE. 0 .AND. id%SIZE_SCHUR == 0 ) THEN
-            WRITE(MPG,'(A)')
-     &           ' ** Schur option ignored because SIZE_SCHUR=0'
+            IF (PROKG) THEN
+              WRITE(MPG,'(A)')
+     &        ' ** Schur option ignored because SIZE_SCHUR=0'
+            ENDIF
             id%KEEP(60)=0
          END IF
 C        ---------------------------------------
@@ -2483,7 +2488,7 @@ C              -------------------------------
                id%INFO(1) = -4
                id%INFO(2) = id%LISTVAR_SCHUR(I)
                RETURN
-               IF (MPG.GT.0) THEN
+               IF (PROKG) THEN
                   WRITE(MPG,'(A)')
      & ' ** Ignoring user-ordering, because incompatible with Schur.'
                   WRITE(MPG,'(A)') ' ** id%ICNTL(7) treated as 0.'
@@ -2526,14 +2531,14 @@ C     --------------------------------------------
 C        still forbid max trans for LLT
          IF ( id%KEEP(50) .EQ. 1 ) THEN
             IF (id%KEEP(23) .NE. 0) THEN
-               IF (MPG.GT.0) THEN
+               IF (PROKG) THEN
                   WRITE(MPG,'(A)')
      & ' ** Max-trans not compatible with LLT factorization'
                END IF
                id%KEEP(23) = 0
             ENDIF
             IF (id%KEEP(95) .GT. 1) THEN
-               IF (MPG.GT.0) THEN
+               IF (PROKG) THEN
                   WRITE(MPG,'(A)')
      & ' ** ICNTL(12) ignored: not compatible with LLT factorization'
                END IF
@@ -2543,14 +2548,14 @@ C        still forbid max trans for LLT
 C     
          IF  (id%KEEP(60) .GT. 0) THEN
             IF (id%KEEP(23) .NE. 0) THEN
-               IF (MPG.GT.0) THEN
+               IF (PROKG) THEN
                   WRITE(MPG,'(A)')
      &                 ' ** Max-trans not allowed because of Schur'
                END IF
                id%KEEP(23) = 0
             ENDIF
             IF (id%KEEP(52).NE.0) THEN
-               IF (MPG.GT.0) THEN
+               IF (PROKG) THEN
                   WRITE(MPG,'(A)')
      & ' ** Scaling during analysis not allowed because of Schur'
                ENDIF
@@ -2558,7 +2563,7 @@ C
             ENDIF
 C     also forbid compressed/constrained ordering...
             IF (id%KEEP(95) .GT. 1) THEN
-               IF (MPG.GT.0) THEN
+               IF (PROKG) THEN
                   WRITE(MPG,'(A)')
      & ' ** ICNTL(12) option not allowed because of Schur'
                END IF
@@ -2568,13 +2573,13 @@ C     also forbid compressed/constrained ordering...
          IF ( (id%KEEP(23) .NE. 0) .AND. (id%KEEP(256).EQ.1)) THEN
             id%KEEP(23) = 0
             id%KEEP(95) = 1
-            IF (MPG.GT.0) THEN
+            IF (PROKG) THEN
                WRITE(MPG,'(A)')
      & ' ** Max-trans not allowed because ordering is given'
             END IF
          END IF
          IF ( id%KEEP(256) .EQ. 1 ) THEN
-            IF (id%KEEP(95) > 1 .AND. MPG.GT.0) THEN
+            IF (id%KEEP(95) > 1 .AND. PROKG) THEN
                WRITE(MPG,'(A)')
      & ' ** ICNTL(12) option incompatible with given ordering'
             END IF
@@ -2582,7 +2587,7 @@ C     also forbid compressed/constrained ordering...
          END IF
          IF (id%KEEP(54) .NE. 0) THEN
             IF( id%KEEP(23) .NE. 0 ) THEN
-               IF (MPG.GT.0) THEN
+               IF (PROKG) THEN
                   WRITE(MPG,'(A)')
      & ' ** Max-trans not allowed because matrix is distributed'
                END IF
@@ -2591,7 +2596,7 @@ C     also forbid compressed/constrained ordering...
             IF (id%KEEP(52).EQ.-2) THEN
 C           Only Ruiz & Bora scaling available for dist format 
 C           (Work supported by ANR-SOLSTICE (ANR-06-CIS6-010))
-               IF (MPG.GT.0) THEN
+               IF (PROKG) THEN
                   WRITE(MPG,'(A)')
      & ' ** Scaling during analysis not allowed (matrix is distributed)'
                ENDIF
@@ -2606,13 +2611,13 @@ C           (Work supported by ANR-SOLSTICE (ANR-06-CIS6-010))
          END IF
          IF ( id%KEEP(55) .NE. 0 ) THEN
             IF( id%KEEP(23) .NE. 0 ) THEN
-               IF (MPG.GT.0) THEN
+               IF (PROKG) THEN
                   WRITE(MPG,'(A)')
      & ' ** Max-trans not allowed for element matrix'
                END IF
                id%KEEP(23) = 0
             ENDIF
-            IF (MPG.GT.0 .AND. id%KEEP(52).EQ.-2) THEN
+            IF (PROKG .AND. id%KEEP(52).EQ.-2) THEN
                WRITE(MPG,'(A)')
      & ' ** Scaling not allowed at analysis for element matrix'
             ENDIF
@@ -2641,7 +2646,7 @@ C     Avoid distributed entry for element matrix.
 C     --------------------------------------------
          IF ( id%KEEP(54) .NE. 0 .AND. id%KEEP(55) .NE. 0 ) THEN
             id%KEEP(54) = 0
-            IF (MPG.GT.0) THEN
+            IF (PROKG) THEN
                WRITE(MPG,'(A)')
      & ' ** Distributed entry not available for element matrix'
             END IF

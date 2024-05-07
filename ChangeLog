@@ -2,6 +2,36 @@
 = ChangeLog =
 -------------
 
+Changes from 5.0.1 to 5.0.2
+* Suppress error on id%SCHUR_CINTERFACE in mumps_driver.F when bound
+  check is enabled and when using 2D block cyclic Schur complement
+  feature (ICNTL(19)=2 or 3) from C or Matlab interfaces
+* Problem of failed assertion in [SDCZ]MUMPS_TREAT_DESCBAND solved (static variable
+  INODE_WAITED_FOR was not initialized and was not detected by valgrind)
+* Correction of very minor memory leaks and access to uninitialized data
+* A setting of INFO(1)=-1-17 should have been INFO(1)=-17
+* Some settings of INFO(1)=-17 should have been INFO(1)=-20
+* Suppress absolute tolerance 10^-20 in pivot selection for SYM=2;
+  skip 2x2 pivot search if only 1 pivot candidate, avoid pivots
+  that are subnormal numbers (their inverse is equal to infinity)
+* Warning +2 now only occurs when solution is really close to 0
+* Occasional bug in OOC and multiple instances solved
+* Better selection of equations for bwd errors (W1 and W2) and better
+  forward error estimates on some machines with 80-bit registers
+* Improved users' guide (OOC files cleaning, permutation details, usage
+  of multithreading, clarification of MegaByte unit)
+* Cleaning of asynchronous messages after facto/solve was
+  revisited and is more robust
+* More robust suppression of integer overflow risk during
+  solve for huge ICNTL(23)
+* Improved performance of symbolic factorization in case of matrices with
+  relatively dense rows and/or with large number of Lagrange multipliers
+* Improved performance of numerical factorization phase during 
+  pivot search for symmetric indefinite matrices
+* Use of -xcore-avx2 requires !DEC$ NOOPTIMIZE in MUMPS_BIT_GET4PROC
+  with current versions of Intel compilers
+* Suppressed some temporary array creation and implicit conversions
+
 Changes from 5.0.0 to 5.0.1
 * Iterative refinement convergence check corrected (problem
   introduced in 5.0.0)

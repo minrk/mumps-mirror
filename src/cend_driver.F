@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -74,9 +74,7 @@ C  ---------------------------------
         DEALLOCATE(id%MAPPING)
         NULLIFY(id%MAPPING)
       END IF
-C  Schur is now user-data
-C      IF (associated(id%SCHUR)) DEALLOCATE(id%SCHUR)
-       NULLIFY(id%SCHUR_CINTERFACE)
+      NULLIFY(id%SCHUR_CINTERFACE)
 C
 C     -------------------------------------
 C     Always deallocate scaling arrays
@@ -374,62 +372,3 @@ C Mapping information used during solve
       END IF
       RETURN
       END SUBROUTINE CMUMPS_END_DRIVER
-      SUBROUTINE CMUMPS_FINISH_RECV(MYID,COMM,S,MAXS,MAXS_BYTES)
-      IMPLICIT NONE
-C
-C  Purpose : 
-C  =======
-C
-C  Terminate pending requests. On many systems, cancellation
-C  is implemented on the receiver side, but not on the sender side.
-C
-C  Note : To avoid an MPI error on reception, on some implementations
-C         the only way to empty the MPI receive buffers is to
-C         receive the complete message. As S should be the largest
-C         array available, we try to receive into S. This is a
-C         bit awkward, but even the handling of errors is not
-C         possible with some implementations !!
-C
-      INCLUDE 'mpif.h'
-      INTEGER :: IERR
-      INTEGER :: STATUS(MPI_STATUS_SIZE)
-C
-C  Arguments :
-C  =========
-C
-      INTEGER COMM, MYID, MAXS, MAXS_BYTES
-      INTEGER S( MAXS )
-C
-C  Local variables
-C  ===============
-C
-      INTEGER MSGTAG, MSGSOU, MSGLEN
-      LOGICAL FLAG
-      FLAG = .TRUE.
-      DO WHILE ( FLAG )
-        CALL MPI_IPROBE( MPI_ANY_SOURCE, MPI_ANY_TAG, COMM,
-     &                   FLAG, STATUS, IERR )
-        IF (FLAG) THEN
-          MSGTAG=STATUS(MPI_TAG)
-          MSGSOU=STATUS(MPI_SOURCE)
-          CALL MPI_GET_COUNT(STATUS,MPI_PACKED,MSGLEN,IERR)
-C         -------------------------------------
-C         We hope that buffer S is large enough
-C         -------------------------------------
-          IF (MSGLEN <= MAXS_BYTES) THEN
-            CALL MPI_RECV(S(1),MAXS_BYTES,MPI_PACKED,
-     &      MSGSOU, MSGTAG, COMM, STATUS, IERR)
-          ELSE
-C           We have to exit from the while,
-C           otherwise we are in an infinite
-C           loop
-            EXIT
-          ENDIF
-c         CALL MPI_ERRHANDLER_SET( COMM, MPI_ERRORS_ARE_FATAL, IERR )
-        END IF
-      END DO
-C     Barrier for safety: in case CMUMPS_FINISH_RECV
-C     is followed by deallocation of send buffers.
-      CALL MPI_BARRIER( COMM, IERR )
-      RETURN
-      END SUBROUTINE CMUMPS_FINISH_RECV

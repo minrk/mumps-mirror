@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -393,7 +393,7 @@ C
      &     MEMCNT=MEMCNT, ERRCODE=-7)
       IF(MEMCNT .GT. MAXMEM) MAXMEM=MEMCNT
       CALL SMUMPS_GRAPH_DIST(id, ord, FIRST,
-     &     LAST, BASE, NPROCS, WORK(id%N+1: 3*id%N), TYPE=2)
+     &     LAST, BASE, NPROCS, WORK(1: 2*id%N+2), TYPE=2)
       VERTLOCNBR = LAST(MYID+1)-FIRST(MYID+1) + 1
       SWORK => WORK(id%N+1:3*id%N)
       CALL SMUMPS_BUILD_SCOTCH_GRAPH(id, FIRST, LAST, VERTLOCTAB,
@@ -509,7 +509,7 @@ C
      &     MEMCNT=MEMCNT, ERRCODE=-7)
       IF(MEMCNT .GT. MAXMEM) MAXMEM=MEMCNT
       CALL SMUMPS_GRAPH_DIST(id, ord, FIRST,
-     &     LAST, BASE, NPROCS, WORK(id%N+1: 3*id%N), TYPE=2)
+     &     LAST, BASE, NPROCS, WORK(1: 2*id%N+2), TYPE=2)
       VERTLOCNBR = LAST(MYID+1)-FIRST(MYID+1) + 1
       VERTLOCTAB => WORK(1:id%N)
       SWORK => WORK(id%N+1:3*id%N)
@@ -1068,8 +1068,10 @@ C
          PFREET = IPET(TGSIZE+1)
          PFT_SAVE = PFREET
          nullify(LPERM)
-         CALL MUMPS_IDEALLOC(top_graph%IRN_LOC,
-     &        top_graph%JCN_LOC, ord%TOPNODES, MEMCNT=MEMCNT)
+      ENDIF
+      CALL MUMPS_IDEALLOC(top_graph%IRN_LOC,
+     &     top_graph%JCN_LOC, ord%TOPNODES, MEMCNT=MEMCNT)
+      IF(MYID .EQ. 0) THEN
          W       => NROOTS
          DEGREE  => MYNVAR
          NDENSE  => MYLIST
@@ -2025,38 +2027,43 @@ C
      &     (BASE+ord%NSLAVES-1-BASE)+1
       LAST(BASE+ord%NSLAVES)  = id%N
       ELSE IF (TYPE.EQ.2) THEN
-      TMP    => WORK(1:id%N)
-      NZ_ROW => WORK(id%N+1:2*id%N)
-      TMP = 0
-      DO I=1, ID%NZ_LOC
-         IF(id%IRN_LOC(I) .NE. id%JCN_LOC(I)) THEN
-            TMP(id%IRN_LOC(I)) = TMP(id%IRN_LOC(I))+1
-            IF(id%SYM.GT.0) THEN
-               TMP(id%JCN_LOC(I)) = TMP(id%JCN_LOC(I))+1
-            end if
-         end if
-      end do
-      CALL MPI_ALLREDUCE(TMP(1), NZ_ROW(1), id%N,
-     &     MPI_INTEGER, MPI_SUM, id%COMM, IERR)
-      nullify(TMP)
-      P = 1
-      T = 0
-      F = 1
-      DO I=1, id%N
-         T = T+NZ_ROW(I)
-         IF(T .ge. id%NZ/ord%NSLAVES) THEN
-            FIRST(BASE+P) = F
-            LAST(BASE+P)  = I
-            F = I+1
-            P = P+1
-            T = 0
-            IF (P.EQ.ord%NSLAVES) THEN
-               FIRST(BASE+P) = F
-               LAST(BASE+P)  = id%N
-               EXIT
+         TMP    => WORK(1:id%N+1)
+         NZ_ROW => WORK(id%N+2:2*id%N+2)
+         TMP = 0
+         DO I=1, id%NZ_LOC
+            IF(id%IRN_LOC(I) .NE. id%JCN_LOC(I)) THEN
+               TMP(id%IRN_LOC(I)) = TMP(id%IRN_LOC(I))+1
+               TMP(id%N+1) = TMP(id%N+1)+1
+               IF(id%SYM.GT.0) THEN
+                  TMP(id%JCN_LOC(I)) = TMP(id%JCN_LOC(I))+1
+                  TMP(id%N+1) = TMP(id%N+1)+1
+               END IF
             END IF
-         END IF
-      END DO
+         END DO
+         CALL MPI_ALLREDUCE(TMP(1), NZ_ROW(1), id%N+1,
+     &        MPI_INTEGER, MPI_SUM, id%COMM, IERR)
+         nullify(TMP)
+         P = 1
+         T = 0
+         F = 1
+         I = 1
+         DO
+            IF(I.GT.id%N) EXIT
+            T = T+NZ_ROW(I)
+            IF(T .GT. NZ_ROW(id%N+1)/ord%NSLAVES) THEN
+               FIRST(BASE+P) = F
+               LAST(BASE+P)  = I-1
+               F = I
+               P = P+1
+               T = 0
+               IF (P.EQ.ord%NSLAVES) THEN
+                  FIRST(BASE+P) = F
+                  LAST(BASE+P)  = id%N
+                  EXIT
+               END IF
+            END IF
+            I = I+1
+         END DO
       END IF
       DO I=BASE+ord%NSLAVES, NPROCS
          FIRST(I+1) = id%N+1

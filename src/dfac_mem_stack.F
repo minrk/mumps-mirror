@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -265,7 +265,7 @@ C
         DO WHILE (IERR.EQ.-1)
          CALL DMUMPS_BUF_SEND_RTNELIND( INODE, NELIM, 
      &     IW(LIST_ROW_SON), IW(LIST_COL_SON), NSLAVES, 
-     &     IW(LIST_SLAVES), MSGDEST, COMM, IERR)
+     &     IW(LIST_SLAVES), MSGDEST, COMM, KEEP, IERR)
          IF ( IERR .EQ. -1 ) THEN
             BLOCKING   =.FALSE.
             SET_IRECV  =.TRUE.
@@ -331,7 +331,7 @@ C
      &         LCONT, NASS, NPIV, IW( IOLDPS +  H_INODE + NPIV ),
      &         IW( IOLDPS +  H_INODE + NPIV + NFRONT ),
      &         A( OPSFAC ), COMPRESSCB,
-     &         MSGDEST, MSGTAG, COMM, IERR )
+     &         MSGDEST, MSGTAG, COMM, KEEP, IERR )
           ELSE
              IF ( TYPE.EQ.2 ) THEN
               INIV2 = ISTEP_TO_INIV2 ( STEP(INODE) )
@@ -565,6 +565,8 @@ C
  500  CONTINUE
       RETURN
   600 CONTINUE
-      IF (IFLAG .NE. -1) CALL DMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+      IF (IFLAG .NE. -1) THEN
+        CALL DMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
+      ENDIF
       RETURN
       END SUBROUTINE DMUMPS_FAC_STACK

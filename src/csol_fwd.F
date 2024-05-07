@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -72,6 +72,7 @@ C
       EXTERNAL MUMPS_PROCNODE
       INTEGER MUMPS_PROCNODE
       DUMMY(1) = 1
+      KEEP(266)=0
       POSIWCB = LIWCB
       POSWCB  = LWCB
       PLEFTWCB= 1
@@ -89,7 +90,7 @@ C
       IF ( MYROOT .EQ. 0 ) THEN
         NBFIN = NBFIN - 1
         CALL CMUMPS_MCAST2(DUMMY, 1, MPI_INTEGER, MYID, COMM,
-     &       RACINE_SOLVE, SLAVEF)
+     &       RACINE_SOLVE, SLAVEF, KEEP)
         IF (NBFIN.EQ.0) GOTO 260
       END IF
       MYLEAF = LEAF - 1
@@ -142,7 +143,8 @@ C
       IF ( INFO( 1 ) .LT. 0 .OR. NBFIN .EQ. 0 ) GOTO 260
       GOTO 50
   260 CONTINUE
-      CALL CMUMPS_FINISH_RECV( MYID,COMM,BUFR,
-     &                            LBUFR,LBUFR_BYTES )
+      CALL CMUMPS_CLEAN_PENDING(INFO(1), KEEP, BUFR, LBUFR,LBUFR_BYTES,
+     &     COMM, DUMMY(1),  
+     &     SLAVEF, .TRUE., .FALSE.) 
       RETURN
       END SUBROUTINE CMUMPS_SOL_R

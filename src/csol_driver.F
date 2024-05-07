@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -85,7 +85,6 @@ C     null space
      &        IROOT_DEF_RHS_COL1
 C
       INTEGER NITREF, NOITER, SOLVET, KASE
-      COMPLEX RSOL(1)
 C     Meaningful only with tree pruning and sparse RHS
       LOGICAL INTERLEAVE_PAR, DO_PERMUTE_RHS
 C     true if CMUMPS_SOL_C called during postprocessing
@@ -1041,6 +1040,8 @@ C     The leading dimension of RHS is id%LRHS on the host process
 C     and it is set to N on slave processes.
       IF (id%MYID .eq. MASTER) THEN
         KEEP(84) = ICNTL(27)
+C     Treating ICNTL(27)=0 as if ICNTL(27)=1
+        IF(ICNTL(27).EQ.0) KEEP(84)=1
         IF (KEEP(252).NE.0) THEN
 !       Fwd in facto: all rhs (KEEP(253) need be processed in one pass
           NBRHS = KEEP(253)
@@ -1262,8 +1263,10 @@ C       dynamic allocation.
         IF ( MAXS-LA .GT. int(LWCB_MIN,8) ) THEN
 C          No need for LWCB to overflow.
 C          If too much space is available at the
-C          end of MAXS, we limit it to huge(LWCB)
-           TMP_LWCB8 = min( MAXS - LA, int(huge(LWCB),8) )
+C          end of MAXS, we limit it to huge(LWCB)/2
+           TMP_LWCB8 = min( MAXS - LA, int(huge(LWCB)/2,8) )
+           TMP_LWCB8 = max( TMP_LWCB8, int(LWCB_MIN,8) )
+C
            LWCB      = int( TMP_LWCB8, kind(LWCB) )
            WORK_WCB => id%S(LA+1_8:LA+TMP_LWCB8)
            WORK_WCB_ALLOCATED=.FALSE.
@@ -4326,7 +4329,7 @@ C                                               of the last sol.
                   CALL CMUMPS_SOL_Q(MTYPE,INFO(1),id%N,id%NZ,
      &            id%RHS(IBEG),
      &            SAVERHS,R_W(id%N+1),C_Y,GIVSOL,
-     &            RSOL,RINFOG(4),RINFOG(5),RINFOG(6),MPG,ICNTL(1),
+     &            RINFOG(4),RINFOG(5),RINFOG(6),MPG,ICNTL(1),
      &            KEEP(1),KEEP8(1))
                   IF ( MPG .GT. 0 ) THEN
 C                   Error analysis before iterative refinement
@@ -4532,7 +4535,7 @@ c             Compute some statistics for
               CALL CMUMPS_SOL_Q(MTYPE,INFO(1),id%N,id%NZ,
      &        id%RHS(IBEG),
      &        SAVERHS,R_W(id%N+1),C_Y,GIVSOL,
-     &        RSOL,RINFOG(4),RINFOG(5),RINFOG(6),MPG,ICNTL(1),
+     &        RINFOG(4),RINFOG(5),RINFOG(6),MPG,ICNTL(1),
      &        KEEP(1),KEEP8(1))
             ENDIF ! Master
             CALL MUMPS_SECFIN(TIMEEA)

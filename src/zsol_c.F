@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -1982,7 +1982,7 @@ C
       INTEGER, intent(in) :: KEEP(500)
       INTEGER(8), intent(in) :: KEEP8(150)
       INTEGER, intent(in) :: PTRIST(KEEP(28)), PROCNODE_STEPS(KEEP(28))
-      INTEGER, intent(in) :: DAD(KEEP(28))
+      INTEGER, intent(inout) :: DAD(KEEP(28))
       INTEGER, intent(in) :: IW(LIW), STEP(N)
       INTEGER, intent(in) :: NBCOL_INBLOC, IRHS_PTR(NBCOL_INBLOC+1)
       INTEGER, intent(in) :: NZ_RHS, IRHS_SPARSE(NZ_RHS)
@@ -1995,7 +1995,7 @@ C
       INTEGER, intent(out):: NB_FS_IN_RHSCOMP_FWD, NB_FS_IN_RHSCOMP_TOT
       INTEGER, intent(in) :: UNS_PERM_INV(SIZE_UNS_PERM_INV)
       INTEGER I, JAM1
-      INTEGER ISTEP
+      INTEGER ISTEP, OLDISTEP
       INTEGER NPIV
       INTEGER SK38, SK20, IPOS, LIELL
       INTEGER JJ, J1, JCOL, ABSJCOL
@@ -2197,13 +2197,16 @@ C
               END IF
             END DO
           END IF
-          IF(DAD(ISTEP).NE.0) THEN
+          IF(DAD(ISTEP).GT.0) THEN
+            OLDISTEP=ISTEP
             ISTEP = STEP(DAD(ISTEP))
+            DAD(OLDISTEP)=-DAD(OLDISTEP)
           ELSE 
             GO_UP = .FALSE.
           END IF
         END DO 
       END DO 
+      DAD=ABS(DAD)
       IF(POSINRHSCOMP_COL_ALLOC) THEN
         DO I =1, NZ_RHS
           JAM1 = IRHS_SPARSE(I)
@@ -2251,13 +2254,16 @@ C
                 END IF
               END DO
             END IF
-            IF(DAD(ISTEP).NE.0) THEN
+            IF(DAD(ISTEP).GT.0) THEN
+              OLDISTEP=ISTEP
               ISTEP = STEP(DAD(ISTEP))
+              DAD(OLDISTEP)=-DAD(OLDISTEP)
             ELSE 
               GO_UP = .FALSE.
             END IF
           END DO 
         END DO 
+       DAD=ABS(DAD)
       END IF
       NBENT_RHSCOMP_ROW = IPOSINRHSCOMP_ROW
       NBENT_RHSCOMP_COL = IPOSINRHSCOMP_COL

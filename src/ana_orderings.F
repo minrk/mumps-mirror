@@ -8012,7 +8012,7 @@ C
 C LISTVAR_SCHUR(1:SIZE_SCHUR) (in): should be set on entry to the list of
 C                variables (original indices) in the Schur complement
 C
-C THRESH (in): is used to set the local variable THRESHM, corresponding
+C THRESH (in): is used to set the local variable THRESM, corresponding
 C      to the internal restarting feature.
 C      <= 0 Recommended value. Automatic setting will be done.
 C          Note that this does not correspond to the historical
@@ -8326,15 +8326,18 @@ C       overflow).
 C-----------------------------------------------------------------------
 C LOCAL INTEGERS:
 C-----------------------------------------------------------------------
-C     THRESH is used to
+C     THRESM is used to
 C        accelerate symolic factorization 
-C         THRESH is dynamically updated to 
+C         THRESM is dynamically updated to 
 C                allow more quasi-dense row selection
 C     ThresPrev holds last starting value 
 C                   at the beginning of one iteration
 C     ThresMin  holds minimum value of THRESH 
       INTEGER FDEG, ThresMin, ThresPrev, IBEGSchur, NbSchur, 
      &        ThresMinINIT
+      INTEGER DEGMAX,THD, THDperm, THD_AGG
+      DOUBLE PRECISION RELDEN
+      LOGICAL AGG6_loc, DenseRows
       LOGICAL SchurON
       INTEGER DEG, DEGME, DEXT, DMAX, E, ELENME, ELN, I,
      &        ILAST, INEXT, J, JLAST, JNEXT, K, KNT1, KNT2, KNT3,
@@ -8405,32 +8408,35 @@ C psrc:       source pointer, for compression
 C-----------------------------------------------------------------------
 C  FUNCTIONS CALLED:
 C-----------------------------------------------------------------------
-      INTRINSIC max, min, mod
+      INTRINSIC max, min, mod, maxval
 C=======================================================================
 C  INITIALIZATIONS
 C=======================================================================
-        IF (N.EQ.1) THEN
+      IF (N.EQ.1) THEN
            ELEN(1) = 1
            LAST(1) = 1
            PE(1) = 0
            NV(1) = 1
            NCMPA = 0
            RETURN
-        ENDIF
+      ENDIF
+      AGG6_loc = AGG6
+      DenseRows = .FALSE.
 C
 C       We can now assume that N>1
 C
 CSymbolic  Intialize degrees with the order given by PERM
 C
-        SIZE_SCHUR = min(N,SIZE_SCHUR)
-        SIZE_SCHUR = max(0,SIZE_SCHUR)
-        SchurON   = (SIZE_SCHUR > 0)
-        IBEGSchur = N-SIZE_SCHUR+1
-        IF (THRESH.GT.N) THRESH = N
-        IF (THRESH.LT.0) THRESH = 0
-C       Variables in the schur are considered as exactly dense
-C       (Schur variables are ordered last, we check it here)
-        IF ( SchurON )  THEN 
+      SIZE_SCHUR = min(N,SIZE_SCHUR)
+      SIZE_SCHUR = max(0,SIZE_SCHUR)
+      SchurON   = (SIZE_SCHUR > 0)
+      IBEGSchur = N-SIZE_SCHUR+1
+      THRESM    = THRESH  ! local value of THRESH
+      IF (THRESM.GT.N) THRESM = N
+      IF (THRESM.LT.0) THRESM = 0
+C     Variables in the schur are considered as exactly dense
+C     (Schur variables are ordered last, we check it here)
+      IF ( SchurON )  THEN 
            DO I= 1, N
              IF ( PERM(I) .GE. IBEGSchur) THEN 
                  PERM(I) = N + 1
@@ -8441,9 +8447,9 @@ C               entry which is anyway empty
                 ENDIF
              ENDIF
            ENDDO
-        ENDIF
+      ENDIF
 C          
-        IF (SchurON) THEN
+      IF (SchurON) THEN
 C
 C         Only restriction is n>= THRESM > 0 
 C
@@ -8454,13 +8460,37 @@ C           (To be Tested it seperately)
              THRESM    = N
              ThresMin  = N
              ThresPrev = N
-        ELSE
-             THRESM    = max(int(31*N/32),THRESH)
+      ELSE
+COLD         THRESM    = max(int(sqrt(dble(N)))+N/8+1, THRESM)
+COLD         THRESM    = max(THRESM,1)
+COLD         ThresMin  = max( THRESM / 8, 1)
+COLD         ThresPrev = THRESM
+COLD    ENDIF
+COLD    ThresMinINIT = ThresMin
+             THRESM    = max(int(31*N/32),THRESM)
              THRESM    = max(THRESM,1)
+C
+             DEGMAX= maxval(LEN)
+             RELDEN=dble(PFREE-1)/dble(N)
+             THD = int(RELDEN)*10 + (DEGMAX-int(RELDEN))/10 + 1
+             IF (THD.LT.DEGMAX) THEN
+              DenseRows = .TRUE.
+              THDperm = N  
+              DO I = 1,N
+               IF (LEN(I) .GT. THD) THEN
+                THDperm =  min(THDperm,PERM(I))
+               ENDIF
+              ENDDO
+              THRESM  = min(THRESM, THDperm)
+             ENDIF
+C   Compute ThresMin and initialise  ThresPrev
              ThresMin  = max( 3*THRESM / 4, 1)
              ThresPrev = THRESM
-        ENDIF
-        ThresMinINIT = ThresMin/4
+C
+      ENDIF  ! test on SchurON
+C
+      ThresMinINIT = ThresMin/4
+      THD_AGG = max(128, min(N/2048, 1024))
       IF (THRESM.GT.0) THEN
        IF ((THRESM.GT.N).OR.(THRESM.LT.2)) THEN 
 C      exactly dense rows only
@@ -9053,6 +9083,7 @@ C       is degme), plus the sum of the external degrees of each Le
 C       for the elements e appearing within i, plus the
 C       supervariables in i.  Place i in hash list.
 C       -------------------------------------------------------------
+        AGG6_loc = (AGG6 .OR. (DEGREE(ME) .LT. THD_AGG))
         DO 180 PME = PME1, PME2
           I = IW (PME)
           IF (DEGREE(I).GT.N) GOTO 180
@@ -9076,7 +9107,7 @@ C           dext = | Le \ Lme |
 C        ------------------------------
 C        suppress aggressive absorption
 C        ------------------------------
-            ELSE IF (.NOT. AGG6 .AND. DEXT .EQ. 0) THEN
+            ELSE IF (.NOT. AGG6_loc .AND. DEXT .EQ. 0) THEN
               IW (PN) = E
               PN = PN + 1
               HASH = HASH + int(E,kind=8)
@@ -9084,14 +9115,14 @@ C
 C        ------------------------------
 C        try aggressive absorption
 C         when possible
-            ELSE IF (AGG6 .AND. (DEXT .EQ. 0) .AND.
+            ELSE IF (AGG6_loc .AND. (DEXT .EQ. 0) .AND.
      &            ((NDENSE(ME).EQ.NBD).OR.(NDENSE(E).EQ.0))) THEN
 C             aggressive absorption: e is not adjacent to me, but
 C             |Le(G') \ Lme(G')| is 0 and all dense rows
 C             are in me, so absorb it into me
                 PE (E) = -ME
                 W (E)  = 0
-             ELSE IF (AGG6 .AND. DEXT.EQ.0) THEN
+             ELSE IF (AGG6_loc .AND. DEXT.EQ.0) THEN
                   IW(PN) = E
                   PN     = PN+1
                   HASH   = HASH + int(E,kind=8)
@@ -9121,7 +9152,7 @@ C         update the degree and check for mass elimination
 C         ----------------------------------------------------------
           IF (((ELEN(I).EQ.1).AND.(P3.EQ.PN))
      &     .OR.
-     &         (AGG6.AND.(DEG .EQ. 0).AND.(NDENSE(ME).EQ.NBD))
+     &         (AGG6_loc.AND.(DEG .EQ. 0).AND.(NDENSE(ME).EQ.NBD))
      &       )
      &    THEN
 C           -------------------------------------------------------
@@ -9300,7 +9331,8 @@ C       ------------------------------
 C       Update thresm for having more
 C       quasi dense rows to select
 C       ------------------------------
-        IF ( (THRESM .GT. 0).AND.(THRESM.LT.N) ) THEN 
+        IF ( .NOT.DenseRows.AND.(THRESM .GT. 0).AND.(THRESM.LT.N) ) 
+     &       THEN 
           THRESM = max(ThresMin, THRESM-NVPIV)
         ENDIF
         P = PME1

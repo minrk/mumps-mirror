@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -365,108 +365,6 @@ C
       istat=0
       return
       end subroutine MUMPS_ACCEPT_L0
-      subroutine MUMPS_AMALGAMATE_SONFATH(ifather,ison,istat)
-      implicit none
-      integer,intent(in)::ifather,ison
-      integer, intent(out)::istat
-      integer in,npiv_son,in_father,in_ison,bigbrother,oldest_son,
-     &        npiv,nfront
-      DOUBLE PRECISION costm,costw
-      character (len=48):: subname
-      istat=-1
-      subname='AMALGAMATE_SONFATH'
-      if((cv_frere(ison).eq.0).or.(cv_frere(ison).eq.cv_n+1)) return
-      in=ifather
-      do while (cv_fils(in).gt.0)
-         in=cv_fils(in)
-      end do
-      if (cv_fils(in).eq.0) return 
-      in_father=in 
-      in = -cv_fils(in)
-      if (in.eq.ison) then 
-         cv_fils(in_father)=ison
-         in=ison
-         do while (cv_fils(in).gt.0)
-            in=cv_fils(in)
-         end do
-         if (cv_fils(in).eq.0) then
-            if(cv_frere(ison).gt.0) then
-               cv_fils(in)=-cv_frere(ison)
-            end if
-            cv_frere(ison)=cv_n+1
-         else
-            in=-cv_fils(in)
-            do while(cv_frere(in).gt.0)
-               in=cv_frere(in)
-            end do
-            cv_frere(in)=cv_frere(ison)
-            cv_frere(ison)=cv_n+1
-         end if
-      else 
-         oldest_son=in
-         do while((cv_frere(in).ne.ison).and.(cv_frere(in).gt.0))
-            in=cv_frere(in)
-         end do
-         if (cv_frere(in).ne.ison) return
-         bigbrother=in
-         cv_fils(in_father)=ison
-         in=ison
-         do while (cv_fils(in).gt.0)
-            in=cv_fils(in)
-         end do
-         in_ison=in
-         if (cv_fils(in).eq.0) then
-            cv_frere(bigbrother)=cv_frere(ison)
-            cv_frere(ison)=cv_n+1
-            cv_fils(in_ison)=-oldest_son
-         else
-            in=-cv_fils(in_ison)
-            cv_frere(bigbrother)=in
-            do while(cv_frere(in).gt.0)
-               in=cv_frere(in)
-            end do
-            cv_frere(in)=cv_frere(ison)
-            cv_frere(ison)=cv_n+1
-            cv_fils(in_ison)=-oldest_son
-         end if
-      end if
-      cv_nsteps = cv_nsteps - 1
-      cv_ne(ifather)=cv_ne(ifather)+cv_ne(ison)-1
-      cv_ne(ison)=0
-      in=ison
-      npiv_son=0
-      do while (in.gt.0)
-         in=cv_fils(in)
-         npiv_son=npiv_son+1
-      end do
-      cv_nfsiz(ifather)=cv_nfsiz(ifather)+npiv_son
-      cv_nfsiz(ison)=0
-      cv_info(5)=max(cv_info(5),cv_nfsiz(ifather))
-      in=ifather
-      npiv=0
-      do while (in.gt.0)
-         in=cv_fils(in)
-         npiv=npiv+1
-      end do
-      nfront=cv_nfsiz(ifather)
-      call MUMPS_CALCNODECOSTS(npiv,nfront,costw,costm)
-      cv_ncostw(ifather)=costw
-      cv_ncostm(ifather)=costm
-      cv_ncostw(ison)=0.0D0
-      cv_ncostm(ison)=0.0D0
-      if(associated(cv_tcostw)) cv_tcostw(ison)=0.0D0
-      if(associated(cv_tcostm)) cv_tcostm(ison)=0.0D0
-      cv_total_amalg=cv_total_amalg+1
-      call MUMPS_PROPMAP4AMALG(ison,ifather,ierr)
-      if(ierr.ne.0) then
-         if(cv_lp.gt.0)
-     &   write(cv_lp,*)'PROPMAP4AMALG error in ',subname
-         istat = ierr
-         return
-      end if
-      istat = 0
-      return
-      end subroutine MUMPS_AMALGAMATE_SONFATH
       subroutine MUMPS_ARRANGEL0(map_strat,layerL0end,workload,memused,
      &                           procnode,istat,respect_prop)
       implicit none
@@ -646,6 +544,7 @@ C
       return
       end function MUMPS_BIT_GET
       function MUMPS_BIT_GET4PROC(inode,procnumber)
+!DEC$ NOOPTIMIZE
       implicit none
       integer, intent(in)::inode,procnumber
       logical :: MUMPS_BIT_GET4PROC
@@ -677,9 +576,9 @@ C
       subroutine MUMPS_CALCCOSTS(istat)
       implicit none
       integer,intent(out)::istat
-      integer i,ierr
+      integer i
       DOUBLE PRECISION :: maxcostw_root
-      character (len=48):: err_rep,subname
+      character (len=48):: subname
       istat = -1
       subname='CALCCOSTS'
       if ((.NOT.associated(cv_tcostw)).OR.(.NOT.associated(cv_tcostm)))
@@ -696,15 +595,9 @@ C
             cv_tcostm(i)=0.0D0
             cv_ncostm(i)=0.0D0
          elseif (cv_frere(i).eq.0) then
-            err_rep='TREECOSTS'
             cv_depth(i)=1
-            call MUMPS_TREECOSTS(i,ierr)
+            call MUMPS_TREECOSTS(i)
             maxcostw_root = max(maxcostw_root,cv_tcostw(i))
-            if (ierr.ne.0) then
-          if(cv_lp.gt.0)
-     &    write(cv_lp,*)'Failure reported by ',err_rep, ' in ',subname
-               return
-            end if
          end if
       end do
       istat = 0
@@ -1165,8 +1058,8 @@ C
          endif
          err_rep='SPLITNODE_UPDATE'
          call MUMPS_SPLITNODE_UPDATE( inode, nfront, npiv, k1,
-     &        lnpivsplit, npivsplit, cv_keep, n,
-     &        cv_nfsiz, cv_ne, ierr)
+     &        lnpivsplit, npivsplit,
+     &        ierr)
          if(ierr.ne.0) then
             if(cv_lp.gt.0)
      &      write(cv_lp,*)'Error reported by ',err_rep,
@@ -1372,8 +1265,8 @@ C
       return
       end subroutine MUMPS_GET_MEMSPLIT_INKPART
       subroutine MUMPS_SPLITNODE_UPDATE(inode,nfront,npiv,k,
-     &     lnpivsplit, npivsplit, keep, n,
-     &     nfsiz, ne, istat)
+     &     lnpivsplit, npivsplit,
+     &     istat)
       implicit none
       integer, intent(in)::nfront,npiv
       integer, intent(in):: k
@@ -1381,9 +1274,6 @@ C
       integer, intent(in)::npivsplit(lnpivsplit)
       integer, intent(in):: inode
       integer, intent(out)::istat
-      integer, intent(inout):: keep(150)
-      integer, intent(in)  :: n
-      integer, intent(inout):: nfsiz(n), ne(n)
       integer lev,npiv_father,
      &     npiv_son,nfrontk,npivk,next_father
       DOUBLE PRECISION:: ncostm,ncostw,ncostm_ison,ncostw_ison,
@@ -1412,8 +1302,6 @@ C
          next_father = -frere(ifather)
          npiv_son=   abs(npivsplit(lev))
          npiv_father=abs(npivsplit(lev+1))
-         nfsiz(ison)=nfrontk  
-         nfsiz(ifather)=nfrontk-npiv_son
          call MUMPS_CALCNODECOSTS(npiv_father,nfrontk-npiv_son,
      &        ncostw_ifather,ncostm_ifather)
          cv_ncostw(ifather)=ncostw_ifather
@@ -2637,26 +2525,6 @@ C
       enddo
       return
       end subroutine MUMPS_MAPSUBTREE
-      subroutine MUMPS_MAX_TCOST_L0(map_strat,inode,istat)
-      implicit none
-      integer, intent(in)::map_strat
-      integer,intent(out)::inode,istat
-      character (len=48):: subname
-      subname='MAX_TCOST_L0'
-      inode=-1
-      istat=-1
-      if ((.NOT.associated(cv_tcostw)).OR.(.NOT.associated(cv_tcostm)))
-     &   then
-         if(cv_lp.gt.0)
-     &        write(cv_lp,*)'Error:tcost must be allocated in ',subname
-         return
-      end if
-      if((map_strat.ne.cv_equilib_flops).and.
-     &   (map_strat.ne.cv_equilib_mem)) return
-      inode=cv_layerl0_array(cv_layerl0_start)
-      istat=0
-      return
-      end subroutine MUMPS_MAX_TCOST_L0
       subroutine MUMPS_POSTPROCESS_MEM()
       implicit none
       integer candid,inode,index,i,j,layernmb,master,nmbcand,swapper,
@@ -3557,24 +3425,6 @@ C
       istat =0
       return
       end subroutine MUMPS_PROPMAP_TERM
-      subroutine MUMPS_PROPMAP4AMALG(ison,ifather,istat)
-      implicit none
-      integer,intent(in)::ison,ifather
-      integer,intent(out)::istat
-      character (len=48):: subname
-      istat= -1
-      subname='PROPMAP4AMALG'
-      call MUMPS_PROPMAP_TERM(ison,ierr)
-      if(ierr.ne.0) then
-         if(cv_lp.gt.0)
-     &        write(cv_lp,*)'PROPMAP_TERM signalled error in ',
-     &        subname
-         istat = ierr
-         return
-      end if
-      istat = 0
-      return
-      end subroutine MUMPS_PROPMAP4AMALG
       subroutine MUMPS_PROPMAP4SPLIT(inode,ifather,istat)
       implicit none
       integer,intent(in)::inode,ifather
@@ -3966,20 +3816,13 @@ C
       istat=0
       return
       end subroutine MUMPS_TERMGLOB
-      recursive subroutine MUMPS_TREECOSTS(pos,istat)
+      recursive subroutine MUMPS_TREECOSTS(pos)
       implicit none
       integer,intent(in)::pos
-      integer, intent(out)::istat
-      integer i,nfront,npiv,nextpos,ierr
-      DOUBLE PRECISION costw,costm
-      character (len=48):: subname
-      istat=-1
-      subname='TREECOSTS'
+      integer i,nfront,npiv,nextpos
       if ((.NOT.associated(cv_tcostw)).OR.(.NOT.associated(cv_tcostm)))
      &   then
-         if(cv_lp.gt.0)
-     &        write(cv_lp,*)'Error:tcost must be allocated in ',subname
-         return
+         call MUMPS_ABORT()
       end if
       nfront=cv_nfsiz(pos)
       npiv=1
@@ -3992,9 +3835,10 @@ C
             nextpos=cv_fils(nextpos)
          end if
       end do
-      call MUMPS_CALCNODECOSTS(npiv,nfront,costw,costm)
-      cv_ncostw(pos)=costw
-      cv_ncostm(pos)=costm
+      call MUMPS_CALCNODECOSTS(npiv,nfront,
+     &     cv_ncostw(pos), cv_ncostm(pos))
+      cv_tcostw(pos)=cv_ncostw(pos)
+      cv_tcostm(pos)=cv_ncostm(pos)
       if (cv_ne(pos).ne.0) then
          nextpos=cv_fils(pos)
          do while(nextpos.gt.0)
@@ -4003,20 +3847,13 @@ C
          nextpos=-nextpos
          do i=1,cv_ne(pos)
             cv_depth(nextpos)=cv_depth(pos)+1
-            call MUMPS_TREECOSTS(nextpos,ierr)
-            if (ierr.ne.0) then
-               if(cv_lp.gt.0)
-     &         write(cv_lp,*)'Failure in recursive call to ',subname
-               return
-            end if
-            costw=costw+cv_tcostw(nextpos)
-            costm=costm+cv_tcostm(nextpos)
+            call MUMPS_TREECOSTS(nextpos)
+            cv_tcostw(pos)=cv_tcostw(pos)+cv_tcostw(nextpos)
+            cv_tcostm(pos)=cv_tcostm(pos)+cv_tcostm(nextpos)
             nextpos=cv_frere(nextpos)
          end do
       endif
-      cv_tcostw(pos) = costw
-      cv_tcostm(pos) = costm
-      istat = 0
+      return
       end subroutine MUMPS_TREECOSTS
       recursive subroutine MUMPS_TYPEINSSARBR(inode)
       implicit none

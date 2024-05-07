@@ -1,5 +1,5 @@
 ===========================================
-MUMPS 5.0.1 INSTALLATION
+MUMPS 5.0.2 INSTALLATION
 ===========================================
 
 Pre-requisites
@@ -10,6 +10,8 @@ If you only want to use the sequential version, you need:
 
 If you want to use MUMPS on a multicore machine, you need:
 -> a multithreaded BLAS library
+-> additional gains can be expected compiling/linking with OpenMP
+   (see userguide)
 
 If you want to use the parallel (distributed memory MPI based) version, 
 you need:
@@ -30,8 +32,8 @@ Installation
 
 The following steps can be applied.
 
-% tar zxvf MUMPS_5.0.1.tar.gz
-% cd MUMPS_5.0.1
+% tar zxvf MUMPS_5.0.2.tar.gz
+% cd MUMPS_5.0.2
 
 You then need to build a file called Makefile.inc corresponding
 to your architecture. A few examples are available in the
@@ -43,8 +45,8 @@ directory Make.inc :
  Makefile.FREEBSD10.PAR    : default Makefile.inc for a FreeBSD system, parallel version.
  Makefile.G95.SEQ          : default Makefile.inc for the G95 compiler, sequential version.
  Makefile.G95.PAR          : default Makefile.inc for the G95 compiler, parallel version.
- Makefile.INTEL.SEQ        : default for PC with the Intel suite (compilers, MPI and MKL), sequential.
- Makefile.INTEL.PAR        : default for PC with the Intel suite (compilers and MKL), parallel.
+ Makefile.INTEL.SEQ        : default for PC with the Intel suite (compilers and MKL), sequential.
+ Makefile.INTEL.PAR        : default for PC with the Intel suite (compilers, MPI and MKL), parallel.
  Makefile.NEC.SEQ          : default Makefile.inc for a NEC, sequential version.
  Makefile.NEC.PAR          : default Makefile.inc for a NEC, parallel version.
  Makefile.SGI.SEQ          : default Makefile.inc for an Origin, sequential version.
@@ -183,7 +185,7 @@ Interface with the Metis and ParMetis orderings
 -----------------------------------------------
 
 Since the release of MUMPS 4.10.0, the Metis API
-has changed. MUMPS 5.0.1 assumes that Metis 5.1.0 or 
+has changed. MUMPS 5.0.2 assumes that Metis 5.1.0 or 
 ParMetis 4.0.3 or later are installed, 
 and that the newer versions of Metis/ParMetis
 are backward compatible with Metis 5.1.0/ParMetis 4.0.3.

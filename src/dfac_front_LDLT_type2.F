@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -81,6 +81,7 @@ C
       LOGICAL LASTBL, LR_ACTIVATED
       INTEGER GROUPLOC
       INTEGER NBLR_ORIG, IBEG_BLR, IEND_BLR, CURRENT_BLR
+      INTEGER Inextpiv
       LOGICAL RESET_TO_ONE
       INTEGER K109_SAVE
       INTEGER XSIZE, NBKJIB_ORIG
@@ -103,6 +104,11 @@ C
       INTEGER PIVSIZ,IWPOSPIV
       DOUBLE PRECISION ONE
       PARAMETER (ONE = 1.0D0)
+      IF (KEEP(206).GE.1) THEN
+        Inextpiv = 1   
+      ELSE 
+        Inextpiv = 0   
+      ENDIF
       INOPV = 0
       IF(KEEP(97) .EQ. 0) THEN
          STATICMODE = .FALSE.
@@ -230,7 +236,8 @@ C
      &                KEEP,KEEP8,PIVSIZ,
      &           DKEEP(1),PIVNUL_LIST(1),LPN_LIST,
      &           PP_FIRST2SWAP_L, MonBloc%LastPanelWritten_L,
-     &           PP_LastPIVRPTRFilled)
+     &           PP_LastPIVRPTRFilled, 
+     &           Inextpiv, IEND_BLR )
             IF (IFLAG.LT.0) GOTO 490
             IF(KEEP(109).GT. 0) THEN
               IF(PIVNUL_LIST(KEEP(109)).EQ.-1) THEN
@@ -415,7 +422,7 @@ C
       ENDIF
       GOTO 500
  490  CONTINUE
-      CALL DMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+      CALL DMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
  500  CONTINUE
       IF(allocated(IPIV)) DEALLOCATE( IPIV )
       IF (allocated(DIAG_ORIG)) DEALLOCATE(DIAG_ORIG)

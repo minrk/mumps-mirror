@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -371,7 +371,7 @@ C
  90   CONTINUE
       RETURN
  700  CONTINUE
-      CALL DMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+      CALL DMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
       RETURN
       END SUBROUTINE DMUMPS_STACK_BAND
       SUBROUTINE DMUMPS_FREE_BAND( N, ISON, 
@@ -554,7 +554,7 @@ C
         ENDIF
         DMUMPS_LBUFR_BYTES8 = DMUMPS_LBUFR_BYTES8
      &        + int( 2.0D0 * dble(max(PERLU,MIN_PERLU))*
-     &        dble(DMUMPS_LBUFR_BYTES8)/100D0)
+     &        dble(DMUMPS_LBUFR_BYTES8)/100D0,8)
         DMUMPS_LBUFR_BYTES8 = min(DMUMPS_LBUFR_BYTES8,
      &                            int(huge (KEEP(43))-100,8))
         NB_BYTES = NB_BYTES + DMUMPS_LBUFR_BYTES8
@@ -594,7 +594,7 @@ C
         NB_INT = NB_INT + NSTEPS8
         NB_INT = NB_INT + NSTEPS8 * I8OVERI
         NB_INT = NB_INT + N8 + 4_8 * NSTEPS8 +
-     &           MUMPS_GET_POOL_LENGTH(NA(1), KEEP, KEEP8)
+     &           int(MUMPS_GET_POOL_LENGTH(NA(1), KEEP, KEEP8),8)
         NB_INT = NB_INT + 2_8 * NSTEPS8 * I8OVERI
       END IF
       MEMORY_BYTES = NB_BYTES + NB_INT * int(KEEP(34),8) +

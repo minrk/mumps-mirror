@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -91,7 +91,7 @@ C
       MP = ICNTL(2)
       LP = ICNTL(1)
       SUBNAME="??????"
-      CALL CMUMPS_LOAD_RECV_MSGS(COMM_LOAD, KEEP)
+      CALL CMUMPS_LOAD_RECV_MSGS(COMM_LOAD)
       IF ( MSGTAG .EQ. RACINE ) THEN
           POSITION = 0
           CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION, NBRECU,
@@ -285,6 +285,7 @@ C
         MSGSOU = MUMPS_PROCNODE( PROCNODE_STEPS(STEP(IROOT)), 
      &           SLAVEF )
         IF ( PTLUST( STEP(IROOT)) .EQ. 0 ) THEN
+          KEEP(266)=KEEP(266)-1
           CALL MPI_RECV( TMP, 2 * KEEP(34), MPI_PACKED,
      &                   MSGSOU, ROOT_2SLAVE,
      &                   COMM, STATUS, IERR )
@@ -425,7 +426,7 @@ C
          WRITE(LP,*) 'FAILURE IN DYNAMIC ALLOCATION DURING ',SUBNAME
         ENDIF
       ENDIF
-      CALL CMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+      CALL CMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
       RETURN
       END SUBROUTINE CMUMPS_TRAITER_MESSAGE
       RECURSIVE SUBROUTINE CMUMPS_RECV_AND_TREAT(
@@ -498,9 +499,10 @@ C
         IERROR = MSGLEN
          WRITE(*,*) ' RECEPTION BUF TOO SMALL, Msgtag/len=',
      &                MSGTAG,MSGLEN
-        CALL CMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+        CALL CMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
         RETURN
        ENDIF
+       KEEP(266)=KEEP(266)-1
        CALL MPI_RECV( BUFR, LBUFR_BYTES, MPI_PACKED, MSGSOU,
      &                 MSGTAG,
      &                 COMM, STATUS, IERR )
@@ -599,7 +601,7 @@ C
        INTEGER IERR
        INTEGER :: STATUS_BIS(MPI_STATUS_SIZE)
        INTEGER, SAVE :: RECURS = 0
-      CALL CMUMPS_LOAD_RECV_MSGS(COMM_LOAD, KEEP)
+      CALL CMUMPS_LOAD_RECV_MSGS(COMM_LOAD)
       IF ( .NOT. STACK_RIGHT_AUTHORIZED ) THEN
           RETURN
       ENDIF
@@ -644,10 +646,11 @@ C
           IF (LP.GT.0)
      &    write(LP,*) ' Error return from MPI_TEST ',
      &     IFLAG, ' in CMUMPS_TRY_RECVTREAT'
-          CALL CMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+          CALL CMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
           RETURN
         ENDIF
         IF ( FLAG ) THEN
+          KEEP(266)=KEEP(266)-1
           MESSAGE_RECEIVED = .TRUE.
           MSGSOU_LOC = STATUS( MPI_SOURCE )
           MSGTAG_LOC = STATUS( MPI_TAG )
@@ -755,8 +758,8 @@ C
       ENDIF
       RETURN
       END SUBROUTINE CMUMPS_TRY_RECVTREAT
-      SUBROUTINE CMUMPS_MPI_CANCEL( INFO1,
-     &    ASS_IRECV,
+      SUBROUTINE CMUMPS_CANCEL_IRECV( INFO1,
+     &    KEEP, ASS_IRECV,
      &    BUFR, LBUFR, LBUFR_BYTES,
      &    COMM,
      &    MYID, SLAVEF)
@@ -769,6 +772,7 @@ C
       INTEGER BUFR( LBUFR )
       INTEGER COMM
       INTEGER MYID, SLAVEF, INFO1, DEST
+      INTEGER, INTENT(INOUT) :: KEEP(500)
       INTEGER :: STATUS(MPI_STATUS_SIZE)
       LOGICAL NO_ACTIVE_IRECV
       INTEGER IERR, DUMMY
@@ -779,12 +783,15 @@ C
       ELSE
         CALL MPI_TEST(ASS_IRECV, NO_ACTIVE_IRECV,
      &                STATUS, IERR)
+        IF (NO_ACTIVE_IRECV) THEN
+          KEEP(266) = KEEP(266) - 1
+        ENDIF
       ENDIF
       CALL MPI_BARRIER(COMM,IERR)
       DUMMY = 1
       DEST = mod(MYID+1, SLAVEF)
       CALL CMUMPS_BUF_SEND_1INT
-     &    (DUMMY, DEST, TAG_DUMMY, COMM, IERR)
+     &    (DUMMY, DEST, TAG_DUMMY, COMM, KEEP, IERR)
       IF (NO_ACTIVE_IRECV) THEN
         CALL MPI_RECV( BUFR, LBUFR,
      &             MPI_INTEGER, MPI_ANY_SOURCE,
@@ -793,61 +800,112 @@ C
         CALL MPI_WAIT(ASS_IRECV,
      &                STATUS, IERR)
       ENDIF
+      KEEP(266)=KEEP(266)-1
       RETURN
-      END SUBROUTINE CMUMPS_MPI_CANCEL
+      END SUBROUTINE CMUMPS_CANCEL_IRECV
       SUBROUTINE CMUMPS_CLEAN_PENDING(
-     &    INFO1, BUFR, LBUFR, LBUFR_BYTES,
-     &    COMM_NODES, COMM_LOAD, SLAVEF, MP )
+     &    INFO1, KEEP, BUFR, LBUFR, LBUFR_BYTES,
+     &    COMM_NODES, COMM_LOAD, SLAVEF,
+     &    CLEAN_COMM_NODES, CLEAN_COMM_LOAD )
       USE CMUMPS_COMM_BUFFER
       IMPLICIT NONE
+      INTEGER, INTENT(IN)    :: LBUFR, LBUFR_BYTES
+      INTEGER, INTENT(OUT)   :: BUFR( LBUFR )
+      INTEGER, INTENT(IN)    :: COMM_NODES, COMM_LOAD, SLAVEF, INFO1
+      INTEGER, INTENT(INOUT) :: KEEP(500)
+      LOGICAL, INTENT(IN)    :: CLEAN_COMM_LOAD, CLEAN_COMM_NODES
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'
-      INTEGER LBUFR, LBUFR_BYTES
-      INTEGER BUFR( LBUFR )
-      INTEGER COMM_NODES, COMM_LOAD, SLAVEF, INFO1, MP
       INTEGER :: STATUS(MPI_STATUS_SIZE)
-      LOGICAL FLAG, BUFFERS_EMPTY, BUFFERS_EMPTY_ON_ALL_PROCS
-      INTEGER MSGSOU_LOC, MSGTAG_LOC, COMM_EFF
-      INTEGER IERR
-      INTEGER IBUF_EMPTY, IBUF_EMPTY_ON_ALL_PROCS
+      LOGICAL :: FLAG, BUFFERS_EMPTY, BUFFERS_EMPTY_ON_ALL_PROCS
+      INTEGER :: MSGSOU_LOC, MSGTAG_LOC, MSGLEN_LOC
+      INTEGER ::  COMM_EFF
+      INTEGER :: IERR
+      INTEGER :: IBUF_EMPTY, IBUF_EMPTY_ON_ALL_PROCS
+      INTEGER :: TOTAL_SEND_MINUS_RECV266
+      INTEGER :: TOTAL_SEND_MINUS_RECV267
       IF (SLAVEF.EQ.1) RETURN
-      BUFFERS_EMPTY_ON_ALL_PROCS = .FALSE.
- 10   CONTINUE
-      FLAG = .TRUE.
-      DO WHILE ( FLAG )
-        COMM_EFF = COMM_NODES
-        CALL MPI_IPROBE(MPI_ANY_SOURCE,MPI_ANY_TAG,
-     &       COMM_NODES, FLAG, STATUS, IERR)
-        IF ( .NOT. FLAG ) THEN
-          COMM_EFF = COMM_LOAD
-          CALL MPI_IPROBE( MPI_ANY_SOURCE, MPI_ANY_TAG,
-     &         COMM_LOAD, FLAG, STATUS, IERR)
-        END IF
-        IF (FLAG) THEN
+      IF (.NOT. CLEAN_COMM_NODES .AND. .NOT. CLEAN_COMM_LOAD) THEN
+        RETURN
+      ENDIF
+      DO WHILE (.TRUE.) 
+        FLAG = .TRUE.
+        DO WHILE ( FLAG )
+          FLAG = .FALSE.
+          IF (CLEAN_COMM_NODES) THEN
+            IF ( .NOT. FLAG ) THEN
+              COMM_EFF = COMM_NODES
+              CALL MPI_IPROBE(MPI_ANY_SOURCE,MPI_ANY_TAG,
+     &             COMM_NODES, FLAG, STATUS, IERR)
+            END IF
+          END IF
+          IF (CLEAN_COMM_LOAD) THEN
+            IF ( .NOT. FLAG ) THEN
+              COMM_EFF = COMM_LOAD
+              CALL MPI_IPROBE( MPI_ANY_SOURCE, MPI_ANY_TAG,
+     &             COMM_LOAD, FLAG, STATUS, IERR)
+            END IF
+          END IF
+          IF (FLAG) THEN
             MSGSOU_LOC = STATUS( MPI_SOURCE )
             MSGTAG_LOC = STATUS( MPI_TAG )
-               CALL MPI_RECV( BUFR, LBUFR_BYTES,
+            IF (COMM_EFF .EQ. COMM_NODES) THEN
+              KEEP(266) = KEEP(266) - 1
+            ELSE
+              KEEP(267) = KEEP(267) - 1
+            ENDIF
+            CALL MPI_GET_COUNT( STATUS, MPI_PACKED, MSGLEN_LOC, IERR )
+            IF (MSGLEN_LOC .LE. LBUFR_BYTES) THEN
+              CALL MPI_RECV( BUFR, LBUFR_BYTES,
      &             MPI_PACKED, MSGSOU_LOC,
      &             MSGTAG_LOC, COMM_EFF, STATUS, IERR )
-           ENDIF
-         END DO
-        IF (BUFFERS_EMPTY_ON_ALL_PROCS) THEN
-        RETURN
-        ENDIF
-        CALL CMUMPS_BUF_ALL_EMPTY(BUFFERS_EMPTY)
+            ENDIF
+          ENDIF
+        END DO
+        CALL CMUMPS_BUF_ALL_EMPTY( CLEAN_COMM_NODES,
+     &                             CLEAN_COMM_LOAD,
+     &                             BUFFERS_EMPTY )
         IF ( BUFFERS_EMPTY ) THEN
           IBUF_EMPTY = 0
         ELSE
           IBUF_EMPTY = 1
         ENDIF
+        IF (CLEAN_COMM_NODES) THEN
+          COMM_EFF = COMM_NODES
+        ELSE
+          COMM_EFF = COMM_LOAD
+        ENDIF
         CALL MPI_ALLREDUCE(IBUF_EMPTY,
      &                     IBUF_EMPTY_ON_ALL_PROCS,
      &                     1, MPI_INTEGER, MPI_MAX,
-     &                     COMM_NODES, IERR)
+     &                     COMM_EFF, IERR)
         IF ( IBUF_EMPTY_ON_ALL_PROCS == 0) THEN
           BUFFERS_EMPTY_ON_ALL_PROCS = .TRUE.
         ELSE
           BUFFERS_EMPTY_ON_ALL_PROCS = .FALSE.
         ENDIF
-        GOTO 10
+        IF (BUFFERS_EMPTY_ON_ALL_PROCS) THEN
+          IF (CLEAN_COMM_NODES) THEN
+            CALL MPI_ALLREDUCE(KEEP(266),
+     &                     TOTAL_SEND_MINUS_RECV266,
+     &                     1, MPI_INTEGER, MPI_SUM,
+     &                     COMM_EFF, IERR)
+          ELSE
+            TOTAL_SEND_MINUS_RECV266 = 0
+          ENDIF
+          IF (CLEAN_COMM_LOAD) THEN
+            CALL MPI_ALLREDUCE(KEEP(267), 
+     &                     TOTAL_SEND_MINUS_RECV267,
+     &                     1, MPI_INTEGER, MPI_SUM,
+     &                     COMM_EFF, IERR)
+          ELSE
+             TOTAL_SEND_MINUS_RECV267 = 0
+          ENDIF
+          IF (TOTAL_SEND_MINUS_RECV266 .EQ. 0 .AND.
+     &        TOTAL_SEND_MINUS_RECV267 .EQ. 0) THEN
+            EXIT
+          ENDIF
+        ENDIF
+      ENDDO
+      RETURN
       END SUBROUTINE CMUMPS_CLEAN_PENDING

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -451,7 +451,7 @@ C
      &                    UIP21K, NROW1,
      &                    NSLAVES_FOLLOW,
      &                    LIST_SLAVES_FOLLOW(1),
-     &                    COMM, 
+     &                    COMM, KEEP,
      &                    IERR )
             IF (IERR .EQ. -1 ) THEN
               BLOCKING = .FALSE.
@@ -511,15 +511,15 @@ C
          IF ( IW(IOLDPS+6+KEEP(IXSZ) ) .eq. 0
      &        .and. KEEP(50) .ne. 0 .and. NSLAVES_FOLLOW .eq. 0
      &        .and. NSLAVES_TOT.NE.1)THEN
-         DEST = MUMPS_PROCNODE( PROCNODE_STEPS(STEP(INODE)), SLAVEF )
-         CALL ZMUMPS_BUF_SEND_1INT( INODE, DEST, END_NIV2_LDLT,
-     &                             COMM, IERR )
-         IF ( IERR .LT. 0 ) THEN
-           write(*,*) ' Internal error in PROCESS_SYM_BLOCFACTO.'
-           IFLAG = -99
-           GOTO 700
-         END IF
-         ENDIF
+          DEST = MUMPS_PROCNODE( PROCNODE_STEPS(STEP(INODE)), SLAVEF )
+          CALL ZMUMPS_BUF_SEND_1INT( INODE, DEST, END_NIV2_LDLT,
+     &                              COMM, KEEP, IERR )
+          IF ( IERR .LT. 0 ) THEN
+            write(*,*) ' Internal error in PROCESS_SYM_BLOCFACTO.'
+            IFLAG = -99
+            GOTO 700
+          END IF
+        ENDIF
       END IF
       IF (LASTBL) THEN 
         IF (IW(IOLDPS+6+KEEP(IXSZ)) .eq. 0 ) THEN 
@@ -548,6 +548,6 @@ C
 #endif
       RETURN
  700  CONTINUE
-      CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+      CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
       RETURN
       END SUBROUTINE ZMUMPS_PROCESS_SYM_BLOCFACTO

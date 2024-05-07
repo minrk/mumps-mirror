@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -266,7 +266,7 @@ C
              CALL ZMUMPS_BUF_SEND_VCB( NRHS_B, FINODE, FPERE,
      &            IW(PTRIST(STEP( FINODE )) + 2 + KEEP(IXSZ) ), NCV,NCV,
      &            IW(PTRIST(STEP(FINODE))+4+ KEEP(IXSZ) ),
-     &            WCB( PTRY ), JBDEB, JBFIN,
+     &            WCB( PTRY ), JBDEB, JBFIN, KEEP,
      &            PDEST, ContVec, COMM, IERR )
              IF ( IERR .EQ. -1 ) THEN
                 CALL ZMUMPS_SOLVE_RECV_AND_TREAT( .FALSE., FLAG,
@@ -308,7 +308,7 @@ C
        ENDIF
        GO TO 270
  260   CONTINUE
-       CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+       CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
  270   CONTINUE
        RETURN
        END SUBROUTINE ZMUMPS_TRAITER_MESSAGE_SOLVE
@@ -484,7 +484,7 @@ C
             NBFIN = NBFIN - 1
             IF (SLAVEF .GT. 1) THEN
                CALL ZMUMPS_MCAST2(DUMMY, 1, MPI_INTEGER, MYID,
-     &              COMM, RACINE_SOLVE, SLAVEF)
+     &              COMM, RACINE_SOLVE, SLAVEF, KEEP)
             ENDIF
          END IF
          GO TO 270
@@ -888,7 +888,7 @@ C
             NBFIN = NBFIN - 1
             IF (SLAVEF .GT. 1) THEN
                CALL ZMUMPS_MCAST2(DUMMY, 1, MPI_INTEGER, MYID,
-     &             COMM, RACINE_SOLVE, SLAVEF)
+     &             COMM, RACINE_SOLVE, SLAVEF, KEEP)
             ENDIF
          END IF
          GO TO 270
@@ -934,6 +934,7 @@ C
      &           NCB, LD_WCBCB,
      &           NUPDATE,
      &           IW( J3 + 1 ), WCB( PCB_COURANT ), JBDEB, JBFIN,
+     &           KEEP,
      &           MUMPS_PROCNODE(PROCNODE_STEPS(STEP(FPERE)), SLAVEF),
      &           ContVec,
      &           COMM, IERR )
@@ -952,7 +953,7 @@ C
                IF ( INFO( 1 )  .LT. 0 )  GOTO 270
                GOTO 210
             ELSE IF ( IERR .EQ. -2 ) THEN
-               INFO( 1 ) = -1-17
+               INFO( 1 ) = -17
                INFO( 2 ) = NUPDATE * KEEP( 35 ) +
      &              ( NUPDATE + 3 ) * KEEP( 34 )
                GOTO 260
@@ -980,7 +981,7 @@ C
      &           JBDEB, JBFIN, 
      &           WCB( PCB_COURANT + NELIM + FirstIndex - 1 ),
      &           WCB( PPIV_COURANT ),
-     &           PDEST, COMM, IERR )
+     &           PDEST, COMM, KEEP, IERR )
             IF ( IERR .EQ. -1 ) THEN
                CALL ZMUMPS_SOLVE_RECV_AND_TREAT( .FALSE., FLAG,
      &              BUFR, LBUFR, LBUFR_BYTES,
@@ -1012,7 +1013,7 @@ C
  270  CONTINUE
       RETURN
  260  CONTINUE
-      CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+      CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
       RETURN
       END SUBROUTINE ZMUMPS_SOLVE_NODE
       RECURSIVE SUBROUTINE ZMUMPS_SOLVE_RECV_AND_TREAT( BLOQ, FLAG,
@@ -1067,13 +1068,14 @@ C
      &                   FLAG, STATUS, IERR )
       END IF
       IF ( FLAG ) THEN
+         KEEP(266) = KEEP(266) -1
          MSGSOU = STATUS( MPI_SOURCE )
          MSGTAG = STATUS( MPI_TAG )
          CALL MPI_GET_COUNT( STATUS, MPI_PACKED, MSGLEN, IERR )
          IF ( MSGLEN .GT. LBUFR_BYTES ) THEN
            INFO(1) = -20
            INFO(2) = MSGLEN
-           CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+           CALL ZMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
          ELSE
            CALL MPI_RECV( BUFR, LBUFR_BYTES, MPI_PACKED,
      &                  MSGSOU, MSGTAG, COMM, STATUS, IERR )

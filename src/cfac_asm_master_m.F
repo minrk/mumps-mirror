@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.0.1, released
-C  on Thu Jul 23 17:08:29 UTC 2015
+C  This file is part of MUMPS 5.0.2, released
+C  on Fri Jul 15 09:12:54 UTC 2016
 C
 C
-C  Copyright 1991-2015 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2016 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -713,9 +713,9 @@ C
   295 CONTINUE
       IF (LPOK) THEN
         WRITE( LP, * )
-     &  ' FAILURE, SEND BUFFER TOO SMALL DURING CMUMPS_FAC_ASM'
+     &  ' FAILURE, RECV BUFFER TOO SMALL DURING CMUMPS_FAC_ASM'
       ENDIF
-      INFO(1) = -17
+      INFO(1) = -20
       LREQ = NCBSON + 6+NSLSON+KEEP(IXSZ)
       INFO(2) =  LREQ  * KEEP( 34 ) 
       GOTO 490
@@ -726,7 +726,7 @@ C
       ENDIF
       INFO(1)   = -13
       INFO(2)  = NUMSTK + 1
-  490 CALL  CMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+  490 CALL  CMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
   500 CONTINUE
       RETURN
       END SUBROUTINE CMUMPS_FAC_ASM_NIV1
@@ -1342,7 +1342,7 @@ C
      &      sum(SONROWS_PER_ROW(FIRST_INDEX:FIRST_INDEX+NBLIG-1)),
      &      NBLIG, IW(PTRROW), NBCOL, IW(PTRCOL), NASS1,
      &      IZERO, IDUMMY,
-     &      IW(PDEST), IBC_SOURCE, NFRONT, COMM, IERR
+     &      IW(PDEST), IBC_SOURCE, NFRONT, COMM, KEEP, IERR
      &      )
          ELSE
            NBCOL = NASS1+SHIFT_INDEX+NBLIG
@@ -1351,7 +1351,7 @@ C
      &      NBLIG, IW(PTRROW), NBCOL, IW(PTRCOL), NASS1,
      &      NSLAVES-ISLAVE,
      &      IW( PTLUST(STEP(INODE))+6+KEEP(IXSZ)+ISLAVE),
-     &      IW(PDEST), IBC_SOURCE, NFRONT, COMM, IERR
+     &      IW(PDEST), IBC_SOURCE, NFRONT, COMM, KEEP, IERR
      &      )
          ENDIF
          IF (IERR.EQ.-1) THEN
@@ -1656,11 +1656,11 @@ C
      &' FAILURE, RECV BUFFER TOO SMALL (2)',
      &' DURING CMUMPS_FAC_ASM_NIV2'
       ENDIF
-      INFO(1) = -17
+      INFO(1) = -20
       LREQ = NBLIG + NBCOL + 4 + KEEP(IXSZ)
       INFO(2) =  LREQ  * KEEP( 34 ) 
       GOTO 490
-  490 CALL CMUMPS_BDC_ERROR( MYID, SLAVEF, COMM )
+  490 CALL CMUMPS_BDC_ERROR( MYID, SLAVEF, COMM, KEEP )
   500 CONTINUE
       RETURN
       END SUBROUTINE CMUMPS_FAC_ASM_NIV2
