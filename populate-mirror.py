@@ -206,7 +206,6 @@ def main(clean, no_cache, push):
         return
     print(f"New versions to add: {new_versions}")
     repo = Repo(repo_path)
-    new_versions = new_versions[:1]
     for version in new_versions:
         add_version(repo_path, version, no_cache=no_cache)
         if push:
