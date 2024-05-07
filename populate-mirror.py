@@ -201,7 +201,7 @@ def main(clean, no_cache, push):
         print("Up-to-date")
         return
     print(f"New versions to add: {new_versions}")
-    for version in new_versions:
+    for version in new_versions[:1]:
         add_version(repo_path, version, no_cache=no_cache)
     if push:
         print(f"Pushing versions: {new_versions}")
