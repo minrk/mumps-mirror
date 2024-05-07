@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -21,10 +21,10 @@ C
       INTEGER, INTENT(IN) :: IXXR(2), IXXD(2)
       INTEGER(8), INTENT(IN) :: LA, PAMASTER_OR_PTRAST
       REAL, INTENT(IN), TARGET :: A( LA )
-#if defined(MUMPS_F2003)
-      REAL, POINTER, DIMENSION(:), INTENT(OUT) :: SON_A
-#else
+#if defined(MUMPS_NOF2003)
       REAL, POINTER, DIMENSION(:) :: SON_A
+#else
+      REAL, POINTER, DIMENSION(:), INTENT(OUT) :: SON_A
 #endif
       INTEGER(8), INTENT(OUT) :: IACHK, RECSIZE
       IF ( SMUMPS_DM_IS_DYNAMIC( IXXD ) ) THEN
@@ -417,10 +417,10 @@ C
       USE SMUMPS_STATIC_PTR_M, ONLY : SMUMPS_GET_TMP_PTR
       IMPLICIT NONE
       INTEGER(8), INTENT(IN) :: ADDRESS, SIZFR8
-#if defined(MUMPS_F2003)
-      REAL, DIMENSION(:), POINTER, INTENT(out) :: CBPTR
-#else
+#if defined(MUMPS_NOF2003)
       REAL, DIMENSION(:), POINTER :: CBPTR
+#else
+      REAL, DIMENSION(:), POINTER, INTENT(out) :: CBPTR
 #endif
 !$OMP CRITICAL(STATIC_PTR_ACCESS)
       CALL SMUMPS_SET_TMP_PTR_C( ADDRESS, SIZFR8 )

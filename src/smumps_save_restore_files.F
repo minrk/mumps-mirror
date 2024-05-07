@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -49,49 +49,49 @@ C
         GOTO 100 
       endif
       size_read=size_read+int(5*SIZE_CHARACTER,kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
       size_read=size_read
      &         +int(2*SIZE_INT*1,kind=8)
 #endif
       read(fileunit,iostat=ierr) READ_HASH
       if(ierr.ne.0) GOTO 100
       size_read=size_read+int(23*SIZE_CHARACTER,kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
       size_read=size_read
      &         +int(2*SIZE_INT*1,kind=8)
 #endif
       read(fileunit,iostat=ierr) TOTAL_FILE_SIZE,TOTAL_STRUC_SIZE
       if(ierr.ne.0) GOTO 100
       size_read=size_read+int(2*SIZE_INT8,kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
       size_read=size_read
      &         +int(2*SIZE_INT*1,kind=8)
 #endif
       read(fileunit,iostat=ierr) READ_ARITH
       if(ierr.ne.0) GOTO 100
       size_read=size_read+int(1,kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
       size_read=size_read
      &         +int(2*SIZE_INT*1,kind=8)
 #endif
       read(fileunit,iostat=ierr) READ_SYM,READ_PAR,READ_NPROCS
       if(ierr.ne.0) GOTO 100
       size_read=size_read+int(3*SIZE_INT,kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
       size_read=size_read
      &         +int(2*SIZE_INT*1,kind=8)
 #endif     
       read(fileunit,iostat=ierr) READ_INT_TYPE_64
       if(ierr.ne.0) GOTO 100
       size_read=size_read+int(SIZE_LOGICAL,kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
       size_read=size_read
      &         +int(2*SIZE_INT*1,kind=8)
 #endif
       read(fileunit,iostat=ierr) READ_OOC_FILE_NAME_LENGTH
       if(ierr.ne.0) GOTO 100
       size_read=size_read+int(SIZE_INT,kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
       size_read=size_read
      &         +int(2*SIZE_INT*1,kind=8)
 #endif
@@ -99,7 +99,7 @@ C
         read(fileunit,iostat=ierr) dummy
         if(ierr.ne.0) GOTO 100
         size_read=size_read+int(SIZE_INT,kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
         size_read=size_read
      &           +int(2*SIZE_INT*1,kind=8)
 #endif
@@ -109,7 +109,7 @@ C
         if(ierr.ne.0) GOTO 100
         size_read=size_read+int(
      &           READ_OOC_FILE_NAME_LENGTH*SIZE_CHARACTER,kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
         size_read=size_read
      &           +int(2*SIZE_INT*1,kind=8)
 #endif
@@ -318,6 +318,3 @@ C
       ENDIF
       END SUBROUTINE SMUMPS_CHECK_FILE_NAME      
       END MODULE SMUMPS_SAVE_RESTORE_FILES
-      SUBROUTINE SMUMPS_SAVE_FILES_RETURN()
-      RETURN
-      END SUBROUTINE SMUMPS_SAVE_FILES_RETURN

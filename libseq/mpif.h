@@ -1,9 +1,9 @@
 !
-!  This file is part of MUMPS 5.5.1, released
-!  on Tue Jul 12 13:17:24 UTC 2022
+!  This file is part of MUMPS 5.6.0, released
+!  on Wed Apr 19 15:50:57 UTC 2023
 !
 !
-!  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+!  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 !  Mumps Technologies, University of Bordeaux.
 !
 !  This version of MUMPS is provided to you free of charge. It is
@@ -53,6 +53,12 @@
       INTEGER MPI_THREAD_SINGLE
       INTEGER MPI_THREAD_FUNNELED
       INTEGER MPI_THREAD_MULTIPLE
+      INTEGER MPI_BOR
+      INTEGER MPI_WIN_NULL
+      INTEGER MPI_ADDRESS_KIND
+      INTEGER MPI_INFO_NULL
+      INTEGER MPI_SUCCESS
+      INTEGER MPI_ERRORS_RETURN
       PARAMETER (MPI_2DOUBLE_PRECISION=1)
       PARAMETER (MPI_2INTEGER=2)
       PARAMETER (MPI_2REAL=3)
@@ -91,6 +97,12 @@
       PARAMETER (MPI_THREAD_SINGLE=36)
       PARAMETER (MPI_THREAD_FUNNELED=37)
       PARAMETER (MPI_THREAD_MULTIPLE=38)
+      PARAMETER (MPI_BOR=39)
+      PARAMETER (MPI_WIN_NULL=40)
+      PARAMETER (MPI_ADDRESS_KIND=8)
+      PARAMETER (MPI_INFO_NULL=41)
+      PARAMETER (MPI_SUCCESS=0)
+      PARAMETER (MPI_ERRORS_RETURN=42)
 
       INTEGER MPI_IN_PLACE
       COMMON/mpif_libseq/MPI_IN_PLACE

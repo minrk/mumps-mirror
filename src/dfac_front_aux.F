@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -66,8 +66,7 @@ C
       INTRINSIC max
       DOUBLE PRECISION, PARAMETER :: RZERO = 0.0D0
 #if defined(_OPENMP)
-      INTEGER :: NOMP, CHUNK, K360
-      K360 = KEEP(360)
+      INTEGER :: NOMP, CHUNK
       NOMP    = OMP_GET_MAX_THREADS()
 #endif
         SEUIL_LOC  = max(DKEEP(1), SEUIL)
@@ -129,23 +128,27 @@ C
               IS_MAXFROMN_AVAIL = .FALSE.
             ELSE
               IF (J3.EQ.0) GOTO 370
-              IF (KEEP(351).EQ.1) THEN
+#if defined(_OPENMP)
+              IF (KEEP(351).EQ.1 .AND. J3.GE.KEEP(360)) THEN
                 J1_ini = J1
-!$              CHUNK = max(K360/2,(J3+NOMP-1)/NOMP)
+                CHUNK = max(KEEP(360)/2,(J3+NOMP-1)/NOMP)
 !$OMP  PARALLEL DO schedule(static, CHUNK)
 !$OMP& FIRSTPRIVATE(J1_ini,NFRONT8,J3)
-!$OMP& REDUCTION(max:RMAX) IF (J3.GE.K360)
+!$OMP& REDUCTION(max:RMAX)
                 DO J=1,J3
                   RMAX = max(abs(A(J1_ini + int(J-1,8) * NFRONT8)),
      &                       RMAX)
                 END DO
 !$OMP  END PARALLEL DO
               ELSE
+#endif
                 DO J=1,J3
                   RMAX = max(abs(A(J1)), RMAX)
                   J1 = J1 + NFRONT8
                 END DO
+#if defined(_OPENMP)
               ENDIF
+#endif
             END IF
   370       IF (RMAX.LE.tiny(RMAX)) GO TO 460
             IDIAG = APOS + int(IPIV - NPIVP1,8)*NFRONT8
@@ -171,14 +174,16 @@ C
      &             A(APOS + int(JMAX - 1,8) * NFRONT8 ),
      &             DET_MANTW, DET_EXPW )
             ENDIF
-            IF (IPIV.EQ.NPIVP1) GO TO 400
-            IF (KEEP(405) .EQ.0) THEN
-              KEEP8(80) = KEEP8(80)+1
-            ELSE
-!$OMP         ATOMIC UPDATE
-              KEEP8(80) = KEEP8(80)+1
-!$OMP         END ATOMIC
+            IF ( IPIV .NE. NPIVP1 .OR. JMAX .NE. 1) THEN
+              IF (KEEP(405) .EQ.0) THEN
+                KEEP8(80) = KEEP8(80)+1
+              ELSE
+!$OMP           ATOMIC UPDATE
+                KEEP8(80) = KEEP8(80)+1
+!$OMP           END ATOMIC
+              ENDIF
             ENDIF
+            IF (IPIV.EQ.NPIVP1) GO TO 400
             DET_SIGNW = - DET_SIGNW
             J1   = POSELT + int(NPIV,8)
             J3_8 = POSELT + int(IPIV-1,8)
@@ -256,9 +261,8 @@ C
       DOUBLE PRECISION, PARAMETER :: ONE = 1.0D0
 #if defined(_OPENMP)
       LOGICAL:: OMP_FLAG
-      INTEGER:: NOMP, K360, CHUNK
+      INTEGER:: NOMP, CHUNK
       NOMP = OMP_GET_MAX_THREADS()
-      K360 = KEEP(360)
 #endif
         NFRONT8=int(NFRONT,8)
         NPIV   = IW(IOLDPS+1+XSIZE)
@@ -274,14 +278,14 @@ C
         OMP_FLAG = .FALSE.
         CHUNK = max(NEL,1)
         IF (NOMP.GT.1) THEN
-          IF (NEL.LT.K360) THEN
+          IF (NEL.LT.KEEP(360)) THEN
               IF (NEL*NEL2.GE.KEEP(361)) THEN
                 OMP_FLAG = .TRUE.
                 CHUNK = max(20, (NEL+NOMP-1)/NOMP)
               ENDIF
           ELSE
             OMP_FLAG = .TRUE.
-            CHUNK = max(K360/2, (NEL+NOMP-1)/NOMP)
+            CHUNK = max(KEEP(360)/2, (NEL+NOMP-1)/NOMP)
           ENDIF
         ENDIF
 #endif
@@ -706,8 +710,8 @@ C
      &    N,INODE,IW,LIW,A,LA,
      &    INOPV,NOFFW,NBTINYW,
      &    DET_EXPW, DET_MANTW, DET_SIGNW,
-     &    IFLAG,IOLDPS,POSELT,UU,SEUIL,KEEP,KEEP8,
-     &    DKEEP,PIVNUL_LIST,LPN_LIST,
+     &    IFLAG,IERROR,IOLDPS,POSELT,UU,SEUIL,KEEP,KEEP8,
+     &    DKEEP,PIVNUL_LIST_STRUCT, SWAP_OCCURRED,
      &
      &     PP_FIRST2SWAP_L, PP_LastPanelonDisk_L,
      &     PP_LastPIVRPTRFilled_L,
@@ -719,13 +723,14 @@ C
      &     )
 !$    USE OMP_LIB
       USE MUMPS_OOC_COMMON 
+      USE MUMPS_PIVNUL_MOD
       IMPLICIT NONE
       INTEGER, intent(in)    :: IBEG_BLOCK, IEND_BLOCK
       INTEGER, intent(inout), OPTIONAL :: TIPIV(:)
       INTEGER(8), intent(in) :: LA
       DOUBLE PRECISION, intent(inout) :: A(LA)
       INTEGER, intent(in)    :: NFRONT,NASS,N,LIW,INODE,LAST_ROW
-      INTEGER, intent(inout) :: IFLAG,INOPV,NOFFW, NBTINYW
+      INTEGER, intent(inout) :: IFLAG,IERROR, INOPV,NOFFW, NBTINYW
       INTEGER, intent(inout) :: DET_EXPW, DET_SIGNW
       DOUBLE PRECISION, intent(inout) :: DET_MANTW
       DOUBLE PRECISION, intent(in)       :: UU, SEUIL
@@ -734,8 +739,8 @@ C
       INTEGER(8), intent(in) :: POSELT
       INTEGER KEEP(500)
       INTEGER(8) KEEP8(150)
-      INTEGER, intent(in)    :: LPN_LIST
-      INTEGER, intent(inout) :: PIVNUL_LIST(LPN_LIST)
+      TYPE(PIVNUL_LIST_STRUCT_T)     :: PIVNUL_LIST_STRUCT
+      LOGICAL, intent(inout)  :: SWAP_OCCURRED
       DOUBLE PRECISION    DKEEP(230)
       INTEGER PP_FIRST2SWAP_L, PP_LastPanelonDisk_L,
      &        PP_LastPIVRPTRFilled_L,
@@ -770,13 +775,12 @@ C
       INTRINSIC max
       DATA RZERO /0.0D0/
 #if defined(_OPENMP)
-      INTEGER :: NOMP,CHUNK,K361
+      INTEGER :: NOMP,CHUNK
 #endif
       INTEGER I_PIVRPTR_L, I_PIVR_L, NBPANELS_L
       INTEGER I_PIVRPTR_U, I_PIVR_U, NBPANELS_U
 #if defined(_OPENMP)
         NOMP    = OMP_GET_MAX_THREADS()
-        K361    = KEEP(361)
 #endif
         PIVNUL  = DKEEP(1)
         FIXA    = DKEEP(2)
@@ -899,11 +903,11 @@ C
                 J2 = APOS +int(- NPIV + NASS - 1 ,8)
               ENDIF
               IF (J2.LT.J1) GO TO 370
-              IF (KEEP(351).EQ.1) THEN
-!$              CHUNK = max(K361/2,(int(J2-J1)+NOMP-1)/NOMP)
+              IF (KEEP(351).EQ.1 .AND. J2-J1.GT.KEEP(361)) THEN
+!$              CHUNK = max(KEEP(361)/2,(int(J2-J1)+NOMP-1)/NOMP)
 !$OMP  PARALLEL DO schedule(static, CHUNK) PRIVATE(JJ)
 !$OMP& FIRSTPRIVATE(J1,J2)
-!$OMP& REDUCTION(max:RMAX) IF ((J2-J1).GE.K361)
+!$OMP& REDUCTION(max:RMAX)
                 DO JJ=J1,J2
                   RMAX = max(abs(A(JJ)),RMAX)
                 ENDDO
@@ -966,7 +970,21 @@ C
                KEEP(109) = KEEP(109)+1
                IPIVNUL = KEEP(109)
 !$OMP END ATOMIC
-               PIVNUL_LIST(IPIVNUL) = IW( IOLDPS+HF+NPIV+IPIV-NPIVP1 )
+               IF (PIVNUL_LIST_STRUCT%SIZE_PIVNUL_LIST.LT.KEEP(109)) 
+     &         THEN
+                 CALL MUMPS_RESIZE_PIVNUL(KEEP, N, PIVNUL_LIST_STRUCT, 
+     &                                    IPIVNUL, IFLAG, IERROR ) 
+                 IF (IFLAG.LT.0) GOTO 430
+               ENDIF
+               IF (KEEP(405).EQ.1) THEN
+!$OMP CRITICAL(critical_pivnul)
+                 PIVNUL_LIST_STRUCT%PIVNUL_LIST(IPIVNUL) = 
+     &                            IW( IOLDPS+HF+NPIV+IPIV-NPIVP1 )
+!$OMP END CRITICAL(critical_pivnul)
+               ELSE
+                 PIVNUL_LIST_STRUCT%PIVNUL_LIST(IPIVNUL) = 
+     &                            IW( IOLDPS+HF+NPIV+IPIV-NPIVP1 )
+               ENDIF
                IF(dble(FIXA).GT.RZERO) THEN
                   IF(dble(A(IDIAG)) .GE. RZERO) THEN
                      A(IDIAG) = FIXA
@@ -1007,18 +1025,21 @@ C
      &                                 DET_EXPW )
             ENDIF
   385       CONTINUE
-            IF (IPIV.EQ.NPIVP1) GO TO 400
-            IF (KEEP(405) .EQ. 0) THEN
-              KEEP8(80) = KEEP8(80)+1
-            ELSE
-!$OMP         ATOMIC UPDATE
-              KEEP8(80) = KEEP8(80)+1
-!$OMP         END ATOMIC
+            IF ( IPIV .NE. NPIVP1 .OR. JMAX .NE. 1 ) THEN
+              SWAP_OCCURRED = .TRUE.
+              IF (KEEP(405) .EQ. 0) THEN
+                KEEP8(80) = KEEP8(80)+1
+              ELSE
+!$OMP           ATOMIC UPDATE
+                KEEP8(80) = KEEP8(80)+1
+!$OMP           END ATOMIC
+              ENDIF
             ENDIF
+            IF (IPIV.EQ.NPIVP1) GO TO 400
             IF (PARPIV_T1.NE.0) THEN
-             SWOP = A(APOSMAX+int(NPIVP1,8))
-             A(APOSMAX+int(NPIVP1,8))   = A(APOSMAX+int(IPIV,8))
-             A(APOSMAX+int(IPIV,8)) = SWOP
+              SWOP = A(APOSMAX+int(NPIVP1,8))
+              A(APOSMAX+int(NPIVP1,8))   = A(APOSMAX+int(IPIV,8))
+              A(APOSMAX+int(IPIV,8)) = SWOP
             ENDIF
             DET_SIGNW = - DET_SIGNW
             J1 = POSELT + int(NPIV,8)*NFRONT8
@@ -1087,12 +1108,12 @@ C
       RETURN
       END SUBROUTINE DMUMPS_FAC_I
       SUBROUTINE DMUMPS_FAC_I_LDLT 
-     &   ( NFRONT,NASS,INODE,IBEG_BLOCK,IEND_BLOCK,
+     &   ( NFRONT,NASS,N,INODE,IBEG_BLOCK,IEND_BLOCK,
      &     IW,LIW, A,LA, INOPV,
-     &     NNEGW, NB22T1W, NBTINYW,
+     &     NNEGW, NNULLNEGW, NB22T1W, NBTINYW,
      &     DET_EXPW, DET_MANTW, DET_SIGNW,
-     &     IFLAG,IOLDPS,POSELT,UU, SEUIL,KEEP,KEEP8,PIVSIZ,
-     &     DKEEP,PIVNUL_LIST,LPN_LIST, XSIZE,
+     &     IFLAG,IERROR,IOLDPS,POSELT,UU, SEUIL,KEEP,KEEP8,PIVSIZ,
+     &     DKEEP, PIVNUL_LIST_STRUCT, SWAP_OCCURRED, XSIZE,
      &     PP_FIRST2SWAP_L, PP_LastPanelonDisk,
      &     PP_LastPIVRPTRIndexFilled,MAXFROMM,IS_MAXFROMM_AVAIL, 
      &     PIVOT_OPTION, IEND_BLR, Inextpiv, 
@@ -1101,11 +1122,12 @@ C
      &     )
 !$    USE OMP_LIB
       USE MUMPS_OOC_COMMON 
+      USE MUMPS_PIVNUL_MOD
       IMPLICIT NONE
       INTEGER(8) :: POSELT, LA
-      INTEGER NFRONT,NASS,LIW,INODE,IFLAG,INOPV,
+      INTEGER NFRONT,NASS,LIW,N,INODE,IFLAG,IERROR,INOPV,
      &        IOLDPS
-      INTEGER, intent(inout) :: NNEGW, NB22T1W, NBTINYW
+      INTEGER, intent(inout) :: NNEGW, NNULLNEGW, NB22T1W, NBTINYW
       INTEGER, intent(inout) :: DET_EXPW, DET_SIGNW
       DOUBLE PRECISION, intent(inout) :: DET_MANTW
       INTEGER, intent(in) :: IBEG_BLOCK, IEND_BLOCK
@@ -1118,8 +1140,8 @@ C
       INTEGER IW(LIW)
       INTEGER KEEP(500)
       INTEGER(8) KEEP8(150)
-      INTEGER LPN_LIST
-      INTEGER PIVNUL_LIST(LPN_LIST)
+      TYPE(PIVNUL_LIST_STRUCT_T)     :: PIVNUL_LIST_STRUCT
+      LOGICAL, intent(inout) :: SWAP_OCCURRED
       DOUBLE PRECISION DKEEP(230)
       INTEGER PP_FIRST2SWAP_L, PP_LastPanelonDisk
       INTEGER PP_LastPIVRPTRIndexFilled
@@ -1384,11 +1406,27 @@ C
                ENDIF
             CALL DMUMPS_UPDATE_MINMAX_PIVOT 
      &           ( abs(A(POSPV1)), DKEEP, KEEP, .TRUE.)
+            IF ( A(POSPV1) .LT. RZERO ) NNULLNEGW=NNULLNEGW+1
 !$OMP ATOMIC CAPTURE
             KEEP(109) = KEEP(109) + 1
             IPIVNUL = KEEP(109)
 !$OMP END ATOMIC
-            PIVNUL_LIST(IPIVNUL) = IW( IOLDPS+HF+NPIV+IPIV-NPIVP1 )
+            IF (PIVNUL_LIST_STRUCT%SIZE_PIVNUL_LIST.LT.KEEP(109)) 
+     &      THEN
+              CALL MUMPS_RESIZE_PIVNUL(KEEP, N,
+     &                                 PIVNUL_LIST_STRUCT, 
+     &                                 IPIVNUL, IFLAG, IERROR ) 
+              IF (IFLAG.LT.0) GOTO 420
+            ENDIF
+            IF (KEEP(405).EQ.1) THEN
+!$OMP CRITICAL(critical_pivnul)
+              PIVNUL_LIST_STRUCT%PIVNUL_LIST(IPIVNUL) = 
+     &                         IW( IOLDPS+HF+NPIV+IPIV-NPIVP1 )
+!$OMP END CRITICAL(critical_pivnul)
+            ELSE
+              PIVNUL_LIST_STRUCT%PIVNUL_LIST(IPIVNUL) = 
+     &                         IW( IOLDPS+HF+NPIV+IPIV-NPIVP1 )
+            ENDIF
             IF(dble(FIXA).GT.RZERO) THEN
                IF(dble(PIVOT) .GE. RZERO) THEN
                   A(POSPV1) = FIXA
@@ -1569,6 +1607,7 @@ C
      &             IOLDPS, NPIVP1, LPIV, POSELT, LIM_SWAP,
      &             LDA, NFRONT, 1, PARPIV_T1, KEEP(50),
      &             KEEP(IXSZ), -9999)
+              SWAP_OCCURRED = .TRUE.
  416          CONTINUE
               IF (KEEP(50).NE.1 .AND. OOC_EFFECTIVE_ON_FRONT) THEN
                 CALL DMUMPS_STORE_PERMINFO( IW(I_PIVRPTR), NBPANELS_L,
@@ -1969,7 +2008,8 @@ C
         ENDIF
         IF (CALL_GEMM) THEN
 #if defined(GEMMT_AVAILABLE)
-         IF ( KEEP(421).EQ. -1) THEN
+         IF ( KEEP(421).EQ. -1 .OR.
+     &        ( KEEP(421) > 0 .AND. NEL1 > KEEP(421) ) ) THEN
            LPOS = POSELT + LDA8*int(IEND_BLOCK,8) + int(IBEG_BLOCK-1,8)
            UPOS = POSELT + LDA8*int(IBEG_BLOCK-1,8) + int(IEND_BLOCK,8)
            APOS = POSELT + LDA8*int(IEND_BLOCK,8) + int(IEND_BLOCK,8)
@@ -2332,7 +2372,7 @@ C
       INTEGER(8) :: UPOS, APOS, LPOS
       INTEGER(8) :: LDA8
       INTEGER BLSIZE, BLSIZE2, Block, IROW, NPIV, IROWEND
-      INTEGER I2, I2END, Block2
+      INTEGER I2, I2END, Block2, IFLAG_OOC
       DOUBLE PRECISION  ONE, ALPHA, BETA, ZERO
       PARAMETER (ONE = 1.0D0, ALPHA=-1.0D0)
       PARAMETER (ZERO=0.0D0)
@@ -2362,7 +2402,8 @@ C
      &               A( LPOS ), LDA )
        ENDIF
 #if defined(GEMMT_AVAILABLE)
-       IF ( KEEP(421).EQ. -1) THEN
+       IF ( KEEP(421).EQ. -1 .OR.
+     &      ( KEEP(421) > 0 .AND. NFRONT-NASS > KEEP(421) ) ) THEN
          LPOS = POSELT + int(NASS,8)*LDA8
          UPOS = POSELT + int(NASS,8)
          APOS = POSELT + int(NASS,8)*LDA8 + int(NASS,8)
@@ -2412,8 +2453,11 @@ C
      &        NextPiv2beWritten, IDUMMY,
      &        IW(IOLDPS), LIWFAC, MYID,
      &        KEEP8(31),
-     &        IFLAG,LAST_CALL )
-              IF (IFLAG .LT. 0 ) RETURN
+     &        IFLAG_OOC,LAST_CALL )
+              IF (IFLAG_OOC .LT. 0 ) THEN
+                IFLAG = IFLAG_OOC
+                RETURN
+              ENDIF
             ENDIF
           ENDIF
         ENDDO

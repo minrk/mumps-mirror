@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -31,7 +31,7 @@ C
      &  SMUMPS_BLR_SAVE_M_ARRAY, SMUMPS_BLR_RETRIEVE_M_ARRAY,
      &  SMUMPS_BLR_FREE_M_ARRAY
      &  , SMUMPS_BLR_STRUC_TO_MOD, SMUMPS_BLR_MOD_TO_STRUC, BLR_ARRAY
-#if ! defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
      &  , BLR_STRUC_T, blr_panel_type, diag_block_type
 #endif
      &  , SMUMPS_BLR_SAVE_DIAG_BLOCK, SMUMPS_BLR_RETRIEVE_DIAG_BLOCK
@@ -102,8 +102,6 @@ C
        LOGICAL, OPTIONAL, INTENT(IN) :: LRSOLVE_ACT_OPT
        INTEGER(8) :: KEEP8(150)
        INTEGER :: I, ILOOP
-       LOGICAL :: IS_FIXME_ALREADY_PRINTED  
-       IS_FIXME_ALREADY_PRINTED = .FALSE.
        IF (.NOT. associated(BLR_ARRAY)) THEN
          WRITE(*,*) "Internal error 1 in SMUMPS_BLR_END_MODULE"
          CALL MUMPS_ABORT()
@@ -129,11 +127,11 @@ C
        RETURN
        END SUBROUTINE SMUMPS_BLR_END_MODULE
        SUBROUTINE SMUMPS_BLR_MOD_TO_STRUC(id_BLRARRAY_ENCODING)
-#      if defined(MUMPS_F2003)
+#      if defined(MUMPS_NOF2003)
+       CHARACTER, DIMENSION(:), POINTER :: id_BLRARRAY_ENCODING
+#      else
        CHARACTER, DIMENSION(:), POINTER, intent(inout) ::
      &                                            id_BLRARRAY_ENCODING
-#      else
-       CHARACTER, DIMENSION(:), POINTER :: id_BLRARRAY_ENCODING
 #      endif
        CHARACTER :: CHAR_ARRAY(1)
        INTEGER :: CHAR_LENGTH, IERR
@@ -154,11 +152,11 @@ C
        RETURN
        END SUBROUTINE SMUMPS_BLR_MOD_TO_STRUC
        SUBROUTINE SMUMPS_BLR_STRUC_TO_MOD(id_BLRARRAY_ENCODING)
-#      if defined(MUMPS_F2003)
+#      if defined(MUMPS_NOF2003)
+       CHARACTER, DIMENSION(:), POINTER :: id_BLRARRAY_ENCODING
+#      else
        CHARACTER, DIMENSION(:), POINTER, intent(inout) ::
      &                                            id_BLRARRAY_ENCODING
-#      else
-       CHARACTER, DIMENSION(:), POINTER :: id_BLRARRAY_ENCODING
 #      endif
        TYPE (BLR_ARRAY_T) :: BLR_ARRAY_VAR
        IF (.NOT.associated(id_BLRARRAY_ENCODING)) THEN
@@ -529,10 +527,10 @@ C
        END SUBROUTINE SMUMPS_BLR_SAVE_PANEL_LORU
        SUBROUTINE SMUMPS_BLR_SAVE_CB_LRB (
      &    IWHANDLER, CB_LRB )
-#if defined(MUMPS_F2003)
-       TYPE(LRB_TYPE), POINTER, INTENT(IN) :: CB_LRB(:,:)
-#else       
+#if defined(MUMPS_NOF2003)
        TYPE(LRB_TYPE), POINTER :: CB_LRB(:,:)
+#else       
+       TYPE(LRB_TYPE), POINTER, INTENT(IN) :: CB_LRB(:,:)
 #endif       
        INTEGER, INTENT(IN) :: IWHANDLER
        IF ( IWHANDLER .GT. size(BLR_ARRAY) .OR. IWHANDLER .LE. 0 ) THEN
@@ -604,10 +602,10 @@ C
        SUBROUTINE SMUMPS_BLR_RETRIEVE_BEGS_BLR_L 
      &            ( IWHANDLER, BEGS_BLR_L )
        INTEGER, INTENT(IN) :: IWHANDLER
-#if defined(MUMPS_F2003)
-       INTEGER, POINTER, DIMENSION(:), INTENT(OUT) :: BEGS_BLR_L
-#else
+#if defined(MUMPS_NOF2003)
        INTEGER, POINTER, DIMENSION(:) :: BEGS_BLR_L
+#else
+       INTEGER, POINTER, DIMENSION(:), INTENT(OUT) :: BEGS_BLR_L
 #endif
        IF ( IWHANDLER .GT. size(BLR_ARRAY) .OR. IWHANDLER .LE. 0 ) THEN
          WRITE(*,*) 
@@ -620,10 +618,10 @@ C
        SUBROUTINE SMUMPS_BLR_RETRIEVE_BEGSBLR_STA
      &            ( IWHANDLER, BEGS_BLR_STATIC )
        INTEGER, INTENT(IN) :: IWHANDLER
-#if defined(MUMPS_F2003)
-       INTEGER, POINTER, DIMENSION(:), INTENT(OUT) :: BEGS_BLR_STATIC
-#else
+#if defined(MUMPS_NOF2003)
        INTEGER, POINTER, DIMENSION(:) :: BEGS_BLR_STATIC
+#else
+       INTEGER, POINTER, DIMENSION(:), INTENT(OUT) :: BEGS_BLR_STATIC
 #endif
        IF ( IWHANDLER .GT. size(BLR_ARRAY) .OR. IWHANDLER .LE. 0 ) THEN
          WRITE(*,*) 
@@ -636,10 +634,10 @@ C
        SUBROUTINE SMUMPS_BLR_RETRIEVE_BEGSBLR_DYN
      &            ( IWHANDLER, BEGS_BLR_DYNAMIC )
        INTEGER, INTENT(IN) :: IWHANDLER
-#if defined(MUMPS_F2003)
-       INTEGER, POINTER, DIMENSION(:), INTENT(OUT) :: BEGS_BLR_DYNAMIC
-#else
+#if defined(MUMPS_NOF2003)
        INTEGER, POINTER, DIMENSION(:) :: BEGS_BLR_DYNAMIC
+#else
+       INTEGER, POINTER, DIMENSION(:), INTENT(OUT) :: BEGS_BLR_DYNAMIC
 #endif
        IF ( IWHANDLER .GT. size(BLR_ARRAY) .OR. IWHANDLER .LE. 0 ) THEN
          WRITE(*,*) 
@@ -653,10 +651,10 @@ C
      &            ( IWHANDLER, BEGS_BLR_COL, NB_PANELS )
        INTEGER, INTENT(IN)  :: IWHANDLER
        INTEGER, INTENT(OUT) :: NB_PANELS
-#if defined(MUMPS_F2003)
-       INTEGER, POINTER, DIMENSION(:), INTENT(OUT) :: BEGS_BLR_COL
-#else
+#if defined(MUMPS_NOF2003)
        INTEGER, POINTER, DIMENSION(:) :: BEGS_BLR_COL
+#else
+       INTEGER, POINTER, DIMENSION(:), INTENT(OUT) :: BEGS_BLR_COL
 #endif
        IF ( IWHANDLER .GT. size(BLR_ARRAY) .OR. IWHANDLER .LE. 0 ) THEN
          WRITE(*,*) 
@@ -683,12 +681,12 @@ C
      &                                      BEGS_BLR_L, THELRBPANEL)
        INTEGER, INTENT(IN) :: IWHANDLER
        INTEGER, INTENT(IN) :: IPANEL
-#if defined(MUMPS_F2003)
-       INTEGER, POINTER, DIMENSION(:), INTENT(OUT) :: BEGS_BLR_L
-       TYPE(LRB_TYPE), INTENT(OUT), DIMENSION(:), POINTER :: THELRBPANEL
-#else
+#if defined(MUMPS_NOF2003)
        INTEGER, POINTER, DIMENSION(:) :: BEGS_BLR_L
        TYPE(LRB_TYPE), POINTER, DIMENSION(:) :: THELRBPANEL
+#else
+       INTEGER, POINTER, DIMENSION(:), INTENT(OUT) :: BEGS_BLR_L
+       TYPE(LRB_TYPE), INTENT(OUT), DIMENSION(:), POINTER :: THELRBPANEL
 #endif
        IF ( IWHANDLER .GT. size(BLR_ARRAY) .OR. IWHANDLER .LE. 0 ) THEN
          WRITE(*,*) "Internal error 1 in SMUMPS_BLR_DEC_AND_RETRIEVE_L",
@@ -750,10 +748,10 @@ C
        INTEGER, INTENT(IN) :: IWHANDLER
        INTEGER, INTENT(IN) :: LORU 
        INTEGER, INTENT(IN) :: IPANEL
-#if defined(MUMPS_F2003)
-       TYPE(LRB_TYPE), INTENT(OUT), DIMENSION(:), POINTER :: THELRBPANEL
-#else
+#if defined(MUMPS_NOF2003)
        TYPE(LRB_TYPE), POINTER, DIMENSION(:) :: THELRBPANEL
+#else
+       TYPE(LRB_TYPE), INTENT(OUT), DIMENSION(:), POINTER :: THELRBPANEL
 #endif
        IF ( IWHANDLER .GT. size(BLR_ARRAY) .OR. IWHANDLER .LE. 0 ) THEN
          WRITE(*,*) 
@@ -803,10 +801,10 @@ C
      &                           THEBLOCK)
        INTEGER, INTENT(IN) :: IWHANDLER
        INTEGER, INTENT(IN) :: IPANEL
-#if defined(MUMPS_F2003)
-       REAL, POINTER, INTENT(OUT)  :: THEBLOCK(:)
-#else
+#if defined(MUMPS_NOF2003)
        REAL, POINTER :: THEBLOCK(:)
+#else
+       REAL, POINTER, INTENT(OUT) :: THEBLOCK(:)
 #endif
        IF ( IWHANDLER .GT. size(BLR_ARRAY) .OR. IWHANDLER .LE. 0 ) THEN
          WRITE(*,*) 
@@ -835,10 +833,10 @@ C
        SUBROUTINE SMUMPS_BLR_RETRIEVE_CB_LRB
      &                          (IWHANDLER, THECB)
        INTEGER, INTENT(IN) :: IWHANDLER
-#if defined(MUMPS_F2003)
-       TYPE(LRB_TYPE), POINTER, INTENT(OUT) :: THECB(:,:)
-#else
+#if defined(MUMPS_NOF2003)
        TYPE(LRB_TYPE), POINTER :: THECB(:,:)
+#else
+       TYPE(LRB_TYPE), POINTER, INTENT(OUT) :: THECB(:,:)
 #endif
        IF ( IWHANDLER .GT. size(BLR_ARRAY) .OR. IWHANDLER .LE. 0 ) THEN
          WRITE(*,*) "Internal error 1 in SMUMPS_BLR_RETRIEVE_CB_LRB"
@@ -901,10 +899,10 @@ C
        SUBROUTINE SMUMPS_BLR_RETRIEVE_M_ARRAY ( IWHANDLER, M_ARRAY)
        IMPLICIT NONE
        INTEGER, INTENT(IN) ::  IWHANDLER
-#if defined(MUMPS_F2003)
-       REAL, DIMENSION(:), POINTER, INTENT(OUT) :: M_ARRAY
-#else
+#if defined(MUMPS_NOF2003)
        REAL, DIMENSION(:), POINTER :: M_ARRAY
+#else
+       REAL, DIMENSION(:), POINTER, INTENT(OUT) :: M_ARRAY
 #endif
        IF ( IWHANDLER .GT. size(BLR_ARRAY) .OR. IWHANDLER .LE. 0 ) THEN
           WRITE(*,*) "Internal error 1 in SMUMPS_BLR_RETRIEVE_M_ARRAY"
@@ -1219,7 +1217,7 @@ C
       elseif(trim(mode).EQ."save") then
          size_written=size_written+SIZE_VARIABLES
      &        +int(SIZE_GEST,kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
          size_written=size_written
      &        +int(2*SIZE_INT*NbRecords,kind=8)
 #endif
@@ -1227,7 +1225,7 @@ C
          size_allocated=size_allocated+SIZE_VARIABLES
          size_read=size_read+SIZE_VARIABLES
      &        +int(SIZE_GEST,kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
          size_read=size_read
      &        +int(2*SIZE_INT*NbRecords,kind=8)
 #endif
@@ -1235,7 +1233,7 @@ C
       if(trim(mode).EQ."memory_save") then
          SIZE_VARIABLES=SIZE_VARIABLES+SIZE_VARIABLES_BLR_ARRAY
          SIZE_GEST=SIZE_GEST+SIZE_GEST_BLR_ARRAY
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
          SIZE_GEST=SIZE_GEST+2*SIZE_INT*NbRecords
 #endif
       endif
@@ -1270,7 +1268,10 @@ C
       INTEGER,dimension(NBVARIABLES_BLR_STRUC_T)::SIZE_GEST_BLR_STRUC_T
       INTEGER,dimension(NBVARIABLES_BLR_STRUC_T)::NbRecords_BLR_STRUC_T
       INTEGER:: size_array1,size_array2,dummy,allocok
-      INTEGER:: err,i1,j1,j2,NbSubRecords,Local_NbRecords
+      INTEGER:: err,i1,j1,j2,NbSubRecords
+#if defined(MUMPS_NOF2003)
+      INTEGER:: Local_NbRecords
+#endif
       INTEGER::SIZE_GEST_PANELS_L,SIZE_GEST_PANELS_L_j1
       INTEGER(8)::SIZE_VARIABLES_PANELS_L,SIZE_VARIABLES_PANELS_L_j1
       INTEGER::SIZE_GEST_PANELS_U,SIZE_GEST_PANELS_U_j1
@@ -2259,7 +2260,7 @@ C
          elseif(trim(mode).EQ."save") then
             size_written=size_written+SIZE_VARIABLES_BLR_STRUC_T(i1)
      &           +int(SIZE_GEST_BLR_STRUC_T(i1),kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
             size_written=size_written
      &           +int(2*SIZE_INT*NbRecords_BLR_STRUC_T(i1),kind=8)
 #endif
@@ -2268,7 +2269,7 @@ C
      &           SIZE_VARIABLES_BLR_STRUC_T(i1)
             size_read=size_read+SIZE_VARIABLES_BLR_STRUC_T(i1)
      &           +int(SIZE_GEST_BLR_STRUC_T(i1),kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
             size_read=size_read
      &           +int(2*SIZE_INT*NbRecords_BLR_STRUC_T(i1),kind=8)
 #endif
@@ -2285,7 +2286,7 @@ C
      &        +SIZE_GEST_PANELS_U
      &        +SIZE_GEST_CB_LRB
      &        +SIZE_GEST_DIAG_BLOCKS
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
          Local_NbRecords=sum(NbRecords_BLR_STRUC_T)
          Local_SIZE_GEST=Local_SIZE_GEST+2*SIZE_INT*Local_NbRecords
 #endif
@@ -2322,7 +2323,10 @@ C
       INTEGER,dimension(NBVARIABLES_LRB_TYPE)::
      &     NbRecords_LRB_TYPE
       INTEGER:: size_array1,size_array2,dummy,allocok
-      INTEGER:: err,i1,NbSubRecords,Local_NbRecords
+      INTEGER:: err,i1,NbSubRecords
+#if defined(MUMPS_NOF2003)
+      INTEGER:: Local_NbRecords
+#endif
       INTEGER(4) ::I4
       VARIABLES_LRB_TYPE(1)="Q"
       VARIABLES_LRB_TYPE(2)="R"
@@ -2598,7 +2602,7 @@ C
          elseif(trim(mode).EQ."save") then
             size_written=size_written+SIZE_VARIABLES_LRB_TYPE(i1)
      &           +int(SIZE_GEST_LRB_TYPE(i1),kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
             size_written=size_written
      &           +int(2*SIZE_INT*NbRecords_LRB_TYPE(i1),kind=8)
 #endif
@@ -2607,7 +2611,7 @@ C
      &           SIZE_VARIABLES_LRB_TYPE(i1)
             size_read=size_read+SIZE_VARIABLES_LRB_TYPE(i1)
      &           +int(SIZE_GEST_LRB_TYPE(i1),kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
             size_read=size_read
      &           +int(2*SIZE_INT*NbRecords_LRB_TYPE(i1),kind=8)
 #endif
@@ -2616,7 +2620,7 @@ C
       if(trim(mode).EQ."memory_save") then
          Local_SIZE_VARIABLES=sum(SIZE_VARIABLES_LRB_TYPE)
          Local_SIZE_GEST=sum(SIZE_GEST_LRB_TYPE)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
          Local_NbRecords=sum(NbRecords_LRB_TYPE)
          Local_SIZE_GEST=Local_SIZE_GEST+2*SIZE_INT*Local_NbRecords
 #endif
@@ -2653,7 +2657,10 @@ C
       INTEGER,dimension(NBVARIABLES_BLR_PANEL_TYPE)::
      &     NbRecords_BLR_PANEL_TYPE
       INTEGER:: size_array1,dummy,allocok
-      INTEGER:: err,i1,j1,NbSubRecords,Local_NbRecords
+      INTEGER:: err,i1,j1,NbSubRecords
+#if defined(MUMPS_NOF2003)
+      INTEGER:: Local_NbRecords
+#endif
       INTEGER:: SIZE_GEST_LRB_PANEL_j1,SIZE_GEST_LRB_PANEL
       INTEGER(8)::SIZE_VARIABLES_LRB_PANEL_j1,SIZE_VARIABLES_LRB_PANEL
       INTEGER(4)::I4
@@ -2822,7 +2829,7 @@ C
          elseif(trim(mode).EQ."save") then
             size_written=size_written+SIZE_VARIABLES_BLR_PANEL_TYPE(i1)
      &           +int(SIZE_GEST_BLR_PANEL_TYPE(i1),kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
             size_written=size_written
      &           +int(2*SIZE_INT*NbRecords_BLR_PANEL_TYPE(i1),kind=8)
 #endif
@@ -2831,7 +2838,7 @@ C
      &           SIZE_VARIABLES_BLR_PANEL_TYPE(i1)
             size_read=size_read+SIZE_VARIABLES_BLR_PANEL_TYPE(i1)
      &           +int(SIZE_GEST_BLR_PANEL_TYPE(i1),kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
             size_read=size_read
      &           +int(2*SIZE_INT*NbRecords_BLR_PANEL_TYPE(i1),kind=8)
 #endif
@@ -2842,7 +2849,7 @@ C
      &        SIZE_VARIABLES_LRB_PANEL
          Local_SIZE_GEST=sum(SIZE_GEST_BLR_PANEL_TYPE)+
      &        SIZE_GEST_LRB_PANEL
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
          Local_NbRecords=sum(NbRecords_BLR_PANEL_TYPE)
          Local_SIZE_GEST=Local_SIZE_GEST+2*SIZE_INT*Local_NbRecords
 #endif
@@ -2879,7 +2886,10 @@ C
       INTEGER,dimension(NBVARIABLES_DIAG_BLOCK_TYPE)::
      &     NbRecords_DIAG_BLOCK_TYPE
       INTEGER:: size_array1,dummy,allocok
-      INTEGER:: err,i1,NbSubRecords,Local_NbRecords
+      INTEGER:: err,i1,NbSubRecords
+#if defined(MUMPS_NOF2003)
+      INTEGER:: Local_NbRecords
+#endif
       INTEGER(4) :: I4
       VARIABLES_DIAG_BLOCK_TYPE(1)="DIAG_BLOCK"
       SIZE_VARIABLES_DIAG_BLOCK_TYPE(:)=0_8
@@ -2980,7 +2990,7 @@ C
          elseif(trim(mode).EQ."save") then
             size_written=size_written+SIZE_VARIABLES_DIAG_BLOCK_TYPE(i1)
      &           +int(SIZE_GEST_DIAG_BLOCK_TYPE(i1),kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
             size_written=size_written
      &           +int(2*SIZE_INT*NbRecords_DIAG_BLOCK_TYPE(i1),kind=8)
 #endif
@@ -2989,7 +2999,7 @@ C
      &           SIZE_VARIABLES_DIAG_BLOCK_TYPE(i1)
             size_read=size_read+SIZE_VARIABLES_DIAG_BLOCK_TYPE(i1)
      &           +int(SIZE_GEST_DIAG_BLOCK_TYPE(i1),kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
             size_read=size_read
      &           +int(2*SIZE_INT*NbRecords_DIAG_BLOCK_TYPE(i1),kind=8)
 #endif
@@ -2998,7 +3008,7 @@ C
       if(trim(mode).EQ."memory_save") then
          Local_SIZE_VARIABLES=sum(SIZE_VARIABLES_DIAG_BLOCK_TYPE)
          Local_SIZE_GEST=sum(SIZE_GEST_DIAG_BLOCK_TYPE)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
          Local_NbRecords=sum(NbRecords_DIAG_BLOCK_TYPE)
          Local_SIZE_GEST=Local_SIZE_GEST+2*SIZE_INT*Local_NbRecords
 #endif

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -185,13 +185,9 @@ C
       INTEGER IWRK(IWSZ)
       INTEGER COMM
 C
-      INTEGER I, IR, IC, ITMP, MAXMN
+      INTEGER I, IR, IC, ITMP
       INTEGER(8) :: I8
 C      
-      MAXMN = M
-      IF(N > MAXMN) MAXMN = N
-C check done outsize
-C      IF(IWSZ < MAXMN) THEN ERROR
 C     MARK MY ROWS. 
       DO I=1,M
          IWRK(I) = 0
@@ -1184,12 +1180,9 @@ C
       INTEGER IWRK(IWSZ)
       INTEGER COMM
 C
-      INTEGER I, IR, IC, ITMP, MAXMN
+      INTEGER I, IR, IC, ITMP
       INTEGER(8) :: I8
 C      
-      MAXMN = N
-C check done outsize
-C      IF(IWSZ < MAXMN) THEN ERROR
 C     MARK MY ROWS. 
       DO I=1,N
          IWRK(I) = 0

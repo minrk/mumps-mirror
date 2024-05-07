@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -11,6 +11,221 @@ C  released under the CeCILL-C license
 C  (see doc/CeCILL-C_V1-en.txt, doc/CeCILL-C_V1-fr.txt, and
 C  https://cecill.info/licences/Licence_CeCILL-C_V1-en.html)
 C
+      SUBROUTINE MUMPS_STOP_ON_USER_REQUEST( KEEP, KEEP8, ICNTL, INFO,
+     &                                       MYID )
+      INTEGER    :: INFO(80), KEEP(500), ICNTL(60), MYID
+      INTEGER(8) :: KEEP8(150)
+      INTEGER :: ICNTL50
+        CALL MUMPS_GETVAL_ADDR_C(ICNTL50, KEEP8(83))
+      IF (ICNTL50 .eq. 1) THEN
+        INFO(1)=-80
+        INFO(2)=MYID
+      ENDIF
+      RETURN
+      CONTAINS
+        SUBROUTINE MUMPS_ACCESS_ICNTL50_VOLATILE( ICNTL50_out,
+     &                                            ICNTL50_in )
+        INTEGER, VOLATILE :: ICNTL50_in
+        INTEGER, intent(out) :: ICNTL50_out
+        ICNTL50_out=ICNTL50_in
+        RETURN
+        END SUBROUTINE MUMPS_ACCESS_ICNTL50_VOLATILE
+      END SUBROUTINE MUMPS_STOP_ON_USER_REQUEST
+      SUBROUTINE MUMPS_BUILD_COMM_PARA_ANA (
+     &      OPTION, N, COMM, MYID, COMM_NODES, MYID_NODES,
+     &      NPROCS, NSLAVES,
+     &      KEEP, 
+     &      COMM_PARAORD, NPROCS_PARAORD,  
+     &      COMM_PARAORD_ALLOCATED,
+     &      COMM_PARASYMB, NPROCS_PARASYMB, 
+     &      COMM_PARASYMB_ALLOCATED, 
+     &      ICNTL, INFO
+     &           )
+      IMPLICIT NONE
+      INCLUDE 'mpif.h'
+      INTEGER, INTENT(IN) :: OPTION, N, COMM, COMM_NODES, 
+     &                       MYID, MYID_NODES, NPROCS, NSLAVES
+      INTEGER, INTENT(IN) :: ICNTL(60)
+      INTEGER, INTENT(INOUT) :: KEEP(500)  
+      INTEGER, INTENT(INOUT) :: INFO(80)  
+      INTEGER, INTENT(OUT) :: COMM_PARAORD, NPROCS_PARAORD, 
+     &                        COMM_PARASYMB, NPROCS_PARASYMB
+      LOGICAL, INTENT(OUT) :: COMM_PARAORD_ALLOCATED, 
+     &                        COMM_PARASYMB_ALLOCATED
+      INTEGER  :: IERR, BASE, I, COLOR
+      INTEGER  :: WORKERS, WTMP
+      LOGICAL  :: IDO
+      INTEGER :: MINPROCSPERNODE, MAXPROCSPERNODE
+      INTEGER :: MYNODEID, NNODES
+      INTEGER :: WORKERSPERNODE, WORKERSLEFT, WORKERSONMYNODE
+      INTEGER, PARAMETER :: MAXNODE_SCOTCH=16, MAXNODE_METIS=64,  
+     &                      ROOT=0
+      IF (KEEP(339).GE.5) THEN
+        IF (NPROCS.EQ.1) GOTO 100
+        IF(N.LE.100) THEN
+           WORKERS = 2
+        ELSE
+           WORKERS = min(NPROCS,N/16)
+        END IF
+        I    = 1
+        WTMP = 1
+        DO
+           IF (I .GT. WORKERS) EXIT
+           WTMP = I
+           I = I*2
+        END DO
+        WORKERS = WTMP
+        IF (WORKERS.LE.1) GOTO 100
+        CALL MPI_ALLREDUCE( KEEP(412), MINPROCSPERNODE, 1, MPI_INTEGER,
+     &                      MPI_MIN, COMM, IERR )
+        CALL MPI_ALLREDUCE( KEEP(412), MAXPROCSPERNODE, 1, MPI_INTEGER,
+     &                      MPI_MAX, COMM, IERR )
+        IF (MINPROCSPERNODE .NE. MAXPROCSPERNODE ) THEN
+         GOTO  100
+        ENDIF
+        IF ( KEEP(410) .NE. MPI_COMM_NULL ) THEN
+          CALL MPI_COMM_RANK(KEEP(410), MYNODEID, IERR)
+          CALL MPI_COMM_SIZE(KEEP(410), NNODES, IERR)
+        ENDIF
+        CALL MPI_BCAST( MYNODEID, 1, MPI_INTEGER,
+     &                  ROOT,  KEEP(411), IERR )
+        CALL MPI_BCAST( NNODES, 1, MPI_INTEGER,
+     &                  ROOT,  KEEP(411), IERR )
+        WORKERSPERNODE = WORKERS / NNODES
+        WORKERSLEFT    = WORKERS - WORKERSPERNODE*NNODES
+        WORKERSONMYNODE = WORKERSPERNODE
+        IF (NNODES - MYNODEID .LE. WORKERSLEFT ) THEN
+            WORKERSONMYNODE = WORKERSONMYNODE+1
+        ENDIF
+        NPROCS_PARAORD = WORKERS
+        IF ( KEEP(413) .LE. WORKERSONMYNODE - 1 ) THEN
+          IDO = .TRUE.
+          COLOR = 1
+          COMM_PARAORD_ALLOCATED = .TRUE.
+        ELSE
+          IDO = .FALSE.
+          COLOR = MPI_UNDEFINED
+          COMM_PARAORD_ALLOCATED = .FALSE.
+        ENDIF
+        CALL MPI_COMM_SPLIT( COMM, COLOR, 0, COMM_PARAORD, IERR)
+        COMM_PARASYMB           = COMM_PARAORD
+        COMM_PARASYMB_ALLOCATED = .FALSE.
+        NPROCS_PARASYMB         = NPROCS_PARAORD
+        GOTO 500
+      ENDIF
+  100 CONTINUE
+      BASE = NPROCS-NSLAVES
+      COMM_PARAORD    = MPI_COMM_NULL
+      NPROCS_PARAORD  = 0
+      COMM_PARAORD_ALLOCATED = .FALSE.
+      NPROCS_PARASYMB = NPROCS
+      IF (OPTION.EQ.0) THEN
+        IF (KEEP(245).EQ.1) THEN
+#if defined(ptscotch)
+          COMM_PARAORD    = COMM_NODES
+          NPROCS_PARAORD  = NSLAVES
+          COMM_PARAORD_ALLOCATED = .FALSE.
+#else
+         INFO(1)= -999
+         GOTO 600
+#endif
+        ELSE IF (KEEP(245) .EQ. 2) THEN
+#if defined(parmetis) || defined(parmetis3)
+          IF(N.LE.100) THEN
+             WORKERS = 2
+          ELSE
+             WORKERS = min(NSLAVES,N/16)
+          END IF
+          I=1
+          DO
+             IF (I .GT. WORKERS) EXIT
+             NPROCS_PARAORD = I
+             I = I*2
+          END DO
+          IDO = (MYID .GE. BASE) .AND.
+     &         (MYID .LE. BASE+NPROCS_PARAORD-1)
+          IF ( IDO ) THEN
+             COLOR   = 1
+             COMM_PARAORD_ALLOCATED = .TRUE.
+          ELSE
+             COLOR = MPI_UNDEFINED
+             COMM_PARAORD_ALLOCATED = .FALSE.
+          END IF
+          CALL MPI_COMM_SPLIT( COMM, COLOR, 0, COMM_PARAORD, IERR )
+          COMM_PARASYMB           = COMM_PARAORD
+          COMM_PARASYMB_ALLOCATED = .FALSE.
+          NPROCS_PARASYMB         = NPROCS_PARAORD
+#else
+         INFO(1)= -999
+         GOTO 600
+#endif
+        ENDIF
+      ELSE 
+        call MUMPS_ABORT()
+        GOTO 600
+      ENDIF
+      NPROCS_PARASYMB         = NPROCS_PARAORD+BASE
+      IF (BASE.EQ.0) THEN
+        COMM_PARASYMB           = COMM_PARAORD
+        COMM_PARASYMB_ALLOCATED = .FALSE.
+      ELSE
+        DO I=1, NPROCS
+         IF ((MYID.EQ.0).OR.COMM_PARAORD.NE.MPI_COMM_NULL) THEN
+          COLOR = 1
+          COMM_PARASYMB_ALLOCATED = .TRUE.
+         ELSE
+          COLOR = MPI_UNDEFINED
+          COMM_PARASYMB_ALLOCATED = .FALSE.
+         ENDIF
+        ENDDO
+        CALL MPI_COMM_SPLIT( COMM, COLOR, 0, COMM_PARASYMB, IERR )
+      ENDIF
+ 500  CONTINUE
+  600 CONTINUE
+      RETURN
+      END SUBROUTINE MUMPS_BUILD_COMM_PARA_ANA
+      SUBROUTINE MUMPS_BUILD_PARAORD_to_idCOMM (
+     &      COMM, MYID, KEEP, 
+     &      COMM_PARASYMB, NPROCS_PARASYMB,
+     &      COMM_PARAORD, NPROCS_PARAORD,  
+     &      PARAORD_to_idCOMM, 
+     &      RKinSYMB_PROC0ORD, 
+     &      RKinidCOMM_PROC0SYMB, NPROCS)
+      IMPLICIT NONE
+      INCLUDE 'mpif.h'
+      INTEGER, INTENT(IN)  :: COMM, MYID 
+      INTEGER, INTENT(IN)  :: COMM_PARAORD, NPROCS_PARAORD,
+     &                        COMM_PARASYMB, NPROCS_PARASYMB 
+      INTEGER, INTENT(IN)  :: KEEP(500) 
+      INTEGER, INTENT(OUT) :: PARAORD_to_idCOMM(NPROCS_PARAORD)
+      INTEGER, INTENT(OUT) :: RKinSYMB_PROC0ORD, RKinidCOMM_PROC0SYMB
+      INTEGER  :: idPARAORD, idPARASYMB
+      INTEGER  :: IERR
+      INTEGER  :: NPROCS
+      PARAORD_to_idCOMM(1:NPROCS_PARAORD)= -1
+      IF (COMM_PARAORD.NE.MPI_COMM_NULL) THEN
+        CALL MPI_COMM_RANK (COMM_PARAORD, idPARAORD, IERR)
+        PARAORD_to_idCOMM(idPARAORD+1) = MYID 
+      ENDIF
+      CALL MPI_ALLREDUCE(MPI_IN_PLACE, PARAORD_to_idCOMM(1), 
+     &     NPROCS_PARAORD, MPI_INTEGER, MPI_MAX, COMM, IERR)
+      RKinSYMB_PROC0ORD = -1
+      IF (COMM_PARAORD.NE.MPI_COMM_NULL) THEN
+        CALL MPI_COMM_RANK (COMM_PARAORD, idPARAORD, IERR)
+        CALL MPI_COMM_RANK (COMM_PARASYMB, idPARASYMB, IERR)
+        IF (idPARAORD.EQ.0) RKinSYMB_PROC0ORD = idPARASYMB
+      ENDIF
+      CALL MPI_ALLREDUCE(MPI_IN_PLACE, RKinSYMB_PROC0ORD, 1,
+     &     MPI_INTEGER, MPI_MAX, COMM, IERR)
+      RKinidCOMM_PROC0SYMB=-1
+      IF (COMM_PARASYMB.NE.MPI_COMM_NULL) THEN
+        CALL MPI_COMM_RANK (COMM_PARASYMB, idPARASYMB, IERR)
+        IF (idPARASYMB.EQ.0) RKinidCOMM_PROC0SYMB = MYID
+      ENDIF
+      CALL MPI_ALLREDUCE(MPI_IN_PLACE, RKinidCOMM_PROC0SYMB, 1,
+     &     MPI_INTEGER, MPI_MAX, COMM, IERR)
+      RETURN
+      END SUBROUTINE MUMPS_BUILD_PARAORD_to_idCOMM 
       SUBROUTINE MUMPS_FIND_UNIT(IUNIT)
       IMPLICIT NONE
       INTEGER :: IUNIT
@@ -115,11 +330,12 @@ C
       INTEGER, intent(out) :: TPN, MUMPS_PROCNODE
       IF (K199 < 0 ) THEN
         MUMPS_PROCNODE=iand(PROCINFO_INODE,
-#if defined(MUMPS_F2003)
-     &         int(B"111111111111111111111111"))
+#if defined(MUMPS_NOF2003)
+     &         16777215
 #else
-     &         16777215)
+     &         int(B"111111111111111111111111")
 #endif
+     &  )
         TPN = ISHFT(PROCINFO_INODE,-24) - 1
         IF (TPN < 1 ) THEN
           TPN = 1
@@ -153,11 +369,12 @@ C
       INTEGER PROCINFO_INODE
       IF ( K199 < 0 ) THEN
         MUMPS_PROCNODE=iand(PROCINFO_INODE,
-#if defined(MUMPS_F2003)
-     &         int(B"111111111111111111111111"))
+#if defined(MUMPS_NOF2003)
+     &          16777215 
 #else
-     &          16777215 )
+     &         int(B"111111111111111111111111")
 #endif
+     &  )
       ELSE
         IF (K199 == 1) THEN
           MUMPS_PROCNODE = 0
@@ -1263,7 +1480,7 @@ C
       INTEGER, intent(in) :: NA(LNA), NE(NSTEPS)
       INTEGER, intent(out) :: MAXNPIVTREE
       INTEGER :: IFATH,INODE,ISON
-      INTEGER :: NPIV,ILEAF,NBLEAF,NBROOT
+      INTEGER :: NPIV,ILEAF,NBLEAF
       INTEGER, DIMENSION(:) , ALLOCATABLE :: MAXNPIV
       INTEGER :: I, allocok
       MAXNPIVTREE = -9999
@@ -1273,11 +1490,8 @@ C
      &           ,NSTEPS
          CALL MUMPS_ABORT()
       ENDIF
-      NBLEAF = NA(1)      
-      NBROOT = NA(2)
       MAXNPIV = 0
       NBLEAF = NA(1)
-      NBROOT = NA(2)
       DO ILEAF = 1, NBLEAF
         INODE = NA(2+ILEAF)
  95     CONTINUE
@@ -1427,14 +1641,15 @@ C
       RETURN
       END SUBROUTINE MUMPS_LDLTPANEL_SIZES
       SUBROUTINE MUMPS_BUILD_ARCH_NODE_COMM
-     &           ( COMM, NEWCOMM, NEWSIZE, NEWRANK )
+     &           ( COMM, NEWCOMM, NEWSIZE, NEWRANK, COMM0 )
       IMPLICIT NONE
       INCLUDE 'mpif.h'
       INTEGER, INTENT(IN)  :: COMM
-      INTEGER, INTENT(OUT) :: NEWCOMM, NEWSIZE, NEWRANK
+      INTEGER, INTENT(OUT) :: NEWCOMM, NEWSIZE, NEWRANK, COMM0
       INTEGER :: SMALLEST_ID_ON_SAME_NODE, IPROC, MYID, IERR, NPROCS
       INTEGER :: TMPNAME_LENGTH, MYNAME_LENGTH
       CHARACTER(len=MPI_MAX_PROCESSOR_NAME) :: MYNAME, TMPNAME
+      INTEGER :: COLOR
       SMALLEST_ID_ON_SAME_NODE = -1
       CALL MPI_COMM_RANK( COMM, MYID, IERR )
       CALL MPI_COMM_SIZE( COMM, NPROCS, IERR )
@@ -1461,13 +1676,21 @@ C
      &                     NEWCOMM, IERR )
       CALL MPI_COMM_RANK( NEWCOMM, NEWRANK, IERR )
       CALL MPI_COMM_SIZE( NEWCOMM, NEWSIZE, IERR )
+      IF (NEWRANK .EQ.0) THEN
+        COLOR = 0
+      ELSE
+        COLOR = MPI_UNDEFINED
+      ENDIF
+      CALL MPI_COMM_SPLIT( COMM, COLOR, 0, COMM0, IERR )
       RETURN
       END SUBROUTINE MUMPS_BUILD_ARCH_NODE_COMM
-      SUBROUTINE MUMPS_DESTROY_ARCH_NODE_COMM( ARCH_NODE_COMM )
+      SUBROUTINE MUMPS_DESTROY_ARCH_NODE_COMM( ARCH_NODE_COMM,
+     &                                         COMM0, RK )
       IMPLICIT NONE
-      INTEGER :: ARCH_NODE_COMM, IERR
+      INTEGER :: ARCH_NODE_COMM, COMM0, RK, IERR
       INCLUDE 'mpif.h'
       CALL MPI_COMM_FREE( ARCH_NODE_COMM, IERR )
+      IF ( RK .EQ. 0 ) CALL MPI_COMM_FREE( COMM0, IERR )
       RETURN
       END SUBROUTINE MUMPS_DESTROY_ARCH_NODE_COMM
       SUBROUTINE  MUMPS_DM_FAC_UPD_DYN_MEMCNTS

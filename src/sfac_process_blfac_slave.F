@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -22,7 +22,9 @@ C
      &
      &    PTLUST_S, PTRFAC, root, OPASSW, OPELIW,
      &    ITLOC, RHS_MUMPS, FILS, DAD,
-     &    PTRARW, PTRAIW, INTARR, DBLARR,
+     &    PTRARW, PTRAIW,
+     &    PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &    INTARR, DBLARR,
      &    ICNTL,KEEP,KEEP8,DKEEP,IPOOL, LPOOL, LEAF, ND, FRERE_STEPS,
      &    LPTRAR, NELT, FRTPTR, FRTELT, 
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE
@@ -37,7 +39,7 @@ C
       USE SMUMPS_STRUC_DEF, ONLY : SMUMPS_ROOT_STRUC
       USE SMUMPS_DYNAMIC_MEMORY_M, ONLY : SMUMPS_DM_SET_DYNPTR
       USE SMUMPS_FAC_FRONT_AUX_M, ONLY : SMUMPS_GET_SIZE_SCHUR_IN_FRONT
-#if defined(BLR_MT)
+#if ! defined(BLR_NOOPENMP)
 !$    USE OMP_LIB
 #endif
       IMPLICIT NONE
@@ -60,10 +62,14 @@ C
       INTEGER PERM(N), STEP(N), PIMASTER(KEEP(28))
       INTEGER IW( LIW )
       REAL A( LA )
-      INTEGER, intent(in) :: LRGROUPS(N)
+      INTEGER, intent(in) :: LRGROUPS(KEEP(280))
       INTEGER NELT, LPTRAR
       INTEGER FRTPTR( N + 1 ), FRTELT( NELT )
       INTEGER(8), INTENT(IN) :: PTRAIW( LPTRAR ), PTRARW( LPTRAR )
+      INTEGER(8), INTENT(IN) :: PTR8ARR(KEEP(193))
+      INTEGER, INTENT(IN) :: NINCOLARR(KEEP(194))
+      INTEGER, INTENT(IN) :: NINROWARR(KEEP(195))
+      INTEGER, INTENT(IN) :: PTRDEBARR(KEEP(196))
       INTEGER ISTEP_TO_INIV2(KEEP(71)), 
      &        TAB_POS_IN_PERE(SLAVEF+2,max(1,KEEP(56)))
       INTEGER COMM, MYID
@@ -226,6 +232,7 @@ C
      &
      &      root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &      FILS, DAD, PTRARW, PTRAIW,
+     &      PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &      INTARR, DBLARR, ICNTL,KEEP,KEEP8,DKEEP,ND, FRERE_STEPS,
      &      LPTRAR, NELT, FRTPTR, FRTELT, 
      &      ISTEP_TO_INIV2, TAB_POS_IN_PERE, .TRUE.
@@ -253,6 +260,7 @@ C
      &
      &    root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &    FILS, DAD, PTRARW, PTRAIW,
+     &    PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &    INTARR, DBLARR, ICNTL, KEEP,KEEP8,DKEEP, ND, FRERE_STEPS,
      &    LPTRAR, NELT, FRTPTR, FRTELT,
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE, .TRUE.
@@ -277,6 +285,7 @@ C
      &
      &    root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &    FILS, DAD, PTRARW, PTRAIW,
+     &    PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &    INTARR, DBLARR, ICNTL, KEEP,KEEP8,DKEEP, ND, FRERE_STEPS,
      &    LPTRAR, NELT, FRTPTR, FRTELT, 
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE, .TRUE. 
@@ -296,7 +305,7 @@ C
          CALL SMUMPS_BLR_DEC_AND_RETRIEVE_L (IW(IOLDPS+XXF), IPANEL, 
      &        BEGS_BLR_LS, BLR_LS)
          NB_BLR_LS = size(BEGS_BLR_LS)-2   
-#if defined(BLR_MT)          
+#if ! defined(BLR_NOOPENMP)
 !$OMP PARALLEL
 #endif
          CALL SMUMPS_BLR_UPDATE_TRAILING_I (
@@ -314,7 +323,7 @@ C
      &        1,
      &        KEEP(481), DKEEP(11), KEEP(466), KEEP(477) 
      &         )
-#if defined(BLR_MT)          
+#if ! defined(BLR_NOOPENMP)
 !$OMP END PARALLEL
 #endif          
           CALL DEALLOC_BLR_PANEL(BLR_U, NB_BLR_U, KEEP8, KEEP(34))
@@ -417,7 +426,7 @@ C
      &         MAXI_CLUSTER_COL+NELIM,NPIV)
               LWORK = MAXI_CLUSTER*MAXI_CLUSTER
               OMP_NUM = 1
-#if defined(BLR_MT)
+#if ! defined(BLR_NOOPENMP)
 !$            OMP_NUM = OMP_GET_MAX_THREADS()
 #endif
               ALLOCATE(BLOCKLR(MAXI_CLUSTER, OMP_NUM*MAXI_CLUSTER),
@@ -472,7 +481,7 @@ C
               ELSE
                  NVSCHUR_K253 = 0
               ENDIF
-#if defined(BLR_MT)          
+#if ! defined(BLR_NOOPENMP)
 !$OMP PARALLEL
 #endif
               CALL SMUMPS_COMPRESS_CB_I(
@@ -490,7 +499,7 @@ C
      &          NFS4FATHER, NPIV1, NVSCHUR_K253, KEEP(1), 
      &          M_ARRAY,
      &          NELIM, NBROWSinF )
-#if defined(BLR_MT)
+#if ! defined(BLR_NOOPENMP)
 !$OMP END PARALLEL
 #endif
               IF (IFLAG.LT.0) GOTO 650
@@ -525,6 +534,7 @@ C
      &    NSTK_S, COMP, IFLAG, IERROR, PERM,
      &    IPOOL, LPOOL, LEAF, NBFIN, SLAVEF,
      &    OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS, DAD, PTRARW, PTRAIW,
+     &    PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &    INTARR,DBLARR,ICNTL,KEEP,KEEP8,DKEEP,ND,FRERE_STEPS,
      &    LPTRAR, NELT, FRTPTR, FRTELT, 
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE 

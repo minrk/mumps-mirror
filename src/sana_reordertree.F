@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -31,7 +31,7 @@ C
       REAL PEAK
       REAL, DIMENSION(:), ALLOCATABLE :: COST_TRAV
       INTEGER, DIMENSION (:), ALLOCATABLE :: DEPTH
-      INTEGER IFATH,IN,NSTK,INODE,I,allocok,LOCAL_PERM
+      INTEGER IFATH,IN,INODE,I,allocok,LOCAL_PERM
       INTEGER(8) NCB
       INTEGER(8) NELIM,NFR
       INTEGER NFR4,NELIM4
@@ -43,7 +43,7 @@ C
       INTEGER, DIMENSION (:), POINTER :: TAB
       INTEGER dernier,fin
       INTEGER cour,II
-      INTEGER CB_current,CB_MAX,ROOT_OF_CUR_SBTR
+      INTEGER ROOT_OF_CUR_SBTR
       INTEGER(8), DIMENSION (:), ALLOCATABLE :: T1,T2
       INTEGER, DIMENSION (:), ALLOCATABLE :: RESULT
       INTEGER(8) MEM_SIZE,FACT_SIZE,SUM,MEM_SEC_PERM,FACT_SIZE_T,
@@ -51,7 +51,6 @@ C
      &     SIZECB, SIZECB_LASTSON
       INTEGER(8) TMP8
       LOGICAL   SBTR_M
-      INTEGER FIRST_LEAF,SIZE_SBTR
       EXTERNAL MUMPS_IN_OR_ROOT_SSARBR,MUMPS_INSSARBR
       LOGICAL MUMPS_IN_OR_ROOT_SSARBR,MUMPS_INSSARBR
       DOUBLE PRECISION COST_NODE
@@ -229,7 +228,6 @@ C
         ENDIF
  96     CONTINUE
         NFR    = int(ND(STEP(INODE)),8)
-        NSTK   = NE(STEP(INODE))
         NELIM4 = 0
         IN = INODE
  101    NELIM4 = NELIM4 + 1
@@ -416,7 +414,6 @@ C
              CALL SMUMPS_FUSION_SORT(TEMP,NE(STEP(INODE)),TAB1,TAB2,3,
      &         RESULT,T1,T2)
            ENDIF
-           CONTINUE
            IFATH=INODE
            DO II=1,2
               SUM=0_8
@@ -424,8 +421,6 @@ C
               FACT_SIZE_T=0_8
               MEM_SIZE=0_8
               MEM_SIZE_T=0_8
-              CB_MAX=0
-              CB_current=0
               TMP_SUM=0_8
               IF(II.EQ.1) TAB=>SON 
               IF(II.EQ.2) TAB=>TEMP
@@ -563,8 +558,6 @@ C
  001    CONTINUE
         fin=NBROOT
         LEAF=NA(1)
-        FIRST_LEAF=-9999
-        SIZE_SBTR=0
  999    CONTINUE
         INODE=IPOOL(fin)
         IF(INODE.LT.0)THEN
@@ -759,7 +752,7 @@ C
       INTEGER SBTR_ID(SIZE_DEPTH_FIRST),OOC_CUR_SBTR
       REAL COST_TRAV(SIZE_COST_TRAV)
       INTEGER, DIMENSION (:), ALLOCATABLE :: DEPTH
-      INTEGER IFATH,IN,INODE,I,allocok,LOCAL_PERM
+      INTEGER IFATH,IN,INODE,I,allocok
       INTEGER(8) NELIM,NFR
       INTEGER NFR4,NELIM4
       INTEGER LEAF,NBLEAF,NBROOT, SIZE_TAB
@@ -767,13 +760,12 @@ C
       INTEGER, DIMENSION (:), ALLOCATABLE,TARGET :: SON,TEMP
       INTEGER(8), DIMENSION (:), ALLOCATABLE :: M,M_TOTAL, fact
       INTEGER(8), DIMENSION (:), ALLOCATABLE :: TAB1,TAB2
-      INTEGER x,dernier,fin,RANK_TRAV
+      INTEGER x,fin,RANK_TRAV
       INTEGER II
       INTEGER ROOT_OF_CUR_SBTR
       INTEGER(8), DIMENSION (:), ALLOCATABLE :: T1,T2
       INTEGER, DIMENSION (:), ALLOCATABLE :: RESULT
-      INTEGER(8) MEM_SIZE,FACT_SIZE,
-     &     TOTAL_MEM_SIZE,
+      INTEGER(8) FACT_SIZE,
      &     SIZECB
       LOGICAL   SBTR_M
       INTEGER,DIMENSION(:),ALLOCATABLE :: INDICE
@@ -783,7 +775,6 @@ C
       DOUBLE PRECISION COST_NODE
       INTEGER CUR_DEPTH_FIRST_RANK
       INCLUDE 'mumps_headers.h'
-      TOTAL_MEM_SIZE=0_8
       ROOT_OF_CUR_SBTR=0
       ALLOCATE(INDICE( SLAVEF ), stat=allocok)
       IF (allocok > 0) THEN
@@ -793,11 +784,6 @@ C
          INFO(1)=-7
          INFO(2)=SLAVEF
          RETURN
-      ENDIF
-      IF((PERM.EQ.0).OR.(PERM.EQ.1).OR.
-     &     (PERM.EQ.2).OR.(PERM.EQ.3).OR.(PERM.EQ.4).OR.
-     &     (PERM.EQ.5).OR.(PERM.EQ.6))THEN
-         LOCAL_PERM=0
       ENDIF
       IF (K47 == 4 .OR. ((K47.GE.2).AND.(K81.GE. 1))) THEN
         DO I=1,SLAVEF
@@ -810,7 +796,6 @@ C
         ENDDO
       ENDIF
       SBTR_M=((K47 == 4 .OR. ((K47.GE.2).AND.(K81 .GE. 1))))
-      MEM_SIZE=0_8
       FACT_SIZE=0_8
       IF ((PERM.GT.7).AND.
      &     (.NOT.(K47 == 4 .OR. ((K47.GE.2).AND.(K81 .GE. 1))))) THEN
@@ -956,7 +941,6 @@ C
         NBROOT = NA(2)
         NBLEAF = NA(1)
         IPOOL(1:NBROOT) = NA(3+NBLEAF:2+NBLEAF+NBROOT)
-        CONTINUE
         fin=NBROOT
         LEAF=NA(1)
         FIRST_LEAF=-9999
@@ -1067,7 +1051,6 @@ C
         IN=INODE
  5602   IN = FILS(IN)
         IF (IN .GT. 0 ) THEN
-           dernier=IN
            GOTO 5602
         ENDIF
         IN=-IN
@@ -1170,7 +1153,6 @@ C
            PEAK=max(PEAK,real(M(STEP(NA(2+NBLEAF+I)))))
            FACT_SIZE=FACT_SIZE+fact(STEP(NA(2+NBLEAF+I)))
         ENDDO
-        CONTINUE
         DEALLOCATE(IPOOL)
         DEALLOCATE(M)
         DEALLOCATE(fact)

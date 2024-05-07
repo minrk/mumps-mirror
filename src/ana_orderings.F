@@ -8323,6 +8323,7 @@ C
 C     Internal Workspace only
       INTEGER, INTENT(OUT) :: NDENSE(N), DEGREE(N), 
      &                        HEAD(TOTEL), NEXT(N), W(N)
+CPA2JY: FIXME should HEAD/LAST (N) instead of TOTEL ?
 C
 C  =======================
 C  INTERFACE DOCUMENTATION
@@ -8364,7 +8365,7 @@ C
 C  
 C NV(inout): 
 C          On input:  encoding of a blocked matrix 
-C            if NV(1).NE.-1 the NV(I) holds the weight of node I. 
+C            if NV(1).NE.-1 then NV(I) holds the weight of node I. 
 C          During execution, 
 C            abs (nv (i)) is equal to the number of rows
 C            that are represented by the principal supervariable i.  
@@ -9181,8 +9182,6 @@ C         amalgamate at the root node
            NELME    = -(NEL+1)
            DO 59 X=1,N
             IF ((PE(X).GT.0) .AND. (ELEN(X).LT.0)) THEN
-              PE(X) = int(-LISTVAR_SCHUR(1),8)
-            ELSE IF ((PE(X).GT.0) .AND. (ELEN(X).LT.0)) THEN
 C            X is an unabsorbed element
 C            -- Force sons to be linked to first node in Schur
              PE(X) = int(-LISTVAR_SCHUR(1),8)
@@ -9197,7 +9196,7 @@ C            X is a dense row, absorb it in ME (mass elimination)
             ENDIF
    59      CONTINUE
            IF (NbSchur.NE.SIZE_SCHUR_LOC) then
-             write(6,*) ' Internal error 2 in QAMD :',
+             write(6,*) ' Internal error 2 in MUMPS_SYMQAMD:',
      &         ' Schur size expected:',SIZE_SCHUR_LOC, 'Real:', NbSchur
              CALL MUMPS_ABORT()
            ENDIF
@@ -9206,7 +9205,7 @@ C          ME is the root node
            NV(ME)   = NBD
            PE(ME)   = 0_8
            IF (NEL.NE.N) THEN
-            write(6,*) 'Internal ERROR 2 detected in QAMD'
+            write(6,*) 'Internal error 3 detected in MUMPS_SYMQAMD:'
             write(6,*) ' NEL not equal to N: N, NEL =',N,NEL
             CALL MUMPS_ABORT()
            ENDIF

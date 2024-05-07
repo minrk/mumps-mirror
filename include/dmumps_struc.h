@@ -1,9 +1,9 @@
 !
-!  This file is part of MUMPS 5.5.1, released
-!  on Tue Jul 12 13:17:24 UTC 2022
+!  This file is part of MUMPS 5.6.0, released
+!  on Wed Apr 19 15:50:57 UTC 2023
 !
 !
-!  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+!  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 !  Mumps Technologies, University of Bordeaux.
 !
 !  This version of MUMPS is provided to you free of charge. It is
@@ -171,7 +171,8 @@
         INTEGER,POINTER,DIMENSION(:) :: STEP, NE_STEPS, ND_STEPS
         INTEGER,POINTER,DIMENSION(:) :: FRERE_STEPS, DAD_STEPS
         INTEGER,POINTER,DIMENSION(:) :: FILS, FRTPTR, FRTELT
-        INTEGER(8),POINTER,DIMENSION(:) :: PTRAR
+        INTEGER(8),POINTER,DIMENSION(:) :: PTRAR, PTR8ARR
+        INTEGER,POINTER,DIMENSION(:) :: NINCOLARR, NINROWARR,PTRDEBARR
         INTEGER,POINTER,DIMENSION(:) :: NA, PROCNODE_STEPS
 !       Info for pruning tree 
         INTEGER,POINTER,DIMENSION(:) :: Step2node
@@ -186,8 +187,6 @@
 !       Input matrix ready for numerical assembly 
 !           -arrowhead format in case of assembled matrix
 !           -element format otherwise
-        INTEGER, DIMENSION(:), POINTER :: INTARR
-        DOUBLE PRECISION, DIMENSION(:), POINTER :: DBLARR
 !       Element entry: internal data
         INTEGER :: NELT_loc, LELTVAR
         INTEGER, DIMENSION(:), POINTER :: ELTPROC

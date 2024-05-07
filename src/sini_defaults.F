@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -137,7 +137,7 @@ C     is stored in DKEEP(1).
 C      IF CNTL(3)  > 0 THEN
 C          DKEEP(1) = CNTL(3)  ||A_{preproc}|| 
 C      ELSE IF CNTL(3)  = 0.0 THEN 
-C          DKEEP(1) = MACHEPS 10^{-5} ||A_{preproc}||
+C          DKEEP(1) = MACHEPS sqrt(N_h)||A_{preproc}||
 C      ELSE IF CNTL(3)  < 0 THEN 
 C          DKEEP(1) = abs(CNTL(3))! this was added for EDF 
 C                                 ! in the context of SOLSTICE project
@@ -482,7 +482,7 @@ C    factorization phase.
 C    Values of ICNTL(21) different from 0 and 1 are currently treated as 0.
 C
 C   ICNTL(22) (saved in KEEP(201) controls the OOC setting (0=incore, 1 =OOC)
-C    It has default value 0 (incore).Out-of-range values are treated as 1.
+C    It has default value 0 (incore).Out-of-range values are treated as 0.
 C    If set before analysis then special setting and massage of the tree 
 C    might be done (so far only extra splitting  CUTNODES) is performed.
 C    It is then accessed by the host
@@ -646,7 +646,7 @@ C            For all other values, the determinant is computed. Note that
 C            null pivots and static pivots are excluded from the
 C            computation of the determinant.
 C
-C   ICNTL(34) Must be set before a call to MUMPS with JOB=-2 in case
+C   ICNTL(34) Must be set before a call to MUMPS with JOB=-3 in case
 C             the save/restore feature was used and user wants to clean
 C             save/restore files (and possibly OOC files). 
 C             ICTNL(34)=0 => user wants to be able to restore instance later
@@ -676,6 +676,9 @@ C             performed before the Solve; pivoting strategy is adapted
 C             to pe performed on low-rank blocks; the low-rank updates are not
 C             recompressed
 C      
+C    ICNTL(37) : Compress CB strategy need be set before factorization
+C             0 = DONT compress CB (default)
+C             1 = SYSTEMATIC compress CB: compress CB for all candidate fronts
 C
 C    ICNTL(38): Compression rate of LU factors, can be set before 
 C               analysis/factorization
@@ -687,16 +690,18 @@ C               ICNTL(38)/10= compressed/uncompressed factors × 100.
 C               Default value: 600
 C               (when factors of BLR fronts are compressed, 
 C               their size is 60% of their full- rank size).
+C    ICNTL(39) : Compression rate of Contribution Blocks (CBs)
+C                can be set before analysis/factorization
+C                Between 0 and 1000; other values ares treated as 0; 
+C                corresponds to an estimated compression rate of
+C                ICNTL(39)/1000%.
+C                Default value: 500 (50.0% compression rate).
 C 
 C   ICNTL(58): strategy for symbolic factorization used
 C              with centralized ordering based on METIS (ICNTL(7)=5)
 C              or with given given ordering (ICNTL(7)=1)
 C 
-#if defined(__ve__)
 C   Default value 2
-#else
-C   Default value 1 
-#endif
 C     1 => SYMBQAMD based symbolic factorization 
 C     2 => Column count based symbolic factorization
 C          Symbolic factorization based on 
@@ -765,7 +770,8 @@ C  INFO(10)  Size of the integer space used to store the LU factors
 C  
 C  INFO(11)  Order of largest frontal matrix.
 C  
-C  INFO(12)  Number of off-diagonal pivots.
+C  INFO(12)  Number of off-diagonal pivots in unsymmetric case /
+C            number of negative pivots in symmetric case
 C  
 C  INFO(13)  Number of uneliminated variables sent to the father.
 C  
@@ -1012,7 +1018,11 @@ C     If null space options asked, ScaLAPACK is always ignored
 C        and ICNTL(13) is not significant
 C     ICNTL(13) = 0 : Root parallelism on (if size large enough)
 C     ICNTL(13) = 1 : Root parallelism off
+#if defined(NOSCALAPACK)
+      ICNTL(13) = 1
+#else
       ICNTL(13) = 0
+#endif
 C     Default value for the memory relaxation
       IF (SYM.eq.1.AND.NSLAVES.EQ.1) THEN 
         ICNTL(14) = 5  ! it should work with 0
@@ -1045,14 +1055,12 @@ C     0 = auto, 1 = PT-SCOTCH, 2 = ParMETIS
       ICNTL(29) = 0
 C     Default BLR compression rate of factors (60%)
       ICNTL(38) = 600
+C     Default BLR compression rate of factors (50%)
+      ICNTL(39) = 500
       ICNTL(55) = 0
       ICNTL(56) = 0
       ICNTL(57) = 0
-#if defined(__ve__)
       ICNTL(58) = 2
-#else
-      ICNTL(58) = 1
-#endif
 C===================================
 C Default values for some components 
 C of KEEP array
@@ -1155,12 +1163,9 @@ C     LU factorization on root in case of RR
 C     strategy for MUMPS_BLOC2_GET_NSLAVESMIN
       KEEP(119)=0
 C     Scaling is enabled by default with the Schur complement option
-      KEEP(125) = 1
-      KEEP(197)=0
-#if defined(__ve__)
-C     More amalgamation of small fronts to better exploit vector engine
+      KEEP(125)=1
+C     More amalgamation of tiny fronts
       KEEP(197)=1
-#endif
 C     KEEP(199) for MUMPS_PROCNODE, MUMPS_TYPENODE, etc
 C     KEEP(199)=NSLAVES + 7
       KEEP(199)=-1
@@ -1206,6 +1211,7 @@ C     allocate id%S later otherwise.
                         ! (default value is 10 set in fac_driver.F)
       DKEEP(24) = 1000.0E0 ! gap should be larger than dkeep(14)
       DKEEP(25) = 10.0E0 ! gap precision
+      DKEEP(22) = 0.2E0 ! to check for slow convergence
       KEEP(238)=18
       KEEP(234)= 1
       KEEP(235)=-1
@@ -1222,8 +1228,8 @@ C     allocate id%S later otherwise.
       KEEP(266) = 0
       KEEP(267) = 0
       KEEP(268)=77
-      KEEP(350) = 1
-      KEEP(351) = 0
+      KEEP(350) = 2
+      KEEP(351) = 1
       KEEP(360) = 256
       KEEP(361) = 2048
       KEEP(362) = 4
@@ -1246,6 +1252,9 @@ C     0.9 equilibration
       KEEP(420) =  4*KEEP(6)   ! if KEEP(6)=32 then 128
 #if defined(GEMMT_AVAILABLE)
       KEEP(421) = -1
+#if defined(__ve__)
+      KEEP(421) = 3000
+#endif
 #endif
 C     Default size of KEEP(424) is defined below.
 C     It does not depend on arithmetic,
@@ -1256,6 +1265,10 @@ C     of size 250*sizeof(arith). (4k bytes for z)
 C     At each new block of size KEEP(424), there is
 C     probably a cache miss on the pivot.
       KEEP(424) = 250
+      KEEP(458)=0
+#if defined(__ve__)
+      KEEP(458)=1
+#endif
       KEEP(459) = 10 ! max number of panels
       KEEP(460) = 63 ! min panel size
       KEEP(461) = 10
@@ -1279,6 +1292,10 @@ C     probably a cache miss on the pivot.
       ENDIF
       KEEP(490) = 128
       KEEP(491) = 1000
+#if defined(__ve__)
+      KEEP(491)=512
+      KEEP(491)=8000
+#endif
       KEEP(492) = 1
       KEEP(82) = 30
       KEEP(493) = 0
@@ -1312,6 +1329,7 @@ C
          id%KEEP(85)=-4
          id%KEEP(62) = 2  
          id%KEEP(1)  = 1   
+         id%KEEP(197)  = 0
          id%KEEP(51) = 2
 !$       id%KEEP(360) = 2
 !$       id%KEEP(361) = 2
@@ -1325,8 +1343,11 @@ C
          id%ICNTL(27)=-3
          id%KEEP(227)=3
          id%KEEP(30) = 1000
-C        Activate L0OMP with test_mumps in case KEEP(72)=1
+#if defined(_OPENMP)
+C        Activate L0OMP with test_mumps in case KEEP(72)=1,
+C        but only if compiilation is with OpenMP
          id%KEEP(401) = 1
+#endif
       ELSE IF (id%KEEP(72)==2) THEN
          id%KEEP(85)=2            ! default is 
          id%KEEP(85)=-10000         ! default is 160 

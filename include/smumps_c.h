@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.5.1, released
- *  on Tue Jul 12 13:17:24 UTC 2022
+ *  This file is part of MUMPS 5.6.0, released
+ *  on Wed Apr 19 15:50:57 UTC 2023
  *
  *
- *  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -29,7 +29,7 @@ extern "C" {
 
 #ifndef MUMPS_VERSION
 /* Protected in case headers of other arithmetics are included */
-#define MUMPS_VERSION "5.5.1"
+#define MUMPS_VERSION "5.6.0"
 #endif
 #ifndef MUMPS_VERSION_MAX_LEN
 #define MUMPS_VERSION_MAX_LEN 30

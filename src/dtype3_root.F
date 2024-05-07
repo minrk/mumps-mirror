@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -75,11 +75,12 @@ C
      &    IPOOL, LPOOL, LEAF, NBFIN, SLAVEF,
      &    OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &    FILS, DAD, PTRARW, PTRAIW,
+     &    PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &    INTARR,DBLARR,ICNTL,KEEP,KEEP8,DKEEP,TRANSPOSE_ASM,
      &    ND, FRERE,
      &    LPTRAR, NELT, FRTPTR, FRTELT, 
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE  
-     &               , LRGROUPS
+     &               , LRGROUPS,  NELIM_ROOT, NELIM_ROW, NELIM_COL
      &     )
       USE DMUMPS_OOC        
       USE DMUMPS_BUF
@@ -101,6 +102,7 @@ C
       INTEGER SHIFT_LIST_ROW_SON, SHIFT_LIST_COL_SON
       INTEGER MYID, COMM
       LOGICAL TRANSPOSE_ASM
+      INTEGER :: NELIM_ROOT, NELIM_ROW, NELIM_COL
       INCLUDE 'mpif.h'
       INTEGER LBUFR, LBUFR_BYTES
       INTEGER BUFR( LBUFR )
@@ -109,7 +111,7 @@ C
       INTEGER LIW
       INTEGER IW( LIW )
       DOUBLE PRECISION A( LA )
-      INTEGER, intent(in) :: LRGROUPS(N)
+      INTEGER, intent(in) :: LRGROUPS(KEEP(280))
       INTEGER LPTRAR, NELT
       INTEGER FRTPTR( N+1 ), FRTELT( NELT )
       INTEGER(8) :: PTRAST(KEEP(28))
@@ -128,6 +130,10 @@ C
       DOUBLE PRECISION :: RHS_MUMPS(KEEP(255))
       INTEGER ND( KEEP(28) ), FRERE( KEEP(28) )
       INTEGER(8), INTENT(IN) :: PTRARW( LPTRAR ), PTRAIW( LPTRAR )
+      INTEGER(8), INTENT(IN) :: PTR8ARR(KEEP(193))
+      INTEGER, INTENT(IN) :: NINCOLARR(KEEP(194))
+      INTEGER, INTENT(IN) :: NINROWARR(KEEP(195))
+      INTEGER, INTENT(IN) :: PTRDEBARR(KEEP(196))
       INTEGER INTARR( KEEP8(27) )
       DOUBLE PRECISION DBLARR( KEEP8(26) )
       INTEGER ISTEP_TO_INIV2(KEEP(71)), 
@@ -211,7 +217,11 @@ C
             NSUPCOL(JCOL+1) = NSUPCOL(JCOL+1) + 1
             PTRCOL( JCOL + 2 ) = PTRCOL( JCOL + 2 ) + 1
           ELSE  
-            POS_IN_ROOT = root%RG2L_ROW( IGLOB ) 
+            IF ( I .LE. NELIM_ROW ) THEN
+              POS_IN_ROOT = NELIM_ROOT + I - 1
+            ELSE
+              POS_IN_ROOT = root%RG2L( IGLOB ) 
+            ENDIF
             IROW  = mod((POS_IN_ROOT-1)/root%MBLOCK,root%NPROW)
             PTRROW ( IROW + 2 ) = PTRROW( IROW + 2 ) + 1
           ENDIF
@@ -219,7 +229,11 @@ C
           IF (IGLOB .GT. N) THEN 
             POS_IN_ROOT = IGLOB - N
           ELSE  
-            POS_IN_ROOT = root%RG2L_COL( IGLOB ) 
+            IF ( I .LE. NELIM_ROW ) THEN
+              POS_IN_ROOT = NELIM_ROOT + I - 1
+            ELSE
+              POS_IN_ROOT = root%RG2L( IGLOB )
+            ENDIF
           ENDIF
           JCOL =  mod( ( POS_IN_ROOT - 1 ) / root%NBLOCK, root%NPCOL ) 
           IF (IGLOB.GT.N)  
@@ -236,9 +250,13 @@ C
         IF ( .NOT. TRANSPOSE_ASM ) THEN
           IF (KEEP(50).EQ.0) THEN
             IF (JGLOB.LE.N) THEN
-              POS_IN_ROOT = root%RG2L_COL(JGLOB)  
+              IF ( I.LE.NELIM_COL ) THEN
+                POS_IN_ROOT = NELIM_ROOT + I - 1
+              ELSE
+                POS_IN_ROOT = root%RG2L(JGLOB)
+              ENDIF
             ELSE
-              POS_IN_ROOT = JGLOB-N
+              POS_IN_ROOT = JGLOB - N
             ENDIF
             JCOL =  mod((POS_IN_ROOT-1) / root%NBLOCK, root%NPCOL ) 
             IF (JGLOB.GT.N) THEN
@@ -246,19 +264,26 @@ C
             ENDIF
             PTRCOL ( JCOL + 2 ) = PTRCOL( JCOL + 2 ) + 1
           ELSE 
-            POS_IN_ROOT = root%RG2L_COL(JGLOB) 
+            IF ( I .LE. NELIM_COL ) THEN
+              POS_IN_ROOT = NELIM_ROOT + I - 1
+            ELSE
+              POS_IN_ROOT = root%RG2L( JGLOB )
+            ENDIF
             JCOL =  mod((POS_IN_ROOT-1) / root%NBLOCK, root%NPCOL )
             PTRCOL ( JCOL + 2 ) = PTRCOL( JCOL + 2 ) + 1
             IF (BCP_SYM_NONEMPTY) THEN
-             POS_IN_ROOT = root%RG2L_ROW(JGLOB) 
-             IROW  = mod((POS_IN_ROOT-1)/root%MBLOCK,root%NPROW)
-             NSUPROW(IROW+1) = NSUPROW(IROW+1)+1
-             PTRROW( IROW + 2 ) = PTRROW( IROW + 2 ) + 1
+              IROW  = mod((POS_IN_ROOT-1)/root%MBLOCK,root%NPROW)
+              NSUPROW(IROW+1) = NSUPROW(IROW+1)+1
+              PTRROW( IROW + 2 ) = PTRROW( IROW + 2 ) + 1
             ENDIF
           ENDIF
         ELSE  
           IF (JGLOB.LE.N) THEN
-           POS_IN_ROOT = root%RG2L_ROW( JGLOB ) 
+           IF ( I .LE. NELIM_COL ) THEN
+             POS_IN_ROOT = NELIM_ROOT + I - 1
+           ELSE
+             POS_IN_ROOT = root%RG2L( JGLOB ) 
+           ENDIF
           ELSE
            POS_IN_ROOT = JGLOB-N
           ENDIF
@@ -293,14 +318,22 @@ C
         IF (SKIPLAST_RHS_ROWS.AND.(IGLOB.GT.N)) CYCLE
         IF ( .NOT. TRANSPOSE_ASM ) THEN
           IF (IGLOB.GT.N) CYCLE   
-          POS_IN_ROOT = root%RG2L_ROW( IGLOB )
+          IF ( I .LE. NELIM_ROW ) THEN
+            POS_IN_ROOT = NELIM_ROOT + I - 1
+          ELSE
+            POS_IN_ROOT = root%RG2L( IGLOB )
+          ENDIF
           IROW        = mod( ( POS_IN_ROOT - 1 ) / root%MBLOCK,
      &                       root%NPROW )
           ROW_INDEX_LIST( PTRROW( IROW + 1 ) ) = I 
           PTRROW ( IROW + 1 ) = PTRROW( IROW + 1 ) + 1
         ELSE
           IF (IGLOB.LE.N) THEN
-           POS_IN_ROOT = root%RG2L_COL( IGLOB )
+           IF ( I .LE. NELIM_ROW ) THEN
+             POS_IN_ROOT = NELIM_ROOT + I - 1
+           ELSE
+             POS_IN_ROOT = root%RG2L( IGLOB )
+           ENDIF
           ELSE
            POS_IN_ROOT = IGLOB - N  
           ENDIF
@@ -315,7 +348,11 @@ C
         IF ((KEEP(50).GT.0) .AND. (JGLOB.GT.N)) CYCLE  
         IF ( .NOT. TRANSPOSE_ASM ) THEN
           IF ( JGLOB.LE.N ) THEN
-           POS_IN_ROOT = root%RG2L_COL( JGLOB )
+            IF ( I .LE. NELIM_COL ) THEN
+              POS_IN_ROOT = NELIM_ROOT + I - 1
+            ELSE
+              POS_IN_ROOT = root%RG2L( JGLOB )
+            ENDIF
           ELSE
            POS_IN_ROOT = JGLOB - N
           ENDIF
@@ -325,9 +362,13 @@ C
           PTRCOL ( JCOL + 1 ) = PTRCOL( JCOL + 1 ) + 1
         ELSE
           IF ( JGLOB.LE.N ) THEN
-           POS_IN_ROOT = root%RG2L_ROW( JGLOB )
+            IF ( I .LE. NELIM_COL ) THEN
+              POS_IN_ROOT = NELIM_ROOT + I - 1
+            ELSE
+              POS_IN_ROOT = root%RG2L( JGLOB )
+            ENDIF
           ELSE
-           POS_IN_ROOT = JGLOB - N
+            POS_IN_ROOT = JGLOB - N
           ENDIF
           IROW        = mod( ( POS_IN_ROOT - 1 ) /
      &                root%MBLOCK, root%NPROW )
@@ -350,7 +391,11 @@ C
          IF (JGLOB.GT.N) THEN
            EXIT
          ELSE
-           POS_IN_ROOT = root%RG2L_ROW(JGLOB) 
+           IF ( I .LE. NELIM_COL ) THEN
+             POS_IN_ROOT = NELIM_ROOT + I - 1
+           ELSE
+             POS_IN_ROOT = root%RG2L(JGLOB) 
+           ENDIF
          ENDIF
          IROW  = mod((POS_IN_ROOT-1)/root%MBLOCK,root%NPROW)
          ROW_INDEX_LIST( PTRROW( IROW + 1 ) ) = I    
@@ -378,7 +423,9 @@ C
      &               A, LA,
      &               FILS, DAD, MYID, SLAVEF, PROCNODE_STEPS,
      &               LPTRAR, NELT, FRTPTR, FRTELT,
-     &               PTRAIW, PTRARW, INTARR, DBLARR,
+     &               PTRAIW, PTRARW,
+     &               PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &               INTARR, DBLARR,
      &               LRLU, IPTRLU,
      &               IWPOS, IWPOSCB, PTRIST, PTRAST,
      &               STEP, PIMASTER, PAMASTER, ITLOC, RHS_MUMPS,
@@ -429,9 +476,10 @@ C
      &        NRLOCAL,
      &        NCLOCAL,
      &        NSUPROW(IROW+1), NSUPCOL(JCOL+1),
-     &        root%RG2L_ROW(1), root%RG2L_COL(1), TRANSPOSE_ASM,
+     &        root%RG2L(1), TRANSPOSE_ASM,
      &        KEEP,
-     &        root%RHS_ROOT(1,1), root%RHS_NLOC )
+     &        root%RHS_ROOT(1,1), root%RHS_NLOC,
+     &        NELIM_ROOT, NELIM_ROW, NELIM_COL )
        ELSE
         IF ( PTRIST(STEP( IROOT )) .GE. 0 ) THEN
           IF ( PTRIST(STEP( IROOT )) .EQ. 0 ) THEN
@@ -457,9 +505,10 @@ C
      &        NRLOCAL,
      &        NCLOCAL,
      &        NSUPROW(IROW+1), NSUPCOL(JCOL+1),
-     &        root%RG2L_ROW(1), root%RG2L_COL(1), TRANSPOSE_ASM,
+     &        root%RG2L(1), TRANSPOSE_ASM,
      &        KEEP,
-     &        root%RHS_ROOT(1,1), root%RHS_NLOC )
+     &        root%RHS_ROOT(1,1), root%RHS_NLOC,
+     &        NELIM_ROOT, NELIM_ROW, NELIM_COL )
         END IF
        ENDIF
       END IF
@@ -511,10 +560,11 @@ C
      &        NSUBSET_ROW, NSUBSET_COL,
      &        NSUPROW(IROW+1), NSUPCOL(JCOL+1),
      &        root%NPROW, root%NPCOL, root%MBLOCK,
-     &        root%RG2L_ROW(1), root%RG2L_COL(1),
+     &        root%RG2L(1),
      &        root%NBLOCK, PDEST,
      &        COMM, IERR, A( POSFAC ), LRLU, TRANSPOSE_ASM,
-     &        SIZE_MSG, NBROWS_ALREADY_SENT, KEEP, BBPCBP )
+     &        SIZE_MSG, NBROWS_ALREADY_SENT, KEEP, BBPCBP,
+     &        NELIM_ROOT, NELIM_ROW, NELIM_COL )
               IF ( IERR .EQ. -1 ) THEN
                   BLOCKING  = .FALSE.
                   SET_IRECV = .TRUE.
@@ -530,7 +580,9 @@ C
      &            COMP, IFLAG, IERROR, COMM, PERM, IPOOL, LPOOL,
      &            LEAF, NBFIN, MYID, SLAVEF, root,
      &            OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS, DAD,
-     &            PTRARW,PTRAIW,INTARR,DBLARR,ICNTL,KEEP,KEEP8,DKEEP,
+     &            PTRARW,PTRAIW,
+     &            PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &            INTARR,DBLARR,ICNTL,KEEP,KEEP8,DKEEP,
      &            ND, FRERE, LPTRAR, NELT, FRTPTR, FRTELT, 
      &            ISTEP_TO_INIV2, TAB_POS_IN_PERE, .TRUE.
      &               , LRGROUPS
@@ -606,39 +658,47 @@ C
      &   NPCOL, NPROW, MBLOCK, NBLOCK, NBCOL_SON, NBROW_SON, INDCOL_SON,
      &   INDROW_SON, LD_SON, VAL_SON, SUBSET_ROW, SUBSET_COL,
      &   NSUBSET_ROW, NSUBSET_COL, NSUPROW, NSUPCOL,
-     &   RG2L_ROW, RG2L_COL, TRANSPOSE_ASM,
-     &   KEEP, RHS_ROOT, NLOC  )
-      USE DMUMPS_STRUC_DEF, ONLY : DMUMPS_ROOT_STRUC
+     &   RG2L, TRANSPOSE_ASM,
+     &   KEEP, RHS_ROOT, NLOC, NELIM_ROOT, NELIM_ROW, NELIM_COL )
       IMPLICIT NONE
       INTEGER N, LOCAL_M, LOCAL_N
       DOUBLE PRECISION VAL_ROOT( LOCAL_M, LOCAL_N )
       INTEGER NPCOL, NPROW, MBLOCK, NBLOCK
       INTEGER NBCOL_SON, NBROW_SON
       INTEGER INDCOL_SON( NBCOL_SON ), INDROW_SON( NBROW_SON )
-      INTEGER LD_SON 
+      INTEGER LD_SON
       INTEGER NSUPROW, NSUPCOL
       DOUBLE PRECISION VAL_SON( LD_SON, NBROW_SON )
       INTEGER KEEP(500)
       INTEGER NSUBSET_ROW, NSUBSET_COL
       INTEGER SUBSET_ROW( NSUBSET_ROW ), SUBSET_COL( NSUBSET_COL )
-      INTEGER RG2L_ROW( N ), RG2L_COL( N )
+      INTEGER RG2L( N )
       LOGICAL TRANSPOSE_ASM
       INTEGER NLOC
       DOUBLE PRECISION RHS_ROOT( LOCAL_M, NLOC)
+      INTEGER :: NELIM_ROOT, NELIM_ROW, NELIM_COL
       INTEGER ISUB, JSUB, I, J, IPOS_ROOT, JPOS_ROOT
       INTEGER ILOC_ROOT, JLOC_ROOT, IGLOB, JGLOB
       IF (KEEP(50).EQ.0) THEN
         DO ISUB = 1, NSUBSET_ROW
           I         = SUBSET_ROW( ISUB )
           IGLOB     = INDROW_SON( I )
-          IPOS_ROOT = RG2L_ROW( IGLOB )   
+          IF ( I .LE. NELIM_ROW ) THEN
+            IPOS_ROOT = NELIM_ROOT + I - 1
+          ELSE
+            IPOS_ROOT = RG2L( IGLOB )
+          ENDIF
           ILOC_ROOT = MBLOCK
      &            * ( ( IPOS_ROOT - 1 ) / ( MBLOCK * NPROW ) )
      &            + mod( IPOS_ROOT - 1, MBLOCK ) + 1
           DO JSUB = 1, NSUBSET_COL-NSUPCOL
             J         = SUBSET_COL( JSUB )
             JGLOB     = INDCOL_SON( J )
-            JPOS_ROOT = RG2L_COL( JGLOB )
+            IF ( J .LE. NELIM_COL ) THEN
+              JPOS_ROOT = NELIM_ROOT + J - 1
+            ELSE
+              JPOS_ROOT = RG2L( JGLOB )
+            ENDIF
             JLOC_ROOT = NBLOCK
      &              * ( ( JPOS_ROOT - 1 ) / ( NBLOCK * NPCOL ) )
      &              + mod( JPOS_ROOT - 1, NBLOCK ) + 1
@@ -661,14 +721,22 @@ C
           DO ISUB = 1, NSUBSET_ROW - NSUPROW 
             I         = SUBSET_ROW( ISUB )
             IGLOB     = INDROW_SON( I )
-            IPOS_ROOT = RG2L_ROW( IGLOB )
+            IF ( I .LE. NELIM_ROW ) THEN
+              IPOS_ROOT = NELIM_ROOT + I - 1
+            ELSE
+              IPOS_ROOT = RG2L( IGLOB )
+            ENDIF
             ILOC_ROOT = MBLOCK
      &            * ( ( IPOS_ROOT - 1 ) / ( MBLOCK * NPROW ) )
      &            + mod( IPOS_ROOT - 1, MBLOCK ) + 1
             DO JSUB = 1, NSUBSET_COL -NSUPCOL
               J         = SUBSET_COL( JSUB )
               JGLOB     = INDCOL_SON( J )
-              JPOS_ROOT = RG2L_COL( JGLOB )
+              IF ( J .LE. NELIM_COL ) THEN
+                JPOS_ROOT = NELIM_ROOT + J - 1
+              ELSE
+                JPOS_ROOT = RG2L( JGLOB )
+              ENDIF
               IF (KEEP(50).NE.0. AND. JPOS_ROOT .GT. IPOS_ROOT) CYCLE
               JLOC_ROOT = NBLOCK
      &                * ( ( JPOS_ROOT - 1 ) / ( NBLOCK * NPCOL ) )
@@ -687,7 +755,11 @@ C
             DO ISUB = NSUBSET_ROW - NSUPROW +1, NSUBSET_ROW
               I         = SUBSET_ROW( ISUB )
               IGLOB     = INDCOL_SON( I )  
-              IPOS_ROOT = RG2L_ROW(IGLOB)
+              IF ( I .LE. NELIM_COL ) THEN 
+                IPOS_ROOT = NELIM_ROOT + I - 1
+              ELSE
+                IPOS_ROOT = RG2L(IGLOB)
+              ENDIF
               ILOC_ROOT = MBLOCK
      &            * ( ( IPOS_ROOT - 1 ) / ( MBLOCK * NPROW ) )
      &            + mod( IPOS_ROOT - 1, MBLOCK ) + 1
@@ -698,15 +770,23 @@ C
         ELSE
           DO ISUB = 1, NSUBSET_COL-NSUPCOL 
             I         = SUBSET_COL( ISUB )
-            IGLOB     = INDROW_SON( I )
-            JPOS_ROOT = RG2L_COL( IGLOB )
+            IGLOB     = INDROW_SON( I )    
+            IF ( I .LE. NELIM_ROW ) THEN 
+              JPOS_ROOT = NELIM_ROOT + I - 1
+            ELSE
+              JPOS_ROOT = RG2L( IGLOB )
+            ENDIF
             JLOC_ROOT = NBLOCK
      &                * ( ( JPOS_ROOT - 1 ) / ( NBLOCK * NPCOL ) )
      &                + mod( JPOS_ROOT - 1, NBLOCK ) + 1
             DO JSUB = 1, NSUBSET_ROW
               J         = SUBSET_ROW( JSUB )
-              JGLOB     = INDCOL_SON( J )
-              IPOS_ROOT = RG2L_ROW( JGLOB )  
+              JGLOB     = INDCOL_SON( J )  
+              IF ( J .LE. NELIM_COL ) THEN 
+                IPOS_ROOT = NELIM_ROOT + J - 1
+              ELSE
+                IPOS_ROOT = RG2L( JGLOB )  
+              ENDIF
               ILOC_ROOT = MBLOCK
      &                * ( ( IPOS_ROOT - 1 ) / ( MBLOCK * NPROW ) )
      &                + mod( IPOS_ROOT - 1, MBLOCK ) + 1
@@ -716,15 +796,19 @@ C
            ENDDO
            DO ISUB = NSUBSET_COL-NSUPCOL+1, NSUBSET_COL
             I         = SUBSET_COL( ISUB )
-            IGLOB     = INDROW_SON( I )
+            IGLOB     = INDROW_SON( I ) 
             JPOS_ROOT = IGLOB - N 
             JLOC_ROOT = NBLOCK
      &                * ( ( JPOS_ROOT - 1 ) / ( NBLOCK * NPCOL ) )
      &                + mod( JPOS_ROOT - 1, NBLOCK ) + 1
             DO JSUB = 1, NSUBSET_ROW
               J         = SUBSET_ROW( JSUB )
-              JGLOB     = INDCOL_SON( J )
-              IPOS_ROOT = RG2L_ROW( JGLOB )  
+              JGLOB     = INDCOL_SON( J ) 
+              IF ( J .LE. NELIM_COL ) THEN 
+                IPOS_ROOT = NELIM_ROOT + J - 1
+              ELSE
+                IPOS_ROOT = RG2L( JGLOB )  
+              ENDIF
               ILOC_ROOT = MBLOCK
      &                * ( ( IPOS_ROOT - 1 ) / ( MBLOCK * NPROW ) )
      &                + mod( IPOS_ROOT - 1, MBLOCK ) + 1
@@ -749,7 +833,10 @@ C
       INTEGER N, IROOT, NPROCS, K50, K46, K51
       INTEGER FILS( N )
       INTEGER K60, IDNPROW, IDNPCOL, IDMBLOCK, IDNBLOCK
-      INTEGER INODE, NPROWtemp, NPCOLtemp
+      INTEGER INODE
+#if ! defined(NOSCALAPACK)
+      INTEGER NPROWtemp, NPCOLtemp
+#endif
       LOGICAL SLAVE
       root%ROOT_SIZE     = 0
       root%TOT_ROOT_SIZE = 0
@@ -800,6 +887,7 @@ C
         ELSE
           root%yes  = .FALSE.
         ENDIF
+#if ! defined(NOSCALAPACK)
       ELSE IF ( SLAVE ) THEN
         IF ( root%gridinit_done) THEN
            IF (root%yes) THEN
@@ -820,48 +908,31 @@ C
           root%yes = .false.
         END IF
         root%LPIV = 0
+#endif
       ELSE
         root%yes = .FALSE.
       ENDIF
       RETURN
       END SUBROUTINE DMUMPS_INIT_ROOT_ANA
-      SUBROUTINE DMUMPS_INIT_ROOT_FAC( N, root, FILS, IROOT,
-     &                                 KEEP, INFO )
+      SUBROUTINE DMUMPS_INIT_ROOT_FAC( N, MYID, root, FILS, KEEP )
       USE DMUMPS_STRUC_DEF, ONLY : DMUMPS_ROOT_STRUC
       IMPLICIT NONE
       TYPE ( DMUMPS_ROOT_STRUC ):: root
-      INTEGER N, IROOT, INFO(80), KEEP(500)
+      INTEGER, INTENT(IN) :: N, MYID, KEEP(500)
       INTEGER FILS( N )
-      INTEGER INODE, I, allocok
-      IF ( associated( root%RG2L_ROW ) ) THEN
-        DEALLOCATE( root%RG2L_ROW )
-        NULLIFY( root%RG2L_ROW )
+      INTEGER INODE, I
+      LOGICAL INITIALIZE_RG2L
+      INITIALIZE_RG2L = ( KEEP(38) .NE. 0 )
+        INITIALIZE_RG2L = .TRUE.
+      IF ( INITIALIZE_RG2L ) THEN
+        INODE = KEEP(38)
+        I = 1
+        DO WHILE ( INODE .GT. 0 )
+          root%RG2L( INODE ) = I
+          I = I + 1
+          INODE = FILS( INODE )
+        END DO
       ENDIF
-      IF ( associated( root%RG2L_COL ) ) THEN
-        DEALLOCATE( root%RG2L_COL )
-        NULLIFY( root%RG2L_COL )
-      ENDIF
-      ALLOCATE( root%RG2L_ROW( N ), stat = allocok )
-      IF ( allocok .GT. 0 ) THEN
-        INFO(1)=-13
-        INFO(2)=N
-        RETURN
-      ENDIF
-      ALLOCATE( root%RG2L_COL( N ), stat = allocok )
-      IF ( allocok .GT. 0 ) THEN
-        DEALLOCATE( root%RG2L_ROW ); NULLIFY( root%RG2L_ROW )
-        INFO(1)=-13
-        INFO(2)=N
-        RETURN
-      ENDIF
-      INODE = IROOT
-      I = 1
-      DO WHILE ( INODE .GT. 0 )
-        root%RG2L_ROW( INODE ) = I
-        root%RG2L_COL( INODE ) = I
-        I = I + 1
-        INODE = FILS( INODE )
-      END DO
       root%TOT_ROOT_SIZE=0
       RETURN
       END SUBROUTINE DMUMPS_INIT_ROOT_FAC
@@ -954,7 +1025,7 @@ C
                   KK=KK+1
                 END DO
                 END DO
-                CALL MPI_SSEND( WK, SIZE_IBLOCK*SIZE_JBLOCK,
+                CALL MPI_SEND( WK, SIZE_IBLOCK*SIZE_JBLOCK,
      &                         MPI_DOUBLE_PRECISION,
      &                         IDEST, 128, COMM, IERR )
               ELSE IF ( MYID .EQ. IDEST ) THEN
@@ -1054,7 +1125,7 @@ C
                   KK=KK+1
                 END DO
                 END DO
-                CALL MPI_SSEND( WK( 1 ),
+                CALL MPI_SEND( WK( 1 ),
      &                         SIZE_IBLOCK*SIZE_JBLOCK,
      &                         MPI_DOUBLE_PRECISION,
      &                         MASTER_ROOT,128,COMM,IERR)
@@ -1081,7 +1152,9 @@ C
      &                  IW, LIW, A, LA,
      &                  FILS, DAD, MYID, SLAVEF, PROCNODE_STEPS,
      &                  LPTRAR, NELT, FRTPTR, FRTELT,
-     &                  PTRAIW, PTRARW, INTARR, DBLARR,
+     &                  PTRAIW, PTRARW,
+     &                  PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &                  INTARR, DBLARR,
      &                  LRLU, IPTRLU,
      &                  IWPOS, IWPOSCB, PTRIST, PTRAST,
      &                  STEP, PIMASTER, PAMASTER, ITLOC, RHS_MUMPS,
@@ -1110,6 +1183,10 @@ C
       INTEGER LPTRAR, NELT
       INTEGER FRTPTR( N+1), FRTELT( NELT )
       INTEGER(8), INTENT(IN) :: PTRAIW( LPTRAR ), PTRARW( LPTRAR )
+      INTEGER(8), INTENT(IN) :: PTR8ARR(KEEP(193))
+      INTEGER, INTENT(IN) :: NINCOLARR(KEEP(194))
+      INTEGER, INTENT(IN) :: NINROWARR(KEEP(195))
+      INTEGER, INTENT(IN) :: PTRDEBARR(KEEP(196))
       INTEGER INTARR(KEEP8(27))
       DOUBLE PRECISION DBLARR(KEEP8(26))
       INTEGER numroc
@@ -1183,14 +1260,18 @@ C
             ENDIF
             IF (KEEP(55) .eq. 0) THEN
               IF (KEEP(60) .EQ. 0) THEN
-                CALL DMUMPS_ASM_ARR_ROOT( N, root, IROOT,
+                CALL DMUMPS_ASM_ARR_ROOT( N, root, IROOT, STEP(IROOT),
      &          A(IPTRLU+1_8), LOCAL_M, LOCAL_M, LOCAL_N,
-     &          FILS, PTRAIW, PTRARW, INTARR, DBLARR,
+     &          FILS,
+     &          KEEP, PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &          INTARR, DBLARR,
      &          KEEP8(27), KEEP8(26), MYID )
               ELSE
-                CALL DMUMPS_ASM_ARR_ROOT( N, root, IROOT,
+                CALL DMUMPS_ASM_ARR_ROOT( N, root, IROOT, STEP(IROOT),
      &          root%SCHUR_POINTER(1), root%SCHUR_LLD, LOCAL_M, LOCAL_N,
-     &          FILS, PTRAIW, PTRARW, INTARR, DBLARR,
+     &          FILS,
+     &          KEEP, PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &          INTARR, DBLARR,
      &          KEEP8(27), KEEP8(26), MYID )
               ENDIF
             ELSE
@@ -1233,7 +1314,7 @@ C
       INTEGER, INTENT(INOUT) :: INTARR(LINTARR)
       DOUBLE PRECISION DBLARR(LDBLARR)
       INTEGER(8) :: J1, J2, K8, IPTR
-      INTEGER    :: IELT, I, J, IGLOB, JGLOB, SIZEI, IBEG
+      INTEGER    :: IELT, I, J, IGLOB, SIZEI, IBEG
       INTEGER    :: ARROW_ROOT
       INTEGER    :: IPOSROOT, JPOSROOT, IROW_GRID, JCOL_GRID
       INTEGER    :: ILOCROOT, JLOCROOT
@@ -1245,18 +1326,17 @@ C
         K8 = PTRARW(IELT)
         SIZEI=int(J2-J1)+1
         DO J=1, SIZEI
-          JGLOB          = INTARR(J1+J-1)
-          INTARR(J1+J-1) = root%RG2L_ROW(JGLOB)
+          IGLOB          = INTARR(J1+J-1)
+          INTARR(J1+J-1) = root%RG2L(IGLOB)
         ENDDO
         DO J = 1, SIZEI
-          JGLOB         = INTARR(J1+J-1)
+          IGLOB         = INTARR(J1+J-1)
           IF ( KEEP(50).eq. 0 ) THEN
             IBEG = 1
           ELSE
             IBEG = J
           END IF
           DO I = IBEG, SIZEI
-            IGLOB = INTARR(J1+I-1)
             IF ( KEEP(50).eq.0 ) THEN
               IPOSROOT = INTARR(J1+I-1)
               JPOSROOT = INTARR(J1+J-1)
@@ -1306,7 +1386,7 @@ C
      &        INODE
       INODE = KEEP(38)
       DO WHILE (INODE.GT.0)
-        IPOS_ROOT = root%RG2L_ROW( INODE ) 
+        IPOS_ROOT = root%RG2L( INODE ) 
         IROW_GRID  = mod( ( IPOS_ROOT - 1 ) / root%MBLOCK, root%NPROW )
         IF (  IROW_GRID .NE. root%MYROW ) GOTO 100 
         ILOCRHS = root%MBLOCK * ( ( IPOS_ROOT - 1 ) /
@@ -1327,46 +1407,47 @@ C
       ENDDO
       RETURN
       END SUBROUTINE DMUMPS_ASM_RHS_ROOT
-      SUBROUTINE DMUMPS_ASM_ARR_ROOT( N, root, IROOT,
+      SUBROUTINE DMUMPS_ASM_ARR_ROOT( N, root, IROOT, STEP_IROOT,
      &   VALROOT, LOCAL_M_LLD, LOCAL_M, LOCAL_N, FILS,
-     &       PTRAIW, PTRARW,
+     &       KEEP, PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &       INTARR, DBLARR, LINTARR, LDBLARR,
      &       MYID)
       USE DMUMPS_STRUC_DEF, ONLY : DMUMPS_ROOT_STRUC
       IMPLICIT NONE
       TYPE (DMUMPS_ROOT_STRUC) :: root
-      INTEGER :: N, MYID, IROOT, LOCAL_M, LOCAL_N
+      INTEGER :: N, MYID, IROOT, STEP_IROOT, LOCAL_M, LOCAL_N
       INTEGER :: LOCAL_M_LLD
       INTEGER FILS( N )
-      INTEGER(8), INTENT(IN) :: PTRARW( N ), PTRAIW( N )
+      INTEGER :: KEEP(500)
+      INTEGER(8), INTENT(IN) :: PTR8ARR(KEEP(193))
+      INTEGER, INTENT(IN) :: NINCOLARR(KEEP(194))
+      INTEGER, INTENT(IN) :: NINROWARR(KEEP(195))
+      INTEGER, INTENT(IN) :: PTRDEBARR(KEEP(196))
       DOUBLE PRECISION VALROOT(LOCAL_M_LLD,LOCAL_N)
       INTEGER(8), INTENT(IN) :: LINTARR, LDBLARR
       INTEGER INTARR(LINTARR)
       DOUBLE PRECISION DBLARR(LDBLARR)
       DOUBLE PRECISION VAL
-      INTEGER(8) :: JJ, J1,JK, J2,J3, J4, AINPUT
-      INTEGER IORG, IBROT, NUMORG,
-     &        IROW, JCOL
+      INTEGER(8) :: JJ, J1,J2,J3, J4, AINPUT
+      INTEGER IORG, NUMORG,
+     &        IROW, JCOL, IARR1
       INTEGER IPOSROOT, JPOSROOT, IROW_GRID, JCOL_GRID
       INTEGER ILOCROOT, JLOCROOT
       NUMORG = root%ROOT_SIZE
-      IBROT  = IROOT
+      IARR1=PTRDEBARR(STEP_IROOT)
       DO IORG = 1, NUMORG
-        JK = PTRAIW(IBROT)
-        AINPUT = PTRARW(IBROT)
-        IBROT = FILS(IBROT)
-        JJ = JK + 1
-        J1 = JJ + 1
-        J2 = J1 + INTARR(JK)
+        AINPUT = PTR8ARR(IARR1+IORG-1)
+        J1 = AINPUT
+        J2 = J1 + NINCOLARR(IARR1+IORG-1)
         J3 = J2 + 1
-        J4 = J2 - INTARR(JJ)
+        J4 = J2 + NINROWARR(IARR1+IORG-1)
         JCOL = INTARR(J1)
         DO JJ = J1, J2
          IROW = INTARR(JJ)
          VAL  = DBLARR(AINPUT)
          AINPUT = AINPUT + 1
-         IPOSROOT = root%RG2L_ROW( IROW )
-         JPOSROOT = root%RG2L_COL( JCOL )
+         IPOSROOT = root%RG2L( IROW )
+         JPOSROOT = root%RG2L( JCOL )
          IROW_GRID  = mod( ( IPOSROOT - 1 ) / root%MBLOCK, root%NPROW )
          JCOL_GRID  = mod( ( JPOSROOT - 1 ) / root%NBLOCK, root%NPCOL )
          IF ( IROW_GRID .EQ. root%MYROW .AND.
@@ -1382,27 +1463,27 @@ C
          END IF
         END DO
         IF (J3 .LE. J4) THEN
-         IROW =  INTARR(J1)
-         DO JJ= J3,J4
-          JCOL = INTARR(JJ)
-          VAL  = DBLARR(AINPUT)
-          AINPUT = AINPUT + 1
-          IPOSROOT = root%RG2L_ROW( IROW )
-          JPOSROOT = root%RG2L_COL( JCOL )
-          IROW_GRID= mod( ( IPOSROOT - 1 )/root%MBLOCK, root%NPROW)
-          JCOL_GRID= mod( ( JPOSROOT - 1 )/root%NBLOCK, root%NPCOL)
-          IF ( IROW_GRID .EQ. root%MYROW .AND.
-     &        JCOL_GRID .EQ. root%MYCOL ) THEN
-            ILOCROOT = root%MBLOCK * ( ( IPOSROOT - 1 ) /
+          IROW =  INTARR(J1)
+          DO JJ= J3,J4
+            JCOL = INTARR(JJ)
+            VAL  = DBLARR(AINPUT)
+            AINPUT = AINPUT + 1
+            IPOSROOT = root%RG2L( IROW )
+            JPOSROOT = root%RG2L( JCOL )
+            IROW_GRID= mod( ( IPOSROOT - 1 )/root%MBLOCK, root%NPROW)
+            JCOL_GRID= mod( ( JPOSROOT - 1 )/root%NBLOCK, root%NPCOL)
+            IF ( IROW_GRID .EQ. root%MYROW .AND.
+     &           JCOL_GRID .EQ. root%MYCOL ) THEN
+              ILOCROOT = root%MBLOCK * ( ( IPOSROOT - 1 ) /
      &                 ( root%MBLOCK * root%NPROW ) )
-     &               + mod( IPOSROOT - 1, root%MBLOCK ) + 1
-            JLOCROOT = root%NBLOCK * ( ( JPOSROOT - 1 ) /
+     &                 + mod( IPOSROOT - 1, root%MBLOCK ) + 1
+              JLOCROOT = root%NBLOCK * ( ( JPOSROOT - 1 ) /
      &                 ( root%NBLOCK * root%NPCOL ) )
-     &               + mod( JPOSROOT - 1, root%NBLOCK ) + 1
-            VALROOT( ILOCROOT, JLOCROOT ) = 
-     &      VALROOT( ILOCROOT, JLOCROOT ) + VAL
-          END IF
-         END DO
+     &                 + mod( JPOSROOT - 1, root%NBLOCK ) + 1
+              VALROOT( ILOCROOT, JLOCROOT ) = 
+     &        VALROOT( ILOCROOT, JLOCROOT ) + VAL
+            END IF
+          END DO
         ENDIF
       ENDDO
       RETURN

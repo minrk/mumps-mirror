@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -19,7 +19,9 @@ C
      &     COMP, LRLUS, IPOOL, LPOOL, LEAF,
      &     FILS, DAD, MYID,
      &     LPTRAR, NELT, FRTPTR, FRTELT,
-     &     PTRAIW, PTRARW, INTARR, DBLARR,
+     &     PTRAIW, PTRARW,
+     &     PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &     INTARR, DBLARR,
      &     KEEP, KEEP8, DKEEP, IFLAG, IERROR, COMM, COMM_LOAD,
      &     ITLOC, RHS_MUMPS,
      &     ND,PROCNODE_STEPS, SLAVEF, OPASSW )
@@ -54,6 +56,10 @@ C
       INTEGER LPTRAR, NELT
       INTEGER FRTPTR( N+1 ), FRTELT( NELT )
       INTEGER(8), INTENT(IN) :: PTRAIW( LPTRAR ), PTRARW( LPTRAR )
+      INTEGER(8), INTENT(IN) :: PTR8ARR(KEEP(193))
+      INTEGER, INTENT(IN) :: NINCOLARR(KEEP(194))
+      INTEGER, INTENT(IN) :: NINROWARR(KEEP(195))
+      INTEGER, INTENT(IN) :: PTRDEBARR(KEEP(196))
       INTEGER INTARR(KEEP8(27))
       COMPLEX(kind=8) DBLARR(KEEP8(26))
       DOUBLE PRECISION OPASSW
@@ -132,7 +138,9 @@ C
      &                IW, LIW, A, LA,
      &                FILS, DAD, MYID, SLAVEF, PROCNODE_STEPS,
      &                LPTRAR, NELT, FRTPTR, FRTELT,
-     &                PTRAIW, PTRARW, INTARR, DBLARR,
+     &                PTRAIW, PTRARW,
+     &                PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &                INTARR, DBLARR,
      &                LRLU, IPTRLU,
      &                IWPOS, IWPOSCB, PTRIST, PTRAST,
      &                STEP, PIMASTER, PAMASTER, ITLOC, RHS_MUMPS,

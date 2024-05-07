@@ -2,6 +2,33 @@
 = ChangeLog =
 -------------
 
+Changes from 5.5.1 to 5.6.0
+* Analysis by blocks and out-of-range entries compatible with parallel analysis 
+* Compact workarray S before solution phase (ICNTL(49)=1,2)
+* JOB=-4 frees data from factorization and keeps results from analysis
+* NEC vector engine version: tuned block low rank and GEMMT usage
+* Reduced memory for symbolic datastructures (order-N arrays, arrowheads)
+* Use new symbolic factorization (column counts) by default (+allow forest in case of Schur)
+* Improved amalgamation algorithm to reduce the number tiny nodes
+* Discard factors option is now compatible with BLR 
+* Discard L factors option in case of LU factorization available for in-core 
+* Count null negative pivots (INFOG(50))
+* Compilation with -DBLR_MT is no longer needed (see also -DBLR_NOOPENMP)
+* Improve performance of A-1 entries computation when #MPI > 1
+* Fixed risk of hanging in case of OOC error (e.g. disk full)
+* Free internal data earlier (e.g., factors in case of failed factorization, etc.)
+* Avoid setenv/unsetenv on MinGW environments (Scotch versions >= 7)
+* Fix error during ordering when processing matrices of order 1
+* Out-Of-Core, values of ICNTL(22) different from 1 are treated as zero (in-core)
+* BLKPTR ignored when ICNTL(15) < 0 (INFO(1:2)=-57 4 no longer occurs)
+* BLR OpenMP fac_lr.F fix for possible non-increasing scheduling of loop indices
+* Fix: id%LRGROUPS was not nullified in CMUMPS_FREE_ONENTRY_ANA_DRIVER
+* Fixed parameter error 1202 in PDGETRS after restoring a factorization
+* Workaround MPI_SSEND intel MPI 2021.6 issue
+* NEC: Fix MUMPS_WRAP_GINP94 offloading to host
+* Shared libraries: minor update in Makefiles
+* Fixed missing printings of preprocessing constants in mumps_print_defined.F
+
 Changes from 5.5.0 to 5.5.1
 * 64-bit default integer version: avoid MPI buffer size > 2^31
   (could lead to negative counts in MPI_Recv with Intel ilp64 MPI)
@@ -722,6 +749,7 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.6.0            : April 2023
 Release 5.5.1            : July 2022
 Release 5.5.0            : April 2022
 Release 5.4.1            : August 2021

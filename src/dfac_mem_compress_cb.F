@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -153,7 +153,8 @@ C
       LOGICAL, EXTERNAL :: DMUMPS_ISBAND
       EXTERNAL MPI_WTIME
       DOUBLE PRECISION MPI_WTIME
-      DOUBLE PRECISION TIME_STRT, TIME_COMP
+      DOUBLE PRECISION TIME_STRT
+      DOUBLE PRECISION TIME_COMP
       TIME_STRT = MPI_WTIME()
       ISIZE2SHIFT=0
       RSIZE2SHIFT=0_8
@@ -338,7 +339,13 @@ C
       IPTRLU  = IPTRLU  + RSIZE2SHIFT
  120  CONTINUE
       TIME_COMP = MPI_WTIME() - TIME_STRT
-      ACC_TIME = ACC_TIME + TIME_COMP
+      IF (KEEP(405).EQ.0) THEN
+        ACC_TIME = ACC_TIME + TIME_COMP
+      ELSE
+!$OMP   ATOMIC UPDATE
+        ACC_TIME = ACC_TIME + TIME_COMP
+!$OMP   END ATOMIC
+      ENDIF
       RETURN
       END SUBROUTINE DMUMPS_COMPRE_NEW
       SUBROUTINE DMUMPS_GET_SIZEHOLE(IREC, IW, LIW,

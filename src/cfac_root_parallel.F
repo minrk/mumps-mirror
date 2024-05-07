@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -41,12 +41,15 @@ C
       DOUBLE PRECISION, intent(inout) :: OPELIW
       INTEGER, INTENT(INOUT) :: DET_SIGN, DET_EXP
       COMPLEX, INTENT(INOUT) :: DET_MANT
+#if ! defined(NOSCALAPACK)
       INTEGER IOLDPS
       INTEGER(8) :: IAPOS
+      INTEGER LOCAL_M, LOCAL_N, LPIV, IERR 
       DOUBLE PRECISION :: FLOPS_ROOT
       INTEGER(8) :: ENTRIES_ROOT
-      INTEGER LOCAL_M, LOCAL_N, LPIV, IERR, allocok
+      INTEGER allocok
       INTEGER FWD_LOCAL_N_RHS, FWD_MTYPE 
+#endif
       INCLUDE 'mumps_headers.h'
       EXTERNAL numroc
       INTEGER numroc
@@ -61,6 +64,7 @@ C
           ENDIF
         RETURN
         ENDIF
+#if ! defined(NOSCALAPACK)
         IF (MPA.GT.0) THEN
          IF (MYID.EQ.MASTER_OF_ROOT) THEN
            CALL  MUMPS_GET_FLOPS_COST
@@ -193,5 +197,6 @@ C
      &         root%MBLOCK, root%NBLOCK,
      &         root%CNTXT_BLACS, IERR)
         ENDIF
-        RETURN
+#endif
+      RETURN
       END SUBROUTINE CMUMPS_FACTO_ROOT

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -14,11 +14,12 @@ C
       MODULE ZMUMPS_FAC_PAR_M
       CONTAINS
       SUBROUTINE ZMUMPS_FAC_PAR(N, IW, LIW, A, LA, NSTK_STEPS,
-     & ND, FILS, STEP, FRERE, DAD, CAND, ISTEP_TO_INIV2,
-     & TAB_POS_IN_PERE, NSTEPSDONE, OPASS, OPELI, NELVA, COMP, MAXFRT,
-     & NMAXNPIV, NTOTPV, NOFFNEGPV, NB22T1, NB22T2, NBTINY, DET_EXP,
-     & DET_MANT, DET_SIGN, PTRIST, PTRAST, PIMASTER, PAMASTER,
-     & PTRARW, PTRAIW, ITLOC, RHS_MUMPS, IPOOL, LPOOL,
+     & ND,FILS,STEP, FRERE, DAD, CAND, ISTEP_TO_INIV2, TAB_POS_IN_PERE,
+     & NSTEPSDONE, OPASS, OPELI, NELVA, COMP, MAXFRT, NMAXNPIV, NTOTPV,
+     & NOFFNEGPV, NULLNEGPV, NB22T1, NB22T2, NBTINY,
+     & DET_EXP, DET_MANT, DET_SIGN,
+     & PTRIST, PTRAST, PIMASTER, PAMASTER, PTRARW, PTRAIW, PTR8ARR,
+     & NINCOLARR, NINROWARR, PTRDEBARR, ITLOC, RHS_MUMPS, IPOOL, LPOOL,
      & L0_OMP_MAPPING, LL0_OMP_MAPPING,
      & MUMPS_TPS_ARR, ZMUMPS_TPS_ARR, LTPS_ARR,
      & RINFO, POSFAC ,IWPOS, LRLU, IPTRLU, LRLUS, LEAF, NBROOT, NBRTOT,
@@ -27,7 +28,7 @@ C
      & SLAVEF,MYID, COMM_NODES, MYID_NODES, BUFR, LBUFR, LBUFR_BYTES,
      & INTARR, DBLARR, root, PERM, NELT, FRTPTR, FRTELT, LPTRAR,
      & COMM_LOAD, ASS_IRECV, SEUIL, SEUIL_LDLT_NIV2, MEM_DISTRIB, NE,
-     & DKEEP, PIVNUL_LIST, LPN_LIST, LRGROUPS )
+     & DKEEP, PIVNUL_LIST_STRUCT, LRGROUPS )
 !$    USE OMP_LIB
       USE ZMUMPS_DYNAMIC_MEMORY_M, ONLY : 
      &                                    ZMUMPS_DM_FREEALLDYNAMICCB
@@ -43,12 +44,14 @@ C
       USE MUMPS_TPS_M
       USE ZMUMPS_TPS_M
       USE ZMUMPS_STRUC_DEF, ONLY : ZMUMPS_ROOT_STRUC
+      USE MUMPS_PIVNUL_MOD
       IMPLICIT NONE
       TYPE (ZMUMPS_ROOT_STRUC) :: root
       INTEGER N, LIW, LPTRAR, NSTEPSDONE, INFO(80)
       DOUBLE PRECISION, INTENT(INOUT) :: OPASS, OPELI
       INTEGER, INTENT(INOUT) :: NELVA, COMP
-      INTEGER, INTENT(INOUT) :: MAXFRT, NTOTPV, NMAXNPIV, NOFFNEGPV
+      INTEGER, INTENT(INOUT) :: MAXFRT, NTOTPV, NMAXNPIV, NOFFNEGPV,
+     &                          NULLNEGPV
       INTEGER, INTENT(INOUT) :: NB22T1, NB22T2, NBTINY
       INTEGER, INTENT(INOUT) :: DET_SIGN, DET_EXP
       COMPLEX(kind=8), INTENT(INOUT) :: DET_MANT
@@ -64,6 +67,10 @@ C
       COMPLEX(kind=8) :: RHS_MUMPS(KEEP(255))
       INTEGER IW(LIW), NSTK_STEPS(KEEP(28))
       INTEGER(8), INTENT(IN) :: PTRARW(LPTRAR), PTRAIW(LPTRAR)
+      INTEGER(8), INTENT(IN) :: PTR8ARR(KEEP(193))
+      INTEGER, INTENT(IN) :: NINCOLARR(KEEP(194))
+      INTEGER, INTENT(IN) :: NINROWARR(KEEP(195))
+      INTEGER, INTENT(IN) :: PTRDEBARR(KEEP(196))
       INTEGER ND(KEEP(28))
       INTEGER FILS(N),PTRIST(KEEP(28))
       INTEGER STEP(N), FRERE(KEEP(28)), DAD(KEEP(28))
@@ -89,10 +96,9 @@ C
       COMPLEX(kind=8) DBLARR( KEEP8(26) )
       INTEGER INTARR( KEEP8(27) )
       LOGICAL IS_ISOLATED_NODE
-      INTEGER LPN_LIST
-      INTEGER PIVNUL_LIST(LPN_LIST)
+      TYPE(PIVNUL_LIST_STRUCT_T)     :: PIVNUL_LIST_STRUCT
       DOUBLE PRECISION DKEEP(230)
-      INTEGER LRGROUPS(N)
+      INTEGER LRGROUPS(KEEP(280))
       INTEGER, INTENT( IN ) :: LTPS_ARR
       TYPE (MUMPS_TPS_T), TARGET  :: MUMPS_TPS_ARR( LTPS_ARR )
       TYPE (ZMUMPS_TPS_T), TARGET :: ZMUMPS_TPS_ARR( LTPS_ARR )
@@ -108,7 +114,7 @@ C
       INTEGER FPERE, TYPEF
       INTEGER MP, LP, DUMMY(1)
       INTEGER NBFIN, NBROOT_TRAITEES
-      INTEGER NFRONT, IOLDPS, NASS, HF, XSIZE
+      INTEGER NFRONT, IOLDPS
       INTEGER(8) :: NFRONT8
       INTEGER(8) :: POSELT
       INTEGER IPOSROOT, IPOSROOTROWINDICES
@@ -144,6 +150,7 @@ C
       INCLUDE 'mumps_headers.h'
       INTEGER MPA
       DOUBLE PRECISION  OPLAST_PRINTED
+      DOUBLE PRECISION :: ROOTTIME
       INTEGER:: ITH
       DOUBLE PRECISION :: DUMMY_FLOP_ESTIM_ACC
 #if defined(multicore_profiling)
@@ -173,6 +180,7 @@ C
      &                        dble(DKEEP(17)), 
      &                        OPELI,
      &                        OPLAST_PRINTED, MPA)
+      CALL ZMUMPS_UPDATE_PROGRESS( OPELI, KEEP8 )
       STACK_RIGHT_AUTHORIZED = .TRUE.
       CALL ZMUMPS_ALLOC_CB( .FALSE., 0_8,
      &     .FALSE., .FALSE., MYID_NODES, N, KEEP, KEEP8, DKEEP,
@@ -196,6 +204,7 @@ C
      &        FILS, DAD, MYID_NODES, SLAVEF, PROCNODE_STEPS,
      &        LPTRAR, NELT, FRTPTR, FRTELT,
      &        PTRAIW, PTRARW,
+     &        PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &        INTARR, DBLARR,
      &        LRLU, IPTRLU,
      &        IWPOS, IWPOSCB, PTRIST, PTRAST,
@@ -219,6 +228,9 @@ C
       ENDIF
       KEEP(429)=0
  20   CONTINUE
+      CALL ZMUMPS_UPDATE_PROGRESS( OPELI, KEEP8 )
+      CALL MUMPS_STOP_ON_USER_REQUEST( KEEP, KEEP8, ICNTL, INFO, MYID )
+      IF ( INFO(1) .LT. 0 ) GOTO 635 
       NIV1_FLAG=0
       SET_IRECV = .TRUE.
       BLOCKING = .FALSE.
@@ -237,6 +249,7 @@ C
      &      IPOOL, LPOOL, LEAF, NBFIN, MYID_NODES, SLAVEF,
      &      root, OPASS, OPELI, ITLOC, RHS_MUMPS, FILS, DAD,
      &      PTRARW, PTRAIW,
+     &      PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &      INTARR, DBLARR, ICNTL, KEEP,KEEP8,DKEEP, ND, FRERE,
      &      LPTRAR, NELT, FRTPTR, FRTELT,
      &      ISTEP_TO_INIV2, TAB_POS_IN_PERE,
@@ -327,10 +340,11 @@ C
      &        NSTK_STEPS,PERM,PROCNODE_STEPS,
      &        root, OPASS, OPELI, ITLOC, RHS_MUMPS,
      &        FILS, DAD, PTRARW, PTRAIW,
+     &        PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &        INTARR, DBLARR, ICNTL, KEEP,KEEP8, ND, FRERE,
      &        LPTRAR, NELT, FRTPTR, FRTELT, SEUIL,
      &        ISTEP_TO_INIV2, TAB_POS_IN_PERE, AVOID_DELAYED,
-     &        DKEEP(1),PIVNUL_LIST(1),LPN_LIST
+     &        DKEEP(1), PIVNUL_LIST_STRUCT
      &        , LRGROUPS
      &             )
         IF ( INFO(1) .LT. 0 ) GOTO 640
@@ -342,7 +356,7 @@ C
        ELSE
          CALL ZMUMPS_FAC2_LDLT( COMM_LOAD, ASS_IRECV,
      &             N, INODE, FPERE, IW, LIW, A, LA, UU,
-     &             NOFFNEGPV, NTOTPV,
+     &             NOFFNEGPV, NULLNEGPV, NTOTPV,
      &             NB22T2, NBTINY, DET_EXP, DET_MANT, DET_SIGN,
      &             COMM_NODES, MYID_NODES, BUFR, LBUFR,LBUFR_BYTES,
      &             NBFIN,LEAF, INFO(1), INFO(2), IPOOL,LPOOL,
@@ -351,11 +365,12 @@ C
      &             STEP, PIMASTER, PAMASTER,
      &             NSTK_STEPS,PERM,PROCNODE_STEPS,
      &             root, OPASS, OPELI, ITLOC, RHS_MUMPS,
-     &             FILS, DAD, PTRARW, PTRAIW,
+     &             FILS, DAD, PTRARW, PTRAIW, 
+     &             PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &             INTARR, DBLARR, ICNTL, KEEP,KEEP8, ND, FRERE,
      &             LPTRAR, NELT, FRTPTR, FRTELT, SEUIL_LDLT_NIV2,
      &             ISTEP_TO_INIV2, TAB_POS_IN_PERE, AVOID_DELAYED,
-     &              DKEEP(1),PIVNUL_LIST(1),LPN_LIST
+     &              DKEEP(1), PIVNUL_LIST_STRUCT
      &           , LRGROUPS
      &             )
         IF ( INFO(1) .LT. 0 ) GOTO 640
@@ -386,6 +401,7 @@ C
      &
      &    OPASS, OPELI, ITLOC, RHS_MUMPS,
      &    FILS, DAD, PTRARW, PTRAIW,
+     &    PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &    INTARR, DBLARR,ICNTL,KEEP,KEEP8,DKEEP, ND,
      &    LPTRAR, NELT, FRTPTR, FRTELT,
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE
@@ -407,8 +423,9 @@ C
      &        N,INODE,IW,LIW,A,LA,
      &        INFO(1),ND,
      &        FILS,FRERE,DAD,MAXFRT,root,OPASS, OPELI,
-     &     PTRIST,PTLUST,PTRFAC,PTRAST,STEP, PIMASTER,PAMASTER,
+     &        PTRIST,PTLUST,PTRFAC,PTRAST,STEP, PIMASTER,PAMASTER,
      &        PTRARW,PTRAIW,
+     &        PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &        ITLOC, RHS_MUMPS, NSTEPSDONE, SON_LEVEL2,
      &        COMP, LRLU, IPTRLU,
      &        IWPOS,IWPOSCB, POSFAC, LRLUS, KEEP8(67),
@@ -428,8 +445,8 @@ C
      &        N,INODE,IW,LIW,A,LA,
      &        INFO(1),ND,
      &        FILS,FRERE,DAD,MAXFRT,root,OPASS, OPELI,
-     &      PTRIST,PTLUST,PTRFAC,PTRAST,STEP, PIMASTER,PAMASTER,
-     &        PTRARW,PTRAIW,
+     &        PTRIST,PTLUST,PTRFAC,PTRAST,STEP, PIMASTER,PAMASTER,
+     &        PTRARW,PTRAIW, PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &        ITLOC, RHS_MUMPS, NSTEPSDONE, SON_LEVEL2,
      &        COMP, LRLU, IPTRLU,
      &        IWPOS,IWPOSCB, POSFAC, LRLUS, KEEP8(67),
@@ -464,7 +481,8 @@ C
      &    MAXFRT,
      &    root, OPASS, OPELI, PTRIST, PTLUST, PTRFAC,
      &    PTRAST, STEP, PIMASTER, PAMASTER, PTRARW, NSTK_STEPS,
-     &    PTRAIW, ITLOC, RHS_MUMPS, NSTEPSDONE,
+     &    PTRAIW, PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &    ITLOC, RHS_MUMPS, NSTEPSDONE,
      &    COMP, LRLU, IPTRLU, IWPOS, IWPOSCB, POSFAC, LRLUS,
      &    ICNTL, KEEP,KEEP8,DKEEP,INTARR,KEEP8(27),DBLARR,KEEP8(26),
      &    PROCNODE_STEPS, SLAVEF, COMM_NODES,
@@ -483,7 +501,9 @@ C
      &    MAXFRT,
      &    root, OPASS, OPELI, PTRIST, PTLUST, PTRFAC,
      &    PTRAST, STEP, PIMASTER, PAMASTER, PTRARW, NSTK_STEPS,
-     &    PTRAIW, ITLOC, RHS_MUMPS, NSTEPSDONE,
+     &    PTRAIW,
+     &    PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &    ITLOC, RHS_MUMPS, NSTEPSDONE,
      &    COMP, LRLU, IPTRLU, IWPOS, IWPOSCB, POSFAC, LRLUS,
      &    ICNTL, KEEP,KEEP8,DKEEP,INTARR,KEEP8(27),DBLARR,KEEP8(26),
      &    PROCNODE_STEPS, SLAVEF, COMM_NODES,
@@ -516,10 +536,6 @@ C
       END IF
       POSELT = PTRAST(STEP(INODE))
       IOLDPS = PTLUST(STEP(INODE))
-      XSIZE =  KEEP(IXSZ)
-      HF = 6 + IW(IOLDPS+5+XSIZE)+XSIZE
-      NFRONT = IW(IOLDPS+XSIZE) 
-      NASS   = iabs(IW(IOLDPS+2+XSIZE))
       AVOID_DELAYED = ( (FPERE .eq. KEEP(20) .OR. FPERE .eq. KEEP(38))
      &                   .AND. KEEP(60).ne.0 )
       IF (KEEP(50).EQ.0) THEN
@@ -531,7 +547,7 @@ C
      &               KEEP,KEEP8,
      &               STEP, PROCNODE_STEPS, MYID_NODES, SLAVEF,
      &               SEUIL, AVOID_DELAYED, ETATASS,
-     &              DKEEP(1),PIVNUL_LIST(1),LPN_LIST, IWPOS 
+     &              DKEEP(1), PIVNUL_LIST_STRUCT, IWPOS 
      &           , LRGROUPS
      &           , PERM
      &           )
@@ -546,11 +562,11 @@ C
               CALL ZMUMPS_FAC1_LDLT( N, INODE,
      &           IW, LIW, A, LA,
      &           IOLDPS, POSELT,
-     &           INFO(1), INFO(2), UU, NOFFNEGPV, NTOTPV,
+     &           INFO(1), INFO(2), UU, NOFFNEGPV, NULLNEGPV, NTOTPV,
      &           NB22T1, NBTINY, DET_EXP, DET_MANT, DET_SIGN,
      &           KEEP,KEEP8, MYID_NODES, SEUIL, AVOID_DELAYED,
      &           ETATASS,
-     &           DKEEP(1),PIVNUL_LIST(1),LPN_LIST, IWPOS
+     &           DKEEP(1), PIVNUL_LIST_STRUCT, IWPOS
      &           , LRGROUPS
      &           , PERM
      &           )
@@ -567,7 +583,7 @@ C
      &        INFO(1),ND,
      &        FILS,FRERE,DAD,MAXFRT,root,OPASS, OPELI,
      &        PTRIST,PTLUST,PTRFAC,PTRAST,STEP,PIMASTER,PAMASTER,
-     &        PTRARW,PTRAIW,
+     &        PTRARW,PTRAIW,PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &        ITLOC, RHS_MUMPS, NSTEPSDONE, SON_LEVEL2,
      &        COMP, LRLU, IPTRLU,
      &        IWPOS,IWPOSCB, POSFAC, LRLUS, KEEP8(67),
@@ -613,6 +629,7 @@ C
      &       IPOOL, LPOOL, LEAF,
      &       NSTK_STEPS, PERM, BUFR, LBUFR, LBUFR_BYTES, NBFIN,
      &       root, OPASS, ITLOC, RHS_MUMPS, FILS, DAD, PTRARW, PTRAIW,
+     &       PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &       INTARR, DBLARR,
      &       ND, FRERE, LPTRAR, NELT, FRTPTR, FRTELT,
      &       ISTEP_TO_INIV2, TAB_POS_IN_PERE
@@ -713,7 +730,8 @@ C
      &  IW, LIW, IWPOSCB, IWPOS,
      &  STEP, PTRAST, PAMASTER, PROCNODE_STEPS, DAD,
      &  .FALSE. ) 
-        IF (KEEP(400) .GT. 0) THEN
+        IF ( KEEP(400) .GT. 0
+     &     ) THEN
 !$OMP PARALLEL DO SCHEDULE(STATIC,1)
             DO ITH = 1, KEEP(400)
               IF (associated(MUMPS_TPS_ARR(ITH)%IW)) THEN
@@ -730,6 +748,7 @@ C
       ENDIF
       IF ( INFO(1) .GE. 0 ) THEN
           IF( KEEP(38) .NE. 0 .OR. KEEP(20).NE.0) THEN
+            CALL MUMPS_SECDEB(ROOTTIME)
             MASTER_ROOT = MUMPS_PROCNODE(
      &                  PROCNODE_STEPS(STEP(max(KEEP(38),KEEP(20)))),
      &                  KEEP(199))
@@ -759,11 +778,13 @@ C
                          IF (LP > 0 )
      &                   write(LP,*) ' Error allocating, real array ',
      &                   'of size before ZMUMPS_FACTO_ROOT',  LBUFRX
-                         CALL MUMPS_ABORT()
                    ENDIF
                    IS_BUFRX_ALLOCATED = .TRUE.
                ENDIF
-               CALL ZMUMPS_FACTO_ROOT( 
+               CALL MUMPS_PROPINFO( ICNTL, INFO,
+     &              COMM_NODES, MYID_NODES )
+               IF (INFO(1).GE.0) THEN
+                 CALL ZMUMPS_FACTO_ROOT( 
      &               MPA, MYID_NODES, MASTER_ROOT,
      &               root, N, KEEP(38),
      &               COMM_NODES, IW, LIW, IWPOS + 1,
@@ -771,21 +792,26 @@ C
      &               INFO(1), KEEP(50), KEEP(19),
      &               BUFRX(1), LBUFRX, KEEP,KEEP8, DKEEP,
      &               OPELI, DET_EXP, DET_MANT, DET_SIGN )
-               IF (IS_BUFRX_ALLOCATED) DEALLOCATE ( BUFRX )
-               NULLIFY(BUFRX)
-               IS_BUFRX_ALLOCATED = .FALSE.
+                 CALL ZMUMPS_UPDATE_PROGRESS( OPELI, KEEP8 )
+                 IF (IS_BUFRX_ALLOCATED) DEALLOCATE ( BUFRX )
+                 NULLIFY(BUFRX)
+                 IS_BUFRX_ALLOCATED = .FALSE.
+                 CALL MUMPS_PROPINFO( ICNTL, INFO,
+     &                COMM_NODES, MYID_NODES )
+               ENDIF
                 IF ( MYID_NODES .eq. 
      &               MUMPS_PROCNODE(PROCNODE_STEPS(STEP(KEEP(38))),
      &                              KEEP(199))
      &             ) THEN
                    IF ( INFO(1) .EQ. -10 .OR. INFO(1) .EQ. -40 ) THEN
                       NTOTPV = NTOTPV + INFO(2)
-                   ELSE
+                   ELSE IF ( INFO(1) .GE. 0 ) THEN
                       NTOTPV = NTOTPV + root%TOT_ROOT_SIZE
                       NMAXNPIV = max(NMAXNPIV,root%TOT_ROOT_SIZE)
                    END IF
                 END IF
-                IF (root%yes.AND.KEEP(60).EQ.0) THEN
+                IF (INFO(1).GE.0.AND.KEEP(60).EQ.0) THEN
+                 IF (root%yes) THEN
                   IF (KEEP(252).EQ.0) THEN
                   IF (KEEP(201).EQ.1) THEN 
                     CALL MUMPS_GETI8(LAFAC, IW(IOLDPS+XXR))
@@ -813,14 +839,23 @@ C
      &                                  NextPiv2beWritten, IDUMMY,
      &                                  IW(IOLDPS), LIWFAC,
      &                                  MYID, KEEP8(31), IERR,LAST_CALL)
+                    IF (IERR .LT.0) THEN
+                      INFO(1) = IERR
+                      IF (LP > 0 ) THEN
+                        WRITE(LP,*)MYID,
+     &                  ': Error in ZMUMPS_OOC_IO_LU_PANEL',IERR
+                      ENDIF
+                    ENDIF
                   ELSE IF (KEEP(201).EQ.2) THEN
                     KEEP8(31)=KEEP8(31)+ ITMP8
                     CALL ZMUMPS_NEW_FACTOR(KEEP(38),PTRFAC,
      &              KEEP,KEEP8,A,LA, ITMP8, IERR)
                     IF(IERR.LT.0)THEN
-                      WRITE(*,*)MYID,
-     &                ': Internal error in ZMUMPS_NEW_FACTOR'
-                      CALL MUMPS_ABORT()
+                      INFO(1)=IERR
+                      IF (LP > 0 ) THEN
+                        WRITE(LP,*)MYID,
+     &                  ': Error in ZMUMPS_NEW_FACTOR',IERR
+                      ENDIF
                     ENDIF
                   ENDIF 
                   ENDIF 
@@ -850,35 +885,43 @@ C
      &                 0_8,
      &                 KEEP,KEEP8,LRLUS)
                   ENDIF
+                 ENDIF  
+                 CALL MUMPS_PROPINFO( ICNTL, INFO,
+     &               COMM_NODES, MYID_NODES )
                 ENDIF  
-                IF (root%yes. AND. KEEP(252) .NE. 0 .AND.
+                IF ( INFO(1).GE.0 .AND. KEEP(252) .NE. 0 .AND.
      &              (KEEP(60).EQ.0 .OR. KEEP(221).EQ.1)) THEN
-                  IF (MYID_NODES .EQ. MASTER_ROOT) THEN
-                    LRHS_CNTR_MASTER_ROOT = root%TOT_ROOT_SIZE*KEEP(253)
-                  ELSE
-                    LRHS_CNTR_MASTER_ROOT = 1
+                  IF (root%yes) THEN
+                    IF (MYID_NODES .EQ. MASTER_ROOT) THEN
+                      LRHS_CNTR_MASTER_ROOT = root%TOT_ROOT_SIZE*
+     &                                        KEEP(253)
+                    ELSE
+                      LRHS_CNTR_MASTER_ROOT = 1
+                    ENDIF
+                    ALLOCATE(root%RHS_CNTR_MASTER_ROOT( 
+     &                       LRHS_CNTR_MASTER_ROOT), stat=IERR )
+                    IF (IERR.gt.0) THEN
+                      INFO(1) = -13
+                      INFO(2) = LRHS_CNTR_MASTER_ROOT
+                      IF (LP > 0 )
+     &                write(LP,*) ' Error allocating, real array ',
+     &                'CNTR_MASTER_ROOT of size',
+     &                LRHS_CNTR_MASTER_ROOT
+                    ENDIF
+                  ENDIF 
+                  CALL MUMPS_PROPINFO( ICNTL, INFO, COMM_NODES,
+     &            MYID_NODES)
+                  IF (root%yes .AND. INFO(1).GE.0) THEN
+                    FWD_LOCAL_N_RHS = numroc(KEEP(253), root%NBLOCK,
+     &              root%MYCOL, 0, root%NPCOL)
+                    FWD_LOCAL_N_RHS = max(1,FWD_LOCAL_N_RHS)
+                    CALL ZMUMPS_GATHER_ROOT( MYID_NODES,
+     &              root%TOT_ROOT_SIZE, KEEP(253),
+     &              root%RHS_CNTR_MASTER_ROOT(1), LOCAL_M,
+     &              FWD_LOCAL_N_RHS, root%MBLOCK, root%NBLOCK,
+     &              root%RHS_ROOT(1,1), MASTER_ROOT,
+     &              root%NPROW, root%NPCOL, COMM_NODES )
                   ENDIF
-                  ALLOCATE(root%RHS_CNTR_MASTER_ROOT( 
-     &                     LRHS_CNTR_MASTER_ROOT), stat=IERR )
-                  IF (IERR.gt.0) THEN
-                    INFO(1) = -13
-                    INFO(2) = LRHS_CNTR_MASTER_ROOT
-                    IF (LP > 0 )
-     &              write(LP,*) ' Error allocating, real array ',
-     &              'of size before ZMUMPS_FACTO_ROOT',
-     &              LRHS_CNTR_MASTER_ROOT
-                    CALL MUMPS_ABORT()
-                  ENDIF
-                  FWD_LOCAL_N_RHS = numroc(KEEP(253), root%NBLOCK,
-     &            root%MYCOL, 0, root%NPCOL)
-                  FWD_LOCAL_N_RHS = max(1,FWD_LOCAL_N_RHS)
-                  CALL ZMUMPS_GATHER_ROOT( MYID_NODES,
-     &            root%TOT_ROOT_SIZE, KEEP(253),
-     &            root%RHS_CNTR_MASTER_ROOT(1), LOCAL_M,
-     &            FWD_LOCAL_N_RHS, root%MBLOCK, root%NBLOCK,
-     &            root%RHS_ROOT(1,1), MASTER_ROOT,
-     &            root%NPROW, root%NPCOL, COMM_NODES )
-     &             
                 ENDIF
             ELSE
                 IF (KEEP(19).NE.0) THEN
@@ -910,6 +953,8 @@ C
                 ENDIF
             END IF
             IF (INFO(1).LT.0) GOTO 500
+            CALL MUMPS_SECFIN(ROOTTIME)
+            DKEEP(99)=ROOTTIME
           END IF  
        END IF 
  500   CONTINUE

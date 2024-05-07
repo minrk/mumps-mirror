@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -662,8 +662,8 @@ C         an OOC factorization or just get nb of
 C         negative pivots or determinant)
 C         ------------------------------------
           IF (KEEP(201) .EQ. -1) THEN
-             IF (PROKG) THEN
-                WRITE(MPG,'(A)')
+             IF (LPOK) THEN
+                WRITE(LP,'(A)')
      &               ' ERROR: Solve impossible because factors not kept'
              ENDIF
              id%INFO(1)=-44
@@ -671,8 +671,8 @@ C         ------------------------------------
              GOTO 333
           ELSE IF (KEEP(221).EQ.0 .AND. KEEP(251) .EQ. 2
      &            .AND. KEEP(252).EQ.0) THEN
-             IF (PROKG) THEN
-                WRITE(MPG,'(A)')
+             IF (LPOK) THEN
+                WRITE(LP,'(A)')
      &               ' ERROR: Solve impossible because factors not kept'
              ENDIF
              id%INFO(1)=-44
@@ -686,8 +686,8 @@ C            KEEP(252-253) available on all procs since analysis phase
 C            Error: id%NRHS is not allowed to change since analysis
 C            because fwd has been performed during facto with
 C            KEEP(253) RHS
-             IF (PROKG) THEN
-                WRITE(MPG,'(A)')
+             IF (LPOK) THEN
+                WRITE(LP,'(A)')
      &               ' ERROR: id%NRHS not allowed to change when',
      &               ' ICNTL(32)=1'
              ENDIF
@@ -700,8 +700,8 @@ C     Testing MTYPE instead of ICNTL(9)
 C            Fwd in facto is not compatible with transpose system
              INFO(1) = -43
              INFO(2) = 9
-             IF (PROKG) THEN
-                WRITE(MPG,'(A)')
+             IF (LPOK) THEN
+                WRITE(LP,'(A)')
      &               ' ERROR: Transpose system (ICNTL(9).NE.0) not ',
      &               ' compatible with forward performed during',
      &               ' factorization (ICNTL(32)=1)'
@@ -715,16 +715,16 @@ C            Sparse RHS may be due to A-1 (ICNTL(30)
              INFO(1) = -43
              IF (KEEP(237).NE.0) THEN
                INFO(2) = 30 ! ICNTL(30)
-               IF (PROKG) THEN
-                  WRITE(MPG,'(A)')
+               IF (LPOK) THEN
+                  WRITE(LP,'(A)')
      &                 ' ERROR: A-1 functionality incompatible with',
      &                 ' forward performed during factorization',
      &                 ' (ICNTL(32)=1)'
                ENDIF
              ELSE
                INFO(2) = 20      ! ICNTL(20)
-               IF (PROKG) THEN
-                  WRITE(MPG,'(A)')
+               IF (LPOK) THEN
+                  WRITE(LP,'(A)')
      &         ' ERROR: sparse or dist. RHS incompatible with forward',
      &         ' elimination during factorization (ICNTL(32)=1)'
                ENDIF
@@ -732,8 +732,8 @@ C            Sparse RHS may be due to A-1 (ICNTL(30)
              GOTO 333
           ENDIF
           IF (KEEP(237) .NE. 0 .AND. ICNTL21.NE.0) THEN
-             IF (PROKG) THEN
-                WRITE(MPG,'(A)')
+             IF (LPOK) THEN
+                WRITE(LP,'(A)')
      &               ' ERROR: A-1 functionality is incompatible',
      &               ' with distributed solution.'
              ENDIF
@@ -742,8 +742,8 @@ C            Sparse RHS may be due to A-1 (ICNTL(30)
              GOTO 333
           ENDIF
           IF (KEEP(237) .NE. 0 .AND. KEEP(60) .NE.0) THEN
-             IF (PROKG)  THEN
-                WRITE(MPG,'(A)')
+             IF (LPOK)  THEN
+                WRITE(LP,'(A)')
      &               ' ERROR: A-1 functionality is incompatible',
      &               ' with Schur.'
              ENDIF
@@ -752,8 +752,8 @@ C            Sparse RHS may be due to A-1 (ICNTL(30)
              GOTO 333
           ENDIF
           IF (KEEP(237) .NE. 0 .AND. KEEP(111) .NE.0) THEN
-             IF (PROKG) THEN
-                WRITE(MPG,'(A)')
+             IF (LPOK) THEN
+                WRITE(LP,'(A)')
      &               ' ERROR: A-1 functionality is incompatible',
      &               ' with null space.'
              ENDIF
@@ -765,8 +765,8 @@ C            Sparse RHS may be due to A-1 (ICNTL(30)
              id%INFO(1)=-45
              id%INFO(2)=id%NRHS
              IF ((id%KEEP(111).NE.0).AND.(id%INFOG(28).EQ.0)) THEN
-               IF (PROKG) THEN
-                WRITE(MPG,'(A)')
+               IF (LPOK) THEN
+                WRITE(LP,'(A)')
      &              'ICNTL(25) NE 0 but INFOG(28)=0',
      &              '  the matrix is not deficient'
                ENDIF
@@ -906,15 +906,7 @@ C           distributed solution on exit
                 id%INFO(2)=13
                 GOTO 333
               END IF
-#             if defined(MUMPS_F2003)
-              IF (size(id%SOL_loc,kind=8) <
-     &              int(id%NRHS-1,8)*int(id%LSOL_loc,8)+
-     &              int(id%KEEP(89),8)) THEN
-                id%INFO(1)=-22
-                id%INFO(2)=14
-                GOTO 333
-              END IF
-#             else
+#             if defined(MUMPS_NOF2003)
 C             Warning: size returns a standard INTEGER and could
 C             overflow if id%SOL_loc was allocated of size > 2^31-1;
 C             still we prefer to perform this test since only (1) very
@@ -924,6 +916,14 @@ C             suppressed if needed but might be still be ok in case
 C             the right-hand side overflows too.
               IF (size(id%SOL_loc) <
      &              (id%NRHS-1)*id%LSOL_loc+id%KEEP(89)) THEN
+                id%INFO(1)=-22
+                id%INFO(2)=14
+                GOTO 333
+              END IF
+#             else
+              IF (size(id%SOL_loc,kind=8) <
+     &              int(id%NRHS-1,8)*int(id%LSOL_loc,8)+
+     &              int(id%KEEP(89),8)) THEN
                 id%INFO(1)=-22
                 id%INFO(2)=14
                 GOTO 333
@@ -1400,9 +1400,16 @@ C          will only be available with Fortran 2003 compilers.
         ELSE
           ! S not allocated and WK_USER not provided ==> must be in OOC
           IF (KEEP(201).EQ.0) THEN ! incore
-            WRITE(*,*) ' Working array S not allocated ',
+C           id%S might have been deallocated during factorization and 
+C           reeallocated of size KEEP8(31) (if KEEP8(31)>0)
+            IF (KEEP8(31).NE.0) THEN 
+C            factors (of size KEEP8(31)) should have been stored in S
+             WRITE(*,*) ' Internal error, id%S not allocated ',
      &                ' on entry to solve phase (in core) '
-            CALL MUMPS_ABORT()
+             CALL MUMPS_ABORT()
+C           ELSE
+C            no factors stored in S that can thus be not associated
+           ENDIF
           ELSE
 C         -- OOC and WK_USER not provided:
 C            define size (S) and allocate it
@@ -1449,6 +1456,19 @@ C       S(1..LA) holds the factors,
 C       S(LA+1..MAXS) is free workspace
         IF(KEEP(201).EQ.0)THEN
            LA  = KEEP8(31)
+           IF (.NOT.WK_USER_PROVIDED) THEN
+             IF (LA.EQ.0_8) THEN
+C              freee space in id%S
+               IF (associated(id%S)) THEN
+                 DEALLOCATE (id%S) 
+                 NB_BYTES  = NB_BYTES - MAXS 
+               ENDIF
+               MAXS     = 1_8
+               KEEP8(23)= MAXS
+               ALLOCATE (id%S(MAXS), stat = allocok)
+               NB_BYTES  = NB_BYTES + MAXS 
+             ENDIF
+           ENDIF
         ELSE
 C          MAXS has normally be dimensionned to store only factors.
            LA = MAXS
@@ -1616,7 +1636,7 @@ C   Write a warning.
         ENDIF
 C     -- end of test master
       END IF
-       CALL MPI_BCAST(POSTPros,1,MPI_LOGICAL,MASTER,
+      CALL MPI_BCAST(POSTPros,1,MPI_LOGICAL,MASTER,
      &               id%COMM,IERR)
 C  We need the original matrix only in the case of 
 C  we want to perform IR or Error Analysis, i.e. if
@@ -1657,9 +1677,10 @@ C        allocated, otherwise MAT_ALLOC_LOC = 0
            IF ((.NOT.associated(id%A_loc)) .OR. 
      &        (.NOT.associated(id%IRN_loc)) .OR. 
      &        (.NOT.associated(id%JCN_loc))) THEN
-             IF (PROKG) WRITE(MPG,'(A)')
-     &           ' WARNING: original distributed assembled', 
-     &           '  matrix is not allocated '
+             IF (PROK) WRITE(MP,'(A/,A,I5,I12)')
+     &       ' WARNING: original distributed matrix not allocated',
+     &       '          MPI rank, local nonzeros=',
+     &                                        id%MYID, id%KEEP8(29)
              MAT_ALLOC_LOC = 0
            ENDIF
          ENDIF
@@ -1670,13 +1691,20 @@ C        allocated, otherwise MAT_ALLOC_LOC = 0
      &                 MPI_MIN, MASTER, id%COMM, IERR)
       IF ( id%MYID .eq. MASTER ) THEN
         IF (MAT_ALLOC.EQ.0) THEN
+            IF (KEEP(54).NE.0) THEN
+C           Write on MPG this time (we wrote on MP before in
+C           case of distributed matrix and wrote on MPG already
+C           in case of centralized matrix)
+            IF (PROKG) WRITE(MPG,'(A)')
+     &      ' WARNING: original distributed matrix is not allocated'
+             ENDIF
               POSTPros = .FALSE.
               ICNTL11 = 0
               ICNTL10 = 0
 C   Write a warning.
            IF ((ICNTL(10) .NE. 0) .AND. (ICNTL10 .EQ. 0)) THEN
             IF (PROKG) WRITE(MPG,'(A)')
-     &    ' WARNING: ICNTL(10) treated as if set to 0 '
+     &    ' WARNING: ICNTL(10) treated as if set to 0'
            ENDIF
            IF ((ICNTL(11) .EQ. 1).OR.(ICNTL(11) .EQ. 2) 
      &        .AND.(ICNTL11 .EQ. 0)) THEN
@@ -1749,6 +1777,11 @@ C       -- A-1 option is on or Null space compution are on
 C          (note also that KEEP(243).NE.0 only when PERMUTE_RHS is on)
         IF ((KEEP(237).NE.0).or.(KEEP(111).GT.0)) THEN
            INTERLEAVE_PAR= .TRUE.
+           IF (KEEP(237).EQ.1) THEN
+             IF (NRHS_NONEMPTY.LT.2*NBRHS) THEN
+               INTERLEAVE_PAR= .FALSE.
+             ENDIF
+           ENDIF
         ELSE
           IF (PROKG) THEN
             write(MPG,*) ' Warning incompatible options ',
@@ -2535,7 +2568,8 @@ C
      &        ' not available yet '
             CALL MUMPS_ABORT()
          ENDIF
-         IF (INTERLEAVE_PAR.AND.KEEP(111).EQ.0) THEN
+         IF (INTERLEAVE_PAR.AND.KEEP(111).EQ.0
+     &      )       THEN
 C     -   A-1 + Interleave:
 C     permute RHS on master
            IF (id%MYID.EQ.MASTER) THEN
@@ -2610,6 +2644,10 @@ C  is smaller than NBRHS.
       BEG_RHS=1
       DO WHILE (BEG_RHS.LE.NRHS_NONEMPTY)
 C     {
+        CALL MUMPS_STOP_ON_USER_REQUEST( id%KEEP, id%KEEP8, id%ICNTL,
+     &                                   id%INFO, id%MYID )
+        CALL MUMPS_PROPINFO( id%ICNTL, id%INFO, id%COMM, id%MYID )
+        IF (id%INFO(1). LT. 0) GOTO 90
 C       ==========================
 C       -- NBRHS     : Original block size
 C       -- BEG_RHS   : Column index of the first RHS in the list of
@@ -3127,10 +3165,6 @@ C ======================================================================
      &             NBCOL_INBLOC+1,
      &             MPI_INTEGER,
      &             MASTER, id%COMM,IERR)
-            IF (IERR.GT.0) THEN
-               WRITE (*,*)'NOT OK FOR ALLOC PTR ON SLAVES'
-               call MUMPS_ABORT()
-            ENDIF
           ENDIF
         ENDIF
 C
@@ -3619,6 +3653,8 @@ C
      &          id%STEP(1),
      &          id%ICNTL(1),id%INFO(1))
               ENDIF
+              CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
+     &                   id%COMM,id%MYID)
               IF (INFO(1).LT.0) GOTO 90
             ELSE IF (KEEP(248) .EQ. -1) THEN
               IF (I_AM_SLAVE) THEN
@@ -3937,10 +3973,10 @@ C           This is a special root (otherwise MASTER_ROOT < 0)
 C             RHS_CNTR_MASTER_ROOT may have been allocated
 C             during the factorization phase.
               PTR_RHS_ROOT => id%root%RHS_CNTR_MASTER_ROOT
-#             if defined(MUMPS_F2003)
-              LPTR_RHS_ROOT = size(id%root%RHS_CNTR_MASTER_ROOT,kind=8)
-#             else
+#             if defined(MUMPS_NOF2003)
               LPTR_RHS_ROOT = int(size(id%root%RHS_CNTR_MASTER_ROOT),8)
+#             else
+              LPTR_RHS_ROOT = size(id%root%RHS_CNTR_MASTER_ROOT,kind=8)
 #             endif
             ELSE
 C             Otherwise, we use workspace in WCB
@@ -4071,13 +4107,13 @@ C
      & id%LPOOL_A_L0_OMP,id%L_VIRT_L0_OMP,id%VIRT_L0_OMP(1),
      & id%L_PHYS_L0_OMP, id%PHYS_L0_OMP(1), id%PERM_L0_OMP(1),
      & id%PTR_LEAFS_L0_OMP(1), id%L0_OMP_MAPPING(1), id%LL0_OMP_MAPPING,
-     & id%L0_OMP_FACTORS(1), id%LL0_OMP_FACTORS )
+     & id%L0_OMP_FACTORS(1), id%LL0_OMP_FACTORS
+     &       )
           ENDIF   ! end of exploit sparsity (pruning nodes of the tree)
         END IF
 C       -----------------
 C       End of slave code
 C       -----------------
-C
 C
 C       Propagate errors
         CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
@@ -4714,7 +4750,7 @@ C                 -----------------
                   CALL DMUMPS_SOL_OMEGA(id%N,SAVERHS,
      &                id%RHS(IBEG), C_Y, R_W, C_W, IW1, IFLAG_IR,
      &                RINFOG(7), NOITER, TESTConv,
-     &                MP, ARRET, KEEP(361) )
+     &                MP, ARRET, KEEP(361), id%DKEEP(22) )
                   IF (ICNTL10.LT.0) THEN
                     CALL MUMPS_SECFIN(TIMEEA1)
                     id%DKEEP(120)=id%DKEEP(120)+TIMEEA1
@@ -4948,7 +4984,7 @@ C             If IFLAG_IR = 0 or 1 IW1 should be correct
                 CALL DMUMPS_SOL_OMEGA(id%N,SAVERHS,
      &              id%RHS(IBEG), C_Y, R_W, C_W, IW1, IFLAG_IR,
      &              RINFOG(7), 0, TESTConv,
-     &              MP, ARRET, KEEP(361) )
+     &              MP, ARRET, KEEP(361), id%DKEEP(22) )
               ENDIF ! (IFLAG_IR.EQ.2)
 c             Compute some statistics for
               GIVSOL = .TRUE.
@@ -5097,7 +5133,8 @@ C
             IF ( allocok .GT. 0 ) THEN
               INFO(1)=-13
               INFO(2)=id%N
-              WRITE(*,*) 'could not allocate ', id%N, 'integers.'
+              IF (LPOK)
+     &        WRITE(LP,*) 'could not allocate ', id%N, 'integers.'
               CALL MUMPS_ABORT()
             END IF
             DO K = 1, NBRHS_EFF
@@ -5328,6 +5365,7 @@ C
       END IF
  90   CONTINUE
       IF (INFO(1) .LT.0 ) THEN
+         IF (INFO(1) .EQ. -80) INFO(1) = -81
       ENDIF
       IF (KEEP(485) .EQ. 1) THEN
         KEEP(350) = KEEP350_SAVE
@@ -5574,12 +5612,12 @@ C
         INTEGER, INTENT( IN ) :: idNloc_RHS
         INTEGER, INTENT( IN ) :: idLRHS_loc
         INTEGER, INTENT( IN ) :: NRHS
-#if defined(MUMPS_F2003)
-        INTEGER, INTENT( IN ), POINTER :: idIRHS_loc (:)
-        DOUBLE PRECISION, INTENT( IN ), POINTER :: idRHS_loc  (:)
-#else
+#if defined(MUMPS_NOF2003)
         INTEGER, POINTER :: idIRHS_loc (:)
         DOUBLE PRECISION, POINTER :: idRHS_loc  (:)
+#else
+        INTEGER, INTENT( IN ), POINTER :: idIRHS_loc (:)
+        DOUBLE PRECISION, INTENT( IN ), POINTER :: idRHS_loc  (:)
 #endif
         INTEGER, INTENT( INOUT ) :: INFO(80)
 C
@@ -5621,13 +5659,11 @@ C         Check association and size of value array idRHS_loc
 C           Check size of array of values idRHS_loc
             REQSIZE8 = int(idLRHS_loc,8)*int(NRHS,8)
      &                  + int(-idLRHS_loc+idNloc_RHS,8)
-#if defined(MUMPS_F2003)
-            IF (size(idRHS_loc,kind=8) .LT. REQSIZE8) THEN
-#else
+#if defined(MUMPS_NOF2003)
             IF ( REQSIZE8 .LE. int(huge(idNloc_RHS),8) .AND.
      &        size(idRHS_loc) .LT. int(REQSIZE8) ) THEN
-C             (Warning: this assumes that size(idRHS_loc)
-C             does not overflow)
+#else
+            IF (size(idRHS_loc,kind=8) .LT. REQSIZE8) THEN
 #endif
               INFO(1)=-22
               INFO(2)=18

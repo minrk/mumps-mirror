@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -29,11 +29,9 @@ C
       INTEGER MYID
       LOGICAL SSARBR
       INTEGER SIZFI_BLOCK, SIZFI
-      INTEGER IPOSSHIFT
       INTEGER(8) :: SIZFR, SIZFR_BLOCK, SIZFR_BLOCK_EFF,
      &              SIZEHOLE, MEM_INC, DYNSIZE_BLOCK
       INCLUDE 'mumps_headers.h'
-      IPOSSHIFT = IPOSBLOCK + KEEP(IXSZ)
       SIZFI_BLOCK=IW(IPOSBLOCK+XXI)
       CALL MUMPS_GETI8( SIZFR_BLOCK, IW(IPOSBLOCK+XXR) )
       CALL MUMPS_GETI8( DYNSIZE_BLOCK,IW(IPOSBLOCK+XXD) )
@@ -69,7 +67,6 @@ C
          CALL SMUMPS_LOAD_MEM_UPDATE(SSARBR,.FALSE.,
      &         LA-LRLUS,0_8,MEM_INC,KEEP,KEEP8,LRLUS)
  90      IF ( IWPOSCB .eq. LIW ) GO TO 100
-         IPOSSHIFT = IWPOSCB + KEEP(IXSZ)
          SIZFI = IW( IWPOSCB+1+XXI )
          CALL MUMPS_GETI8( SIZFR, IW(IWPOSCB+1+XXR) )
          IF ( IW( IWPOSCB+1+XXS ) .EQ. S_FREE ) THEN

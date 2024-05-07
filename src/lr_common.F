@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -18,6 +18,17 @@ C
         INTEGER, INTENT(IN) :: MAXSIZE, NASS, K472
         INTEGER, INTENT(OUT) :: IBCKSZ
         IF (K472.EQ.1) THEN
+#if defined(__ve__)
+          IF (NASS.LE.1000) THEN
+            IBCKSZ = 256
+          ELSEIF (NASS.GT.1000.AND.NASS.LE.5000) THEN
+            IBCKSZ = 384
+          ELSEIF (NASS.GT.5000.AND.NASS.LE.10000) THEN
+            IBCKSZ = 512
+          ELSE
+            IBCKSZ = 512
+          ENDIF
+#else
           IF (NASS.LE.1000) THEN
             IBCKSZ = 128
           ELSEIF (NASS.GT.1000.AND.NASS.LE.5000) THEN
@@ -27,6 +38,7 @@ C
           ELSE
             IBCKSZ = 512
           ENDIF
+#endif
           IBCKSZ = min(IBCKSZ,MAXSIZE)
         ELSE
           IBCKSZ = MAXSIZE

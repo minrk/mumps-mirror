@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -113,9 +113,6 @@ C
       EXTERNAL MUMPS_ANA_H, CMUMPS_ANA_J, 
      &     CMUMPS_ANA_K, CMUMPS_ANA_GNEW,
      &     CMUMPS_ANA_LNEW, CMUMPS_ANA_M
-#if defined(OLDDFS)
-      EXTERNAL CMUMPS_ANA_L
-#endif
       EXTERNAL CMUMPS_GNEW_SCHUR
       EXTERNAL CMUMPS_LDLT_COMPRESS, CMUMPS_EXPAND_PERMUTATION,
      &     CMUMPS_SET_CONSTRAINTS
@@ -1023,12 +1020,6 @@ C
            KEEP(38) = LISTVAR_SCHUR(1)
         ENDIF
       ENDIF
-#if defined(OLDDFS)
-      CALL CMUMPS_ANA_L
-     &     (N, PARENT, IWL1, IKEEP1(1), IKEEP2(1), IKEEP3(1),
-     &     NFSIZ, INFO(6), FILS(1), FRERE(1), PTRAR(1,3),
-     &     NEMIN, KEEP(60))
-#else
       IF (allocated(IPEALLOC)) DEALLOCATE(IPEALLOC)
       ALLOCATE(WTEMP(N), stat=IERR)
       IF ( IERR .GT. 0 ) THEN
@@ -1055,7 +1046,6 @@ C
      &     , .FALSE., IDUMMY, LIDUMMY )
       ENDIF
       DEALLOCATE(WTEMP)
-#endif
       IF (KEEP(60).NE.0)  THEN
          IF (KEEP(60)==1) THEN
             IN = KEEP(20)
@@ -1096,18 +1086,8 @@ C
          CALL CMUMPS_SET_K821_SURFACE(KEEP8(21), KEEP(2),
      &        KEEP(48), KEEP(50), NSLAVES)
       END IF
-      IF (KEEP(210).LT.0.OR.KEEP(210).GT.2) THEN
-         KEEP(210)=0
-      ENDIF
-      IF (KEEP(210).EQ.0.AND.KEEP(201).GT.0) THEN
-         KEEP(210)=1            
-      ENDIF
-      IF (KEEP(210).EQ.0.AND.KEEP(201).EQ.0) THEN
-         KEEP(210)=2            
-      ENDIF
-      IF (KEEP(210).EQ.2) THEN
-         KEEP8(79)=huge(KEEP8(79))
-      ENDIF
+      IF (KEEP(210).LT.1.OR.KEEP(210).GT.2) KEEP(210)=2
+      IF (KEEP(210).EQ.2) KEEP8(79)=huge(KEEP8(79))
       IF (KEEP(210).EQ.1.AND.KEEP8(79).LE.0_8) THEN
         KEEP8(79)=K79REF * int(NSLAVES,8)
       ENDIF
@@ -1136,8 +1116,13 @@ C
         ENDIF
        ENDIF
       ENDIF
-      SPLITROOT = ((ICNTL(13).GT.0 .AND. NSLAVES.GT.ICNTL(13)) .OR.
-     &     ICNTL(13).EQ.-1 )
+      SPLITROOT = ICNTL(13) .EQ. -1
+#if defined(NOSCALAPACK)
+      SPLITROOT = SPLITROOT .OR. NSLAVES.GT.0
+#else
+      SPLITROOT = SPLITROOT .OR.
+     &            (ICNTL(13).GT.0 .AND. NSLAVES .GT. ICNTL(13))
+#endif
       IF (KEEP(53) .NE. 0) THEN
          SPLITROOT = .TRUE.
       ENDIF
@@ -1194,23 +1179,24 @@ C
 99988 FORMAT ('FRERE(.)  =', 10I9/(11X, 10I9))
 99987 FORMAT ('NFSIZ(.)  =', 10I9/(11X, 10I9))
       END SUBROUTINE CMUMPS_ANA_F
-      SUBROUTINE CMUMPS_ANA_N_DIST( id, PTRAR )
+      SUBROUTINE CMUMPS_ANA_N_DIST( id, NBINCOL, NBINROW )
       USE CMUMPS_STRUC_DEF, ONLY : CMUMPS_STRUC
       IMPLICIT NONE
       include 'mpif.h'
       TYPE(CMUMPS_STRUC), INTENT(INOUT), TARGET :: id
-      INTEGER(8), INTENT(OUT), TARGET        :: PTRAR(:)
+      INTEGER, INTENT(OUT), TARGET        :: NBINCOL(:)
+      INTEGER, INTENT(OUT), TARGET        :: NBINROW(:)
       INTEGER          :: IERR, allocok
       INTEGER          :: IOLD, JOLD, INEW, JNEW
       INTEGER(8)       :: K, INZ
       INTEGER, POINTER :: IIRN(:), IJCN(:)
-      INTEGER(8), POINTER :: IWORK1(:), IWORK2(:)
+      INTEGER, POINTER :: IWORK1(:), IWORK2(:)
       LOGICAL          :: IDO
       IF(id%KEEP(54) .EQ. 3) THEN
             IIRN => id%IRN_loc
             IJCN => id%JCN_loc
             INZ = id%KEEP8(29)
-            IWORK1 => PTRAR(id%N+1:id%N+id%N)
+            IWORK1 => NBINROW(1:id%N)
             allocate(IWORK2(id%N),stat=allocok)
             IF (allocok > 0 ) THEN
                id%INFO(1) = -7
@@ -1222,8 +1208,8 @@ C
             IIRN => id%IRN
             IJCN => id%JCN
             INZ  =  id%KEEP8(28)
-            IWORK1 => PTRAR(1:id%N)
-            IWORK2 => PTRAR(id%N+1:id%N+id%N)
+            IWORK1 => NBINCOL(1:id%N)
+            IWORK2 => NBINROW(1:id%N)
             IDO = id%MYID .EQ. 0
       END IF
       DO 50 IOLD=1,id%N
@@ -1241,28 +1227,30 @@ C
                JNEW = id%SYM_PERM(JOLD)
                IF ( id%KEEP( 50 ) .EQ. 0 ) THEN
                   IF (INEW.LT.JNEW) THEN
-                     IWORK2(IOLD) = IWORK2(IOLD) + 1_8
+                     IWORK2(IOLD) = IWORK2(IOLD) + 1
                   ELSE
-                     IWORK1(JOLD) = IWORK1(JOLD) + 1_8
+                     IWORK1(JOLD) = IWORK1(JOLD) + 1
                   ENDIF
                ELSE
                   IF ( INEW .LT. JNEW ) THEN
-                     IWORK1( IOLD ) = IWORK1( IOLD ) + 1_8
+                     IWORK1( IOLD ) = IWORK1( IOLD ) + 1
                   ELSE 
-                     IWORK1( JOLD ) = IWORK1( JOLD ) + 1_8
+                     IWORK1( JOLD ) = IWORK1( JOLD ) + 1
                   END IF
                ENDIF
             ENDIF
  70      CONTINUE
       END IF
       IF (id%KEEP(54) .EQ. 3) THEN
-         CALL MPI_ALLREDUCE(IWORK1(1), PTRAR(1), id%N,
-     &        MPI_INTEGER8, MPI_SUM, id%COMM, IERR )
-         CALL MPI_ALLREDUCE(IWORK2(1), PTRAR(id%N+1), id%N,
-     &        MPI_INTEGER8, MPI_SUM, id%COMM, IERR )
+         CALL MPI_ALLREDUCE(IWORK1(1), NBINCOL(1), id%N,
+     &        MPI_INTEGER, MPI_SUM, id%COMM, IERR )
+         CALL MPI_ALLREDUCE(IWORK2(1), NBINROW(1), id%N,
+     &        MPI_INTEGER, MPI_SUM, id%COMM, IERR )
          deallocate(IWORK2)
       ELSE
-         CALL MPI_BCAST( PTRAR(1), 2*id%N, MPI_INTEGER8,
+         CALL MPI_BCAST( NBINCOL(1), id%N, MPI_INTEGER,
+     &        0, id%COMM, IERR )
+         CALL MPI_BCAST( NBINROW(1), id%N, MPI_INTEGER,
      &        0, id%COMM, IERR )
       END IF
       RETURN
@@ -1360,9 +1348,9 @@ C
               ENDIF
             ENDIF
         ENDDO
-        IF( (NZER_DIAG+RZ_DIAG) .LT. (N/10) ) THEN
-          MTRANS = 0
-          KEEP(95) =1
+        IF( (NZER_DIAG+RZ_DIAG) .LT. max(1,(N/10)) ) THEN
+          MTRANS   = 0
+          KEEP(95) = 1
           GOTO 500
         ENDIF
       ENDIF
@@ -1392,7 +1380,8 @@ C
          MTRANSLOC = 5
       ENDIF
       IF (N.EQ.1) THEN
-        MTRANS=0
+        MTRANS   = 0
+        KEEP(95) = 1 
         GO TO 500
       ENDIF
       IF(K50 .NE. 0) THEN
@@ -2187,220 +2176,6 @@ C
    60 CONTINUE
    70 RETURN
       END SUBROUTINE CMUMPS_ANA_D
-#if defined(OLDDFS)
-      SUBROUTINE CMUMPS_ANA_L(N, IPE, NV, IPS, NE, NA, NFSIZ, 
-     &                  NSTEPS,
-     &                  FILS, FRERE,NDD,NEMIN, KEEP60)
-      INTEGER N,NSTEPS
-      INTEGER NDD(N)
-      INTEGER FILS(N), FRERE(N)
-      INTEGER IPS(N), NE(N), NA(N), NFSIZ(N)
-      INTEGER IPE(N), NV(N)
-      INTEGER NEMIN, KEEP60
-      INTEGER I,IF,IS,NR,NR1,INS,INL,INB,INF,INFS,INSW
-      INTEGER K,L,ISON,IN,INP,IFSON,INC,INO
-      INTEGER INOS,IB,IL
-      DO 10 I=1,N
-        IPS(I) = 0
-        NE(I) = 0
-   10 CONTINUE
-      DO 20 I=1,N
-        IF (NV(I).GT.0) GO TO 20
-        IF = -IPE(I)
-        IS = -IPS(IF)
-        IF (IS.GT.0) IPE(I) = IS
-        IPS(IF) = -I
-   20 CONTINUE
-      NR = N + 1
-      DO 50 I=1,N
-        IF (NV(I).LE.0) GO TO 50
-        IF = -IPE(I)
-        IF (IF.NE.0) THEN
-         IS = -IPS(IF)
-         IF (IS.GT.0) IPE(I) = IS
-         IPS(IF) = -I
-        ELSE
-         NR = NR - 1
-         NE(NR) = I
-        ENDIF
-   50 CONTINUE
-      DO 999 I=1,N
-       FILS(I) = IPS(I)
- 999  CONTINUE
-      NR1 = NR
-      INS = 0
- 1000 IF (NR1.GT.N) GO TO 1151
-      INS = NE(NR1)
-      NR1 = NR1 + 1
- 1070 INL = FILS(INS)
-      IF (INL.LT.0) THEN
-       INS = -INL
-       GO TO 1070
-      ENDIF
- 1080 IF (IPE(INS).LT.0) THEN
-       INS       = -IPE(INS)
-       FILS(INS) = 0
-       GO TO 1080
-      ENDIF
-      IF (IPE(INS).EQ.0) THEN
-       INS = 0
-       GO TO 1000
-      ENDIF
-      INB = IPE(INS)
-      IF (NV(INB).EQ.0) THEN
-       INS = INB
-       GO TO 1070
-      ENDIF
-      IF (NV(INB).GE.NV(INS)) THEN
-       INS = INB
-       GO TO 1070
-      ENDIF
-      INF = INB
- 1090 INF = IPE(INF)
-      IF (INF.GT.0) GO TO 1090
-      INF  = -INF
-      INFS = -FILS(INF)
-      IF (INFS.EQ.INS) THEN
-       FILS(INF) = -INB
-       IPS(INF)  = -INB
-       IPE(INS)  = IPE(INB)
-       IPE(INB)  = INS
-       INS       = INB
-       GO TO 1070
-      ENDIF
-      INSW = INFS
- 1100 INFS = IPE(INSW)
-      IF (INFS.NE.INS) THEN
-       INSW = INFS
-       GO TO 1100
-      ENDIF
-      IPE(INS) = IPE(INB)
-      IPE(INB) = INS
-      IPE(INSW)= INB
-      INS      =INB
-      GO TO 1070
- 1151 CONTINUE
-      DO 51 I=1,N
-       FRERE(I) = IPE(I)
-       FILS(I) = IPS(I)
- 51   CONTINUE
-      IS = 1
-      I  = 0
-      IL = 0
-      DO 160 K=1,N
-        IF (I.GT.0) GO TO 60
-        I = NE(NR)
-        NE(NR) = 0
-        NR = NR + 1
-        IL = N
-        NA(N) = 0
-   60   DO 70 L=1,N
-          IF (IPS(I).GE.0) GO TO 80
-          ISON = -IPS(I)
-          IPS(I) = 0
-          I = ISON
-          IL = IL - 1
-          NA(IL) = 0
-   70   CONTINUE
-   80   IPS(I) = K
-        NE(IS) = NE(IS) + 1
-        IF (NV(I).GT.0) GO TO 89
-      IN = I
- 81   IN =  FRERE(IN)
-      IF (IN.GT.0) GO TO 81
-      IF = -IN
-      IN = IF
- 82   INL = IN
-      IN = FILS(IN)
-      IF (IN.GT.0) GO TO 82
-      IFSON = -IN
-      FILS(INL) = I
-      IN = I
- 83   INP = IN
-      IN = FILS(IN)
-      IF (IN.GT.0) GO TO 83
-      IF (IFSON .EQ. I) GO TO 86
-      FILS(INP) = -IFSON
-      IN = IFSON
- 84   INC =IN
-      IN = FRERE(IN)
-      IF (IN.NE.I) GO TO 84
-      FRERE(INC) = FRERE(I)
-      GO TO 120
- 86   IF (FRERE(I).LT.0) FILS(INP) = 0
-      IF (FRERE(I).GT.0) FILS(INP) = -FRERE(I)
-      GO TO 120
-   89   IF (IL.LT.N) NA(IL+1) = NA(IL+1) + 1
-        NA(IS) = NA(IL)
-        NDD(IS) = NV(I)
-        NFSIZ(I) = NV(I)
-        IF (NA(IS).LT.1) GO TO 110
-        IF (   (KEEP60.NE.0).AND.
-     &         (NE(IS).EQ.NDD(IS)) ) GOTO 110
-        IF (NDD(IS-1)-NE(IS-1).EQ.NDD(IS)) GO TO 100
-        IF ((NE(IS-1).GE.NEMIN).AND.
-     &         (NE(IS).GE.NEMIN) ) GO TO 110
-        IF (2*NE(IS-1)*(NDD(IS)-NDD(IS-1)+NE(IS-1)).GE.
-     &    ((NDD(IS)+NE(IS-1))*
-     &    (NDD(IS)+NE(IS-1))*NEMIN/100)) GO TO 110
-  100   NA(IS-1) = NA(IS-1) + NA(IS) - 1
-        NDD(IS-1) = NDD(IS) + NE(IS-1)
-        NE(IS-1) = NE(IS) + NE(IS-1)
-        NE(IS) = 0
-      IN=I
- 101  INL = IN
-      IN = FILS(IN)
-      IF (IN.GT.0) GO TO 101
-      IFSON = -IN
-      IN = IFSON
- 102  INO = IN
-      IN =  FRERE(IN)
-      IF (IN.GT.0) GO TO 102
-      FILS(INL) = INO
-      NFSIZ(I) = NDD(IS-1)
-      IN = INO
- 103  INP = IN
-      IN = FILS(IN)
-      IF (IN.GT.0) GO TO 103
-      INOS = -IN
-      IF (IFSON.EQ.INO) GO TO 107
-      IN = IFSON
-      FILS(INP) = -IFSON
- 105  INS = IN
-      IN =  FRERE(IN)
-      IF (IN.NE.INO) GO TO 105
-      IF (INOS.EQ.0) FRERE(INS) = -I
-      IF (INOS.NE.0) FRERE(INS) =  INOS
-      IF (INOS.EQ.0) GO TO 109
- 107  IN = INOS
-      IF (IN.EQ.0) GO TO 109
- 108  INT = IN
-      IN =  FRERE(IN)
-      IF (IN.GT.0) GO TO 108
-      FRERE(INT) = -I
- 109  CONTINUE
-        GO TO 120
-  110   IS = IS + 1
-  120   IB = IPE(I)
-        IF (IB.LT.0) GOTO 150
-        IF (IB.EQ.0) GOTO 140
-        NA(IL) = 0
-  140   I = IB
-        GO TO 160
-  150   I = -IB
-        IL = IL + 1
-  160 CONTINUE
-      NSTEPS = IS - 1
-      DO 170 I=1,N
-        K = FILS(I)
-        IF (K.GT.0) THEN
-          FRERE(K)  = N + 1
-          NFSIZ(K)  = 0
-        ENDIF
- 170  CONTINUE
-      RETURN
-      END SUBROUTINE CMUMPS_ANA_L
-#else
       SUBROUTINE CMUMPS_ANA_LNEW(N, IPE, NV, IPS, NE, NA, NFSIZ,
      &               NODE, NSTEPS,
      &               FILS, FRERE, ND, NEMIN, SUBORD, KEEP60, 
@@ -2773,7 +2548,6 @@ C
       ENDDO
       RETURN
       END SUBROUTINE CMUMPS_ANA_LNEW
-#endif
       SUBROUTINE CMUMPS_ANA_M(NE, ND, NSTEPS,
      & MAXFR, MAXELIM, K50, SIZEFAC_TOT, MAXNPIV,
      & K5,K6,PANEL_SIZE,K253)
@@ -2870,11 +2644,13 @@ C
       MPG = ICNTL(3)
       IF ( MYID.eq.MASTER.and.MPG.GT.0.AND.ICNTL(4).GE.2) THEN
        ITMP = KEEP(13)
-       IF (ICNTL(15).EQ.0) ITMP = 0
+       IF (ICNTL(15).EQ.0) THEN
+          ITMP = 0
+       ENDIF
        WRITE(MPG, 99992) INFO(1), INFO(2),
      &  KEEP8(109), KEEP8(111), INFOG(4),
      &  INFOG(5), KEEP(28), INFOG(32), INFOG(7), KEEP(23), 
-     &  ICNTL(7), KEEP(12), 
+     &  ICNTL(7), ICNTL(13), KEEP(12), 
      &  ITMP,
      &  ICNTL(18),
      &  KEEP(106),
@@ -2883,6 +2659,7 @@ C
      &      WRITE(MPG, 99993) KEEP(95) 
        IF (KEEP(54).GT.0) WRITE(MPG, 99994) KEEP(54)
        IF (KEEP(60).GT.0) WRITE(MPG, 99995) KEEP(60), SIZE_SCHUR
+       IF (KEEP(251).GT.0)  WRITE(MPG, 99997) KEEP(251)
        IF (KEEP(253).GT.0)  WRITE(MPG, 99996) KEEP(253)
       ENDIF
       RETURN
@@ -2898,6 +2675,7 @@ C
      &       ' --  (7) Ordering option effectively used       =',I16/
      &       ' ICNTL (6) Maximum transversal option           =',I16/
      &       ' ICNTL (7) Pivot order option                   =',I16/
+     &       ' ICNTL(13) Parallelism/splitting of root node   =',I16/
      &       ' ICNTL(14) Percentage of memory relaxation      =',I16/
      &       ' ICNTL(15) Analysis by block effectively used   =',I16/
      &       ' ICNTL(18) Distributed input matrix (on if >0)  =',I16/
@@ -2911,6 +2689,7 @@ C
 99995 FORMAT(' Effective Schur option (ICNTL(19))             =',I16/
      &       ' Size of Schur (SIZE_SCHUR)                     =',I16)
 99996 FORMAT(' Forward solution during factorization, NRHS    =',I16)
+99997 FORMAT(' ICNTL(31) Discard factors (eff. value)         =',I16)
       END SUBROUTINE CMUMPS_DIAG_ANA
       SUBROUTINE CMUMPS_CUTNODES
      &           ( N, FRERE, FILS, NFSIZ, SIZEOFBLOCKS, LSIZEOFBLOCKS,
@@ -2929,7 +2708,7 @@ C
       INTEGER INODE, DEPTH, I, IBEG, IEND, IIPOOL, NROOT
       INTEGER MAX_DEPTH, ISON, TOT_CUT, MAX_CUT, STRAT
       INTEGER(8) :: K79
-      INTEGER NFRONT, K82, allocok
+      INTEGER K82, allocok
       LOGICAL BLKON
       BLKON = .NOT.(SIZEOFBLOCKS(1).EQ.-1) 
       K79  = KEEP8(79)
@@ -2988,19 +2767,16 @@ C
       TOT_CUT = 0
       IF (SPLITROOT) THEN
         MAX_CUT = NROOT*max(K82,2)
-        INODE = abs(IPOOL(1))
-        NFRONT = NFSIZ( INODE )
-        K79 = max(
-     &         int(NFRONT,8)*int(NFRONT,8)/(int(K82+1,8)*int(K82+1,8)),
-     &         9_8)
-        IF (KEEP(53).NE.0) THEN
-          MAX_CUT =  NFRONT
-          K79 = 121_8*121_8
+        IF (KEEP(72).EQ.1) THEN
+          K79 = min(3_8*3_8,K79)
         ELSE
           K79 = min(2000_8*2000_8,K79)
           IF (KEEP(376) .EQ. 1) THEN
             K79 = min(int(KEEP(9)+1,8)*int(KEEP(9)+1,8),K79)
           ENDIF
+        ENDIF
+        IF (KEEP(53).NE.0) THEN
+          K79 = 121_8*121_8
         ENDIF
       ELSE
          MAX_CUT = 2 * NSLAVES
@@ -3234,7 +3010,8 @@ C
       INTEGER(8), intent(in) :: NZ
       INTEGER, intent(in)    :: ICNTL(60)
       INTEGER, intent(in)    :: IRN(NZ), ICN(NZ) 
-      INTEGER, intent(out)   :: IERROR, symmetry
+      INTEGER, intent(inout) :: IERROR
+      INTEGER, intent(out)   :: symmetry
       INTEGER, intent(out)   :: NBQD, AvgDens
       INTEGER, intent(out)   :: LEN(N), IW(LW)
       INTEGER(8), intent(out):: IWFR
@@ -3246,7 +3023,7 @@ C
       LOGICAL, intent(in)    :: PRINTSTAT
       LOGICAL, intent(inout) :: INPLACE64_GRAPH_COPY
       INTEGER    :: MP, MPG, I, J, N1
-      INTEGER    :: NBERR, THRESH
+      INTEGER    :: NBERR, THRESH, IERROR_LOC
       INTEGER(8) :: K8, K1, K2, LAST, NDUP
       INTEGER(8) :: NZOFFA, NDIAGA, L, N8
       REAL       :: RSYM
@@ -3255,7 +3032,7 @@ C
       MPG= ICNTL(3)
       NZOFFA = 0_8
       NDIAGA = 0
-      IERROR = 0
+      IERROR_LOC = 0
       N8     = int(N,8)
       DO I=1,N+1
         IPE(I) = 0_8
@@ -3267,7 +3044,7 @@ C
          J = ICN(K8)
          IF ((I.GT.N).OR.(J.GT.N).OR.(I.LT.1)
      &                          .OR.(J.LT.1)) THEN
-           IERROR = IERROR + 1
+           IERROR_LOC = IERROR_LOC + 1
          ELSE
           IF (I.NE.J) THEN
            IPE(I) = IPE(I) + 1_8
@@ -3283,7 +3060,7 @@ C
          J = ICN(K8)
          IF ((I.GT.N).OR.(J.GT.N).OR.(I.LT.1)
      &                          .OR.(J.LT.1)) THEN
-           IERROR = IERROR + 1
+           IERROR_LOC = IERROR_LOC + 1
          ELSE
           IF (I.NE.J) THEN
            IPE(I) = IPE(I) + 1_8
@@ -3322,41 +3099,42 @@ C
        ENDIF
       ENDIF
       NIORM  = NZOFFA + 3_8*N8
-      IF (IERROR.GE.1) THEN
+      IF ((IERROR_LOC.GE.1).AND.(mod(IFLAG,2) .EQ. 0)) THEN 
+        IFLAG  = IFLAG+1
+        IERROR = IERROR_LOC
+        IF ((MP.GT.0).AND.(ICNTL(4).GE.2))  THEN 
          NBERR  = 0
-         IF (mod(IFLAG,2) .EQ. 0) IFLAG = IFLAG+1
-         IF ((MP.GT.0).AND.(ICNTL(4).GE.2))  THEN 
-          WRITE (MP,99999) 
-          DO 70 K8=1_8,NZ
-           I = IRN(K8)
-           J = ICN(K8)
-           IF ((I.GT.N).OR.(J.GT.N).OR.(I.LT.1)
-     &                            .OR.(J.LT.1)) THEN
-            NBERR = NBERR + 1
-            IF (NBERR.LE.10)  THEN
-               IF (mod(K8,10_8).GT.3_8 .OR. mod(K8,10_8).EQ.0_8 .OR.
-     &             (10_8.LE.K8 .AND. K8.LE.20_8)) THEN
-                 WRITE (MP,'(I16,A,I10,A,I10,A)')
-     &             K8,'th entry (in row',I,' and column',J,') ignored'
-               ELSE
-                 IF (mod(K8,10_8).EQ.1_8) 
-     &             WRITE(MP,'(I16,A,I10,A,I10,A)')
-     &             K8,'st entry (in row',I,' and column',J,') ignored'
-                 IF (mod(K8,10_8).EQ.2_8) 
-     &             WRITE(MP,'(I16,A,I10,A,I10,A)')
-     &             K8,'nd entry (in row',I,' and column',J,') ignored'
-                 IF (mod(K8,10_8).EQ.3_8) 
-     &             WRITE(MP,'(I16,A,I10,A,I10,A)')
-     &             K8,'rd entry (in row',I,' and column',J,') ignored'
-               ENDIF
-            ELSE
-               GO TO 100
-            ENDIF
+         WRITE (MP,99999) 
+         DO K8=1_8,NZ
+          I = IRN(K8)
+          J = ICN(K8)
+          IF ((I.GT.N).OR.(J.GT.N).OR.(I.LT.1)
+     &                           .OR.(J.LT.1)) THEN
+           NBERR = NBERR + 1
+           IF (NBERR.LE.10)  THEN
+              IF (mod(K8,10_8).GT.3_8 .OR. mod(K8,10_8).EQ.0_8 .OR.
+     &            (10_8.LE.K8 .AND. K8.LE.20_8)) THEN
+                WRITE (MP,'(I16,A,I10,A,I10,A)')
+     &            K8,'th entry (in row',I,' and column',J,') ignored'
+              ELSE
+                IF (mod(K8,10_8).EQ.1_8) 
+     &            WRITE(MP,'(I16,A,I10,A,I10,A)')
+     &            K8,'st entry (in row',I,' and column',J,') ignored'
+                IF (mod(K8,10_8).EQ.2_8) 
+     &            WRITE(MP,'(I16,A,I10,A,I10,A)')
+     &            K8,'nd entry (in row',I,' and column',J,') ignored'
+                IF (mod(K8,10_8).EQ.3_8) 
+     &            WRITE(MP,'(I16,A,I10,A,I10,A)')
+     &            K8,'rd entry (in row',I,' and column',J,') ignored'
+              ENDIF
+           ELSE
+              EXIT
            ENDIF
-   70     CONTINUE
-         ENDIF
+          ENDIF
+         ENDDO   
+        ENDIF
       ENDIF
-  100 NRORM = NIORM - 2_8*N8
+      NRORM = NIORM - 2_8*N8
       IQ(1) = 1_8
       N1 = N - 1
       IF (N1.GT.0) THEN
@@ -4101,19 +3879,22 @@ C
      &          FILS_OLD, FILS_NEW, NSTEPS,
      &          STEP_OLD, STEP_NEW, PAR2_NODES, NB_NIV2,
      &          DAD_STEPS, FRERE_STEPS, 
-     &          NA, LNA, LRGROUPS_OLD, LRGROUPS_NEW, 
-     &          K20, K38
+     &          NA, LNA, 
+     &          LRGROUPS_OLD, SIZELRGROUPS_OLD,
+     &          LRGROUPS_NEW, SIZELRGROUPS_NEW,
+     &          K20, K38, K494
      &           ) 
       IMPLICIT NONE
       INTEGER, INTENT(IN)    ::  N, NBLK, ICNTL(60), NSTEPS, LNA, 
-     &                           NB_NIV2
+     &                           NB_NIV2, K494
       INTEGER, INTENT(IN)    ::  BLKPTR(NBLK+1), BLKVAR(N)
+      INTEGER, INTENT(IN)    ::  SIZELRGROUPS_OLD, SIZELRGROUPS_NEW
       INTEGER, INTENT(IN)    ::  FILS_OLD(NBLK), STEP_OLD(NBLK), 
-     &                           LRGROUPS_OLD(NBLK)
-      INTEGER, INTENT(OUT)   ::  FILS_NEW(N), STEP_NEW(N), 
-     &                           LRGROUPS_NEW(N)
+     &                           LRGROUPS_OLD(SIZELRGROUPS_OLD)
       INTEGER, INTENT(INOUT) ::  DAD_STEPS(NSTEPS), FRERE_STEPS(NSTEPS)
-      INTEGER, INTENT(INOUT) ::  NA(LNA), PAR2_NODES(NB_NIV2), K20, K38
+      INTEGER, INTENT(INOUT) ::  NA(LNA), PAR2_NODES(NB_NIV2), K20,K38
+      INTEGER, INTENT(OUT)   ::  FILS_NEW(N), STEP_NEW(N), 
+     &                           LRGROUPS_NEW(SIZELRGROUPS_NEW)
       INTEGER :: IB, I, IBFS, IBNB, IFS, INB
       INTEGER NBLEAF, NBROOT, ISTEP, IGROUP
       INTEGER :: II
@@ -4186,13 +3967,15 @@ C
           ENDDO
         ENDIF
       ENDDO
-      DO IB=1, NBLK
-        IGROUP = LRGROUPS_OLD(IB)
-        IF (BLKPTR(IB+1)-BLKPTR(IB).EQ.0) CYCLE
-        DO II=BLKPTR(IB), BLKPTR(IB+1)-1
+      IF (K494.NE.0) THEN
+        DO IB=1, NBLK
+          IGROUP = LRGROUPS_OLD(IB)
+          IF (BLKPTR(IB+1)-BLKPTR(IB).EQ.0) CYCLE
+          DO II=BLKPTR(IB), BLKPTR(IB+1)-1
            LRGROUPS_NEW(BLKVAR(II)) =  IGROUP
+          ENDDO
         ENDDO
-      ENDDO
+      ENDIF
       RETURN
       END SUBROUTINE CMUMPS_EXPAND_TREE_STEPS
       SUBROUTINE CMUMPS_DIST_AVOID_COPIES(N,NSLAVES,

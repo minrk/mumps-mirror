@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -25,15 +25,17 @@ C -----------------
 C  Tag for grouping
 C -----------------
       INTEGER GROUPING
-      PARAMETER ( GROUPING = 49 )
+      PARAMETER ( GROUPING = 50 )
 C ----------------------------------------------
 C  Tag for LMAT distribution (analysis by block)
 C      and for gathering graph
 C ----------------------------------------------
       INTEGER LMATDIST, GATHERG_NZG, GATHERG_NB, 
-     &        GATHERG_FIRST, GATHERG_IPE, GATHERG_ADJ
+     &        GATHERG_FIRST, GATHERG_IPE, GATHERG_ADJ, 
+     &        CENT_AFTER_PARAORD
       PARAMETER ( LMATDIST = 43, GATHERG_NZG=44, GATHERG_NB=45,
-     &        GATHERG_FIRST=46, GATHERG_IPE=47, GATHERG_ADJ= 48)
+     &        GATHERG_FIRST=46, GATHERG_IPE=47, GATHERG_ADJ= 48, 
+     &        CENT_AFTER_PARAORD=49)
 C -----------------------------------------
 C  Tag for arrowheads distribution
 C -----------------------------------------
@@ -106,6 +108,7 @@ C -----------------------------------------
      &           ScatterRhsR  = 55,
      &           DistRhsI     = 51,
      &           DistRhsR     = 52)
+      INTEGER, PARAMETER :: TAG_WAKEUP = 53
       INTEGER, PARAMETER :: DIST_RHS_INT    = 56
       INTEGER, PARAMETER :: DIST_RHS_SCALAR = 57
 C -----------------------------------------

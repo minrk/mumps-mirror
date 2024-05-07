@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -51,7 +51,6 @@ C
       INTEGER(8), SAVE, PRIVATE :: CHECK_MEM
       INTEGER, DIMENSION(:), ALLOCATABLE, SAVE, TARGET, PRIVATE :: 
      &          IDWLOAD
-      DOUBLE PRECISION, SAVE, PRIVATE :: COST_SUBTREE
       DOUBLE PRECISION, SAVE, PRIVATE :: ALPHA
       DOUBLE PRECISION, SAVE, PRIVATE :: BETA
       INTEGER, SAVE, PRIVATE :: MYID, NPROCS, COMM_LD
@@ -151,7 +150,6 @@ C
       MIN_DIFF     =  ( T64 / dble(1000)  )* 
      &                  T66 * dble(1000000)
       DM_THRES_MEM = dble(MAXS/300_8)
-      COST_SUBTREE = COST_SUBTREE_ARG
       AVOID_LOAD_MESSAGES = .FALSE.
       IF (K375.EQ.1) THEN
         AVOID_LOAD_MESSAGES = .TRUE.
@@ -288,10 +286,8 @@ C
        INTEGER, intent(inout) ::
      &                   TAB_POS_IN_PERE(SLAVEF+2,max(1,KEEP(56)))
        INTEGER, intent(out)   :: SLAVES_LIST (SIZE_SLAVES_LIST)
-       INTEGER :: IN, LP, I, NSLAVES_SONS,
+       INTEGER :: I, NSLAVES_SONS,
      &            INIV2_FILS, ISHIFT
-       LP = ICNTL(1) 
-       IN = INODE
       INIV2_FILS = ISTEP_TO_INIV2( STEP( IFSON ))
       NSLAVES_SONS = TAB_POS_IN_PERE (SLAVEF+2, INIV2_FILS)
       TAB_POS_IN_PERE (1,INIV2) = 1
@@ -2044,7 +2040,7 @@ C
       INTEGER, intent(out):: SLAVES_LIST(SIZE_SLAVES_LIST)
       INTEGER, intent(out):: TAB_POS(SLAVEF+2)
       INTEGER, intent(out):: NSLAVES_NODE
-      INTEGER NUMBER_OF_PROCS,K47, K48, K50
+      INTEGER NUMBER_OF_PROCS, K48, K50
       INTEGER(8) :: K821
       DOUBLE PRECISION DK821
       INTEGER J
@@ -2068,7 +2064,6 @@ C
       DK821=dble(K821)
       K50=KEEP(50)
       K48=KEEP(48)
-      K47=KEEP(47)
       IF ( KEEP(24) == 0 .OR. KEEP(24) == 1 ) THEN
         FORCE_CAND = .FALSE.
       ELSE
@@ -2415,7 +2410,6 @@ C
                     ENDDO
                     CHOSEN=i-2
                  ENDIF
-                 CONTINUE
               ENDIF
  666          CONTINUE
               SOMME=dble(0)
@@ -2499,7 +2493,7 @@ C
       INTEGER, intent(out):: SLAVES_LIST(SIZE_SLAVES_LIST)
       INTEGER, intent(out):: TAB_POS(SLAVEF+2)
       INTEGER, intent(out):: NSLAVES_NODE
-      INTEGER NUMBER_OF_PROCS,K47,K48, K50,K83,K69
+      INTEGER NUMBER_OF_PROCS, K50, K83, K69
       INTEGER(8) :: K821
       INTEGER J
       INTEGER KMIN, KMAX
@@ -2525,8 +2519,6 @@ C
       K821=abs(KEEP8(21))
       TEMP_MAX_LOAD=dble(0)
       K50=KEEP(50)
-      K48=KEEP(48)
-      K47=KEEP(47)
       K83=KEEP(83)
       K69=0
       NCB_FILS=NCBSON_MAX
@@ -4664,7 +4656,7 @@ C
       NBTOP       = POOL(LPOOL - 1)
       IF(KEEP(47).LT.2)THEN
          WRITE(*,*)'SMUMPS_LOAD_POOL_CHECK_MEM must
-     &        be called with K47>=2'
+     &        be called with KEEP(47)>=2'
          CALL MUMPS_ABORT()
       ENDIF        
       IF((INODE.GT.0).AND.(INODE.LE.N))THEN
@@ -4715,7 +4707,7 @@ C
       LOGICAL WHAT
       IF(.NOT.BDC_POOL_MNG)THEN
          WRITE(*,*)'SMUMPS_LOAD_SET_SBTR_MEM
-     &        should be called when K81>0 and K47>2'
+     &        should be called when K81>0 and KEEP(47)>2'
       ENDIF
       IF(WHAT)THEN
          PEAK_SBTR_CUR_LOCAL=PEAK_SBTR_CUR_LOCAL+
@@ -5103,15 +5095,9 @@ C
       INTEGER, DIMENSION(:), ALLOCATABLE :: P_TO_UPDATE
       INTEGER NBROWS_SLAVE,i,WHAT,IERR
       INTEGER :: NP_TO_UPDATE, K
-      LOGICAL FORCE_CAND
       LOGICAL :: EXIT_FLAG
       MEM_COST=dble(0)
       FCT_COST=dble(0)
-      IF ( KEEP(24) == 0 .OR. KEEP(24) == 1 ) THEN
-        FORCE_CAND = .FALSE.
-      ELSE
-        FORCE_CAND = (mod(KEEP(24),2).eq.0)
-      END IF
       CALL SMUMPS_LOAD_GET_ESTIM_MEM_COST(INODE,FCT_COST,
      &        MEM_COST,NMB_OF_CAND,NASS)
       ALLOCATE(IPROC2POSINDELTAMD(0:SLAVEF-1),
@@ -5182,14 +5168,14 @@ C
       SUBROUTINE SMUMPS_LOAD_GET_ESTIM_MEM_COST(INODE,FCT_COST,
      &     MEM_COST,NSLAVES,NELIM)
       IMPLICIT NONE
-      INTEGER INODE,NSLAVES,NFR,NELIM,IN
+      INTEGER INODE,NSLAVES,NFR,NELIM
       DOUBLE PRECISION MEM_COST,FCT_COST
       NFR=ND_LOAD(STEP_LOAD(INODE)) + KEEP_LOAD(253)
-      IN = INODE
       FCT_COST=dble(int(dble(NFR-NELIM)/dble(NSLAVES))+1)*
      &     dble(NELIM)
       MEM_COST=dble(int(dble(NFR-NELIM)/dble(NSLAVES))+1)*
      &     dble(NFR)
+      RETURN
       END SUBROUTINE SMUMPS_LOAD_GET_ESTIM_MEM_COST
       SUBROUTINE SMUMPS_LOAD_CLEAN_MEMINFO_POOL(INODE)
       USE MUMPS_FUTURE_NIV2
@@ -5321,7 +5307,6 @@ C
       DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: MEM_ON_PROCS,
      &     RECV_BUF
       LOGICAL, DIMENSION(:), ALLOCATABLE :: CONCERNED
-      DOUBLE PRECISION MAX_SENT_MSG
       IF((FRERE_LOAD(STEP_LOAD(INODE)).EQ.0)
      &           .AND.(INODE.EQ.KEEP_LOAD(38)))THEN
          RETURN
@@ -5342,7 +5327,6 @@ C
         CALL MUMPS_ABORT()
       ENDIF 
       RECV_BUF=dble(0)
-      MAX_SENT_MSG=dble(0)
       i = INODE
       NELIM = 0
  10   CONTINUE
@@ -5447,12 +5431,11 @@ C
       INTEGER POOL(LPOOL)
       EXTERNAL MUMPS_PROCNODE
       INTEGER MUMPS_PROCNODE
-      INTEGER i,NBTOP,INSUBTREE,NBINSUBTREE,NODE,FATHER,SON,J
+      INTEGER i,NBTOP,NBINSUBTREE,NODE,FATHER,SON,J
       INTEGER SBTR_NB_LEAF,POS,K,allocok,L
       INTEGER, ALLOCATABLE, DIMENSION (:) ::  TMP_SBTR
       NBINSUBTREE = POOL(LPOOL)
       NBTOP       = POOL(LPOOL - 1)
-      INSUBTREE   = POOL(LPOOL - 2)
       IF((KEEP_LOAD(47).EQ.4).AND.
      &     ((NBINSUBTREE.NE.0)))THEN
          DO J=INDICE_SBTR,NB_SUBTREES

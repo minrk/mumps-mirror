@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.5.1, released
- *  on Tue Jul 12 13:17:24 UTC 2022
+ *  This file is part of MUMPS 5.6.0, released
+ *  on Wed Apr 19 15:50:57 UTC 2023
  *
  *
- *  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -57,6 +57,46 @@ MUMPS_PARMETIS_64(MUMPS_INT8 *first,      MUMPS_INT8 *vertloctab,
 #  else
       /* SHOULD NEVER BE CALLED */
       printf("** Error: ParMETIS version >= 4, IDXTYPE WIDTH !=64, but MUMPS_PARMETIS_64 was called\n");
+      *ierr=1;
+#  endif
+#endif
+  return;
+}
+void MUMPS_CALL
+MUMPS_PARMETIS_VWGT_64(MUMPS_INT8 *first,      MUMPS_INT8 *vertloctab,
+                  MUMPS_INT8 *edgeloctab,
+#if defined(parmetis3)
+                  MUMPS_INT  *numflag, MUMPS_INT  *options,
+#else
+                  MUMPS_INT8 *numflag, MUMPS_INT8 *options,
+#endif
+                  MUMPS_INT8 *order,
+                  MUMPS_INT8 *sizes,         MUMPS_INT *comm,
+                  MUMPS_INT8 *vwgt,
+                  MUMPS_INT  *ierr)
+{
+  MPI_Comm  int_comm;
+#if defined(parmetis)
+#  if (IDXTYPEWIDTH == 64)
+  int iierr;
+#endif
+#endif
+  int_comm = MPI_Comm_f2c(*comm);
+#if defined(parmetis3)
+  /* Prototype may not match with 32-bit integers and Parmetis3 */
+  /* vwgt not used */
+  ParMETIS_V3_NodeND(first, vertloctab, edgeloctab, numflag, options, order, sizes, &int_comm);
+#elif defined(parmetis)
+#  if (IDXTYPEWIDTH == 64)
+      *ierr=0;
+     iierr=ParMETIS_V32_NodeND(first, vertloctab, edgeloctab, vwgt, numflag, 
+                                NULL, NULL, NULL, NULL, NULL, NULL, NULL, 
+                                order, sizes, &int_comm);
+      if(iierr != METIS_OK)
+        *ierr=1;
+#  else
+      /* SHOULD NEVER BE CALLED */
+      printf("** Error: ParMETIS version >= 4, IDXTYPE WIDTH !=64, but MUMPS_PARMETIS_VWGT_64 was called\n");
       *ierr=1;
 #  endif
 #endif

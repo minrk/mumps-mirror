@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -22,7 +22,8 @@ C
      &
      &    PTLUST_S, PTRFAC, root, OPASSW, OPELIW,
      &    ITLOC, RHS_MUMPS, FILS, DAD,
-     &    PTRARW, PTRAIW, INTARR, DBLARR,
+     &    PTRARW, PTRAIW, PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &    INTARR, DBLARR,
      &    ICNTL, KEEP,KEEP8, DKEEP, 
      &    IPOOL, LPOOL, LEAF, ND, FRERE_STEPS,
      &    LPTRAR, NELT, FRTPTR, FRTELT, 
@@ -64,7 +65,7 @@ C
      & PIMASTER(KEEP(28))
       INTEGER IW( LIW )
       DOUBLE PRECISION A( LA )
-      INTEGER, intent(in) :: LRGROUPS(N)
+      INTEGER, intent(in) :: LRGROUPS(KEEP(280))
       INTEGER COMM, MYID
       INTEGER NELT, LPTRAR
       INTEGER FRTPTR( N+1 ), FRTELT( NELT )
@@ -72,6 +73,10 @@ C
      &        ITLOC(N+KEEP(253)), FILS(N), DAD(KEEP(28)), ND(KEEP(28))
       DOUBLE PRECISION :: RHS_MUMPS(KEEP(255))
       INTEGER(8), INTENT(IN) :: PTRAIW( LPTRAR ), PTRARW( LPTRAR )
+      INTEGER(8), INTENT(IN) :: PTR8ARR(KEEP(193))
+      INTEGER, INTENT(IN) :: NINCOLARR(KEEP(194))
+      INTEGER, INTENT(IN) :: NINROWARR(KEEP(195))
+      INTEGER, INTENT(IN) :: PTRDEBARR(KEEP(196))
       INTEGER FRERE_STEPS(KEEP(28))
       DOUBLE PRECISION OPASSW, OPELIW
       DOUBLE PRECISION FLOP1
@@ -84,9 +89,9 @@ C
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'
       INTEGER :: STATUS(MPI_STATUS_SIZE)
-      LOGICAL :: I_HAVE_SET_K117
       INTEGER INODE, POSITION, NPIV, IERR, LP
       INTEGER NCOL
+      INTEGER :: IFLAG_OOC
       INTEGER(8) :: POSBLOCFACTO
       INTEGER :: LD_BLOCFACTO 
       INTEGER(8) :: LA_BLOCFACTO 
@@ -133,7 +138,6 @@ C
       nullify(BEGS_BLR_L)
       NB_BLR_U = -7654321
       NULLIFY(BEGS_BLR_U)
-      I_HAVE_SET_K117 = .FALSE.
       FPERE    = -1
       POSITION = 0
       CALL MPI_UNPACK( BUFR, LBUFR_BYTES, POSITION, INODE, 1,
@@ -252,6 +256,7 @@ C
      &
      &    root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &    FILS, DAD, PTRARW, PTRAIW,
+     &    PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &    INTARR, DBLARR, ICNTL,KEEP,KEEP8,DKEEP,ND, FRERE_STEPS,
      &    LPTRAR, NELT, FRTPTR, FRTELT, 
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE, .TRUE.
@@ -278,6 +283,7 @@ C
      &
      &    root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &    FILS, DAD, PTRARW, PTRAIW,
+     &    PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &    INTARR, DBLARR, ICNTL,KEEP,KEEP8,DKEEP,ND, FRERE_STEPS,
      &    LPTRAR, NELT, FRTPTR, FRTELT, 
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE, .TRUE. 
@@ -303,6 +309,7 @@ C
      &
      &    root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &    FILS, DAD, PTRARW, PTRAIW,
+     &    PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &    INTARR, DBLARR,ICNTL,KEEP,KEEP8,DKEEP,ND, FRERE_STEPS,
      &    LPTRAR, NELT, FRTPTR, FRTELT,
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE, .TRUE. 
@@ -323,10 +330,12 @@ C
         NASS1 = -NASS1
         IW( IOLDPS + 1 + KEEP(IXSZ)) = NASS1
         IF (KEEP(55) .EQ. 0) THEN 
-          CALL DMUMPS_ASM_SLAVE_ARROWHEADS(INODE, N, IW, LIW,
+          CALL DMUMPS_ASM_SLAVE_ARROWHEADS(INODE, STEP(INODE),
+     &       N, IW, LIW,
      &       IOLDPS, A_PTR(POSELT), LA_PTR, 1_8, KEEP, KEEP8, ITLOC,
-     &       FILS, PTRAIW,
-     &       PTRARW, INTARR, DBLARR, KEEP8(27), KEEP8(26), RHS_MUMPS, 
+     &       FILS,
+     &       PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &       INTARR, DBLARR, KEEP8(27), KEEP8(26), RHS_MUMPS, 
      &       LRGROUPS)
         ELSE
           CALL DMUMPS_ASM_SLAVE_ELEMENTS(INODE, N, NELT, IW, LIW,
@@ -437,7 +446,7 @@ C
         ENDIF
         LWORK = MAXI_CLUSTER*MAXI_CLUSTER
         OMP_NUM = 1
-#if defined(BLR_MT)
+#if ! defined(BLR_NOOPENMP)
 !$      OMP_NUM = OMP_GET_MAX_THREADS()
 #endif
         ALLOCATE(BLOCK(MAXI_CLUSTER, OMP_NUM*MAXI_CLUSTER),
@@ -469,22 +478,22 @@ C
      &             ': ERROR allocation during DMUMPS_PROCESS_BLOCFACTO'
               GOTO 700
            ENDIF
-#if defined(BLR_MT)          
+#if ! defined(BLR_NOOPENMP)
 !$OMP PARALLEL
 #endif
         CALL DMUMPS_COMPRESS_PANEL_I_NOOPT
      &        (A_PTR(POSELT), LA_PTR, 1_8,
      &        IFLAG, IERROR, NCOL1,
      &        BEGS_BLR_L(1), size(BEGS_BLR_L), NB_BLR_L+1,
-     &        DKEEP(8), KEEP(466), KEEP(473),
-     &        BLR_L(1), 
+     &        DKEEP(8), KEEP(466), 0, 
+     &        KEEP(473), BLR_L(1), 
      &        CURRENT_BLR, 'V', WORK, TAU, JPVT, LWORK, RWORK,
      &        BLOCK, MAXI_CLUSTER, NELIM, 
      &        .TRUE.,  
      &        NPIV, NPIV1,
      &        2, KEEP(483), KEEP8,
      &        OMP_NUM )
-#if defined(BLR_MT)
+#if ! defined(BLR_NOOPENMP)
 !$OMP MASTER
 #endif
         IF ( (KEEP(486).EQ.2) 
@@ -494,7 +503,7 @@ C
      &         0, 
      &         IPANEL, BLR_L)
         ENDIF
-#if defined(BLR_MT)          
+#if ! defined(BLR_NOOPENMP)
 !$OMP END MASTER
 !$OMP BARRIER
 #endif
@@ -506,7 +515,7 @@ C
      &              BLR_L, CURRENT_BLR, CURRENT_BLR+1, NB_BLR_L+1, 
      &              2, 0, 0,  
      &              .TRUE.) 
-#if defined(BLR_MT)          
+#if ! defined(BLR_NOOPENMP)
 !$OMP BARRIER
 #endif          
             IF (KEEP(486).NE.2) THEN
@@ -520,7 +529,7 @@ C
             ENDIF
           ENDIF
  300      CONTINUE
-#if defined(BLR_MT)          
+#if ! defined(BLR_NOOPENMP)
 !$OMP END PARALLEL
 #endif          
           IF (IFLAG.LT.0) GOTO 700
@@ -546,7 +555,11 @@ C
         CALL DMUMPS_OOC_IO_LU_PANEL_I( STRAT, TYPEF_L,
      &       A_PTR(POSELT),
      &       LA_PTR, MonBloc, NextPivDummy, NextPivDummy,
-     &       IW(IOLDPS), LIWFAC, MYID, KEEP8(31), IFLAG,LAST_CALL)
+     &       IW(IOLDPS), LIWFAC, MYID, KEEP8(31), IFLAG_OOC, LAST_CALL)
+        IF ( IFLAG_OOC .LT. 0 )THEN
+          IFLAG = IFLAG_OOC
+          GOTO 700
+        ENDIF
       ENDIF
       IF ( (NPIV .GT. 0)
      &   ) THEN
@@ -561,7 +574,7 @@ C
      &        CURRENT_BLR, BLR_L(1), NB_BLR_L+1, 
      &        CURRENT_BLR+1, NELIM, 'N')
           ENDIF
-#if defined(BLR_MT)          
+#if ! defined(BLR_NOOPENMP)
 !$OMP PARALLEL
 #endif
          CALL DMUMPS_BLR_UPDATE_TRAILING_I(
@@ -577,7 +590,7 @@ C
      &        2, 0, 
      &        KEEP(481), DKEEP(11), KEEP(466), KEEP(477) 
      &        )
-#if defined(BLR_MT)          
+#if ! defined(BLR_NOOPENMP)
 !$OMP END PARALLEL
 #endif          
           IF (IFLAG.LT.0) GOTO 700
@@ -652,7 +665,7 @@ C
              ENDIF
              LWORK = MAXI_CLUSTER*MAXI_CLUSTER
              OMP_NUM = 1
-#if defined(BLR_MT)
+#if ! defined(BLR_NOOPENMP)
 !$           OMP_NUM = OMP_GET_MAX_THREADS()
 #endif
              ALLOCATE(BLOCK(MAXI_CLUSTER, OMP_NUM*MAXI_CLUSTER),
@@ -683,7 +696,7 @@ C
            ENDIF
            CALL DMUMPS_BLR_SAVE_CB_LRB(IW(IOLDPS+XXF),CB_LRB)
          ENDIF
-#if defined(BLR_MT)          
+#if ! defined(BLR_NOOPENMP)
 !$OMP PARALLEL
 #endif
          IF (COMPRESS_CB) THEN
@@ -701,14 +714,19 @@ C
      &      MAXI_CLUSTER, KEEP8, OMP_NUM,
      &      -9999, -9999, -9999, KEEP(1),
      &      IDUMMY, 0, -9999 )
-#if defined(BLR_MT)
+#if ! defined(BLR_NOOPENMP)
 !$OMP BARRIER
 #endif
          ENDIF
-#if defined(BLR_MT)          
+#if ! defined(BLR_NOOPENMP)
 !$OMP END PARALLEL
 #endif
          IF (IFLAG.LT.0) GOTO 700
+         IF ( KEEP(251).EQ.2 .AND. KEEP(486).EQ.2 ) THEN
+           CALL DMUMPS_BLR_FREE_ALL_PANELS( IW(IOLDPS+XXF),
+     &                          0, 
+     &                          KEEP8, KEEP(34) )
+         ENDIF
        ENDIF
          CALL DMUMPS_END_FACTO_SLAVE(
      &    COMM_LOAD, ASS_IRECV, 
@@ -723,6 +741,7 @@ C
      &    NSTK_S, COMP, IFLAG, IERROR, PERM,
      &    IPOOL, LPOOL, LEAF, NBFIN, SLAVEF,
      &    OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS, DAD, PTRARW, PTRAIW,
+     &    PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &    INTARR, DBLARR,ICNTL,KEEP,KEEP8,DKEEP,ND, FRERE_STEPS,
      &    LPTRAR, NELT, FRTPTR, FRTELT, 
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE

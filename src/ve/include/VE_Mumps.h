@@ -41,8 +41,8 @@ void VE_Mumps_symqamd( int THRESH   , int * NDENSE    , int N       , int TOTEL 
                        int AGG6     , int * PARENT    );
 
 
-void VE_Mumps_wrap_ginp94( int N               , int64_t * IPE , int * IW             , int64_t   LIW8  , int * PERM      ,
-                           int * SizeOfBlocks  , int KEEP60    , int * LISTVAR_SCHUR  , int SIZE_SCHUR  , int * COLCOUNT  ,
-                           int * PARENT        , int * PORDER  , int * IWTMP1         , int * IWTMP2    , int * IWTMP3    ,
-                           int * IWTMP4        , int * IWTMP5  , int * INFO           );
+void VE_Mumps_wrap_ginp94( int N               , int64_t * IPE , int * IW             , int64_t   LIW8  , int * PERM    ,
+                           int * SizeOfBlocks  , int KEEP60    , int * LISTVAR_SCHUR  , int SIZE_SCHUR  , int KEEP378   ,
+                           int * COLCOUNT      , int * PARENT  , int * PORDER         , int * IWTMP1    , int * IWTMP2  ,
+                           int * IWTMP3        , int * IWTMP4  , int * IWTMP5         , int * INFO      );
 #endif

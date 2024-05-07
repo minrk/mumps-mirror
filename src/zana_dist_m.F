@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -121,7 +121,7 @@ C
       INTEGER(8) SIZECB_if_LRCB, SIZECB_SLAVE_if_LRCB
       INTEGER(8) SIZECBLR_SLAVE_UD, SIZECBLR_SLAVE_WC
       INTEGER(8) SIZECBLR_UD, SIZECBLR_WC
-      INTEGER(8) SIZECBSLR, NFRS8, NELIMS8, NCBS8, 
+      INTEGER(8) SIZECBSLR, NCBS8, 
      &           SIZECBS, SIZECBINFRS
       INTEGER NFRS, NELIMS, NCBS, LEVELS, LRSTATUSS
       LOGICAL COMPRESS_CBS
@@ -593,18 +593,25 @@ C
             NIRADU_OOC = NIRADU_OOC +
      &      EXTRA_PERM_INFO_OOC*(2+NELIM + NELIM/PANEL_SIZE+1)
             IF (KEEP(50).EQ.0) THEN
-              NRLADU_CURRENT = int(NELIM,8)*int(2*NFR-NELIM,8)
+              IF (KEEP(251) .EQ. 2) THEN
+                NRLADU_CURRENT = int(NELIM,8) * int(NFR,8)
+                SIZEFRNOCBLU   = int(NFR-NELIM,8)*int(NELIM)
+              ELSE
+                NRLADU_CURRENT = int(NELIM,8)*int(2*NFR-NELIM,8)
+                SIZEFRNOCBLU   = 0_8
+              ENDIF
               NRLADU = NRLADU + NRLADU_CURRENT
-              MAX_SIZE_FACTOR=max(MAX_SIZE_FACTOR,NRLADU_CURRENT)
+              MAX_SIZE_FACTOR  = max(MAX_SIZE_FACTOR,NRLADU_CURRENT)
             ELSE
               IF ( KEEP(459) .GT. 1 .AND. KEEP(50).NE.0 ) THEN
                 CALL MUMPS_LDLTPANEL_STORAGE( NELIM, KEEP, 
      &          IDUMMY_ARRAY(1), NRLADU_CURRENT )
-                SIZEFRNOCBLU = int(NELIM,8)*int(NELIM,8) -
-     &          NRLADU_CURRENT
+                SIZEFRNOCBLU   = int(NELIM,8)*int(NELIM,8) -
+     &                           NRLADU_CURRENT
                 NRLADU_CURRENT = NRLADU_CURRENT +
-     &          int(NELIM,8) * int(NFR-NELIM,8)
+     &                           int(NELIM,8) * int(NFR-NELIM,8)
               ELSE
+                SIZEFRNOCBLU   = 0_8
                 NRLADU_CURRENT = int(NELIM,8)*int(NFR,8)
               ENDIF
               NRLADU = NRLADU + NRLADU_CURRENT
@@ -622,8 +629,8 @@ C
                NRLADULR_WC     = NRLADULR_WC + 
      &                           NRLADU_CURRENT
              ELSE
-               NRLADU_if_LR_LU = NRLADU_if_LR_LU + NRLADU_CURRENT
                NRLADU_CURRENT_MISSING = 0_8
+               NRLADU_if_LR_LU = NRLADU_if_LR_LU + NRLADU_CURRENT
              ENDIF
             SIZECBI        = 2* NCB  + SIZEHEADER
           ELSEIF (LEVEL.EQ.2) THEN
@@ -632,15 +639,17 @@ C
               NIRADU_OOC = NIRADU_OOC+SIZEHEADER_OOC +SLAVEF-1+2*NFR 
               IF (KEEP(50).EQ.0) THEN
                 NRLADU_CURRENT = int(NFR,8)*int(NELIM,8)
-                NBCOLFAC=NFR
+                SIZEFRNOCBLU   = 0_8
+                NBCOLFAC       = NFR
               ELSE
-                NBCOLFAC=NELIM
+                NBCOLFAC       = NELIM
                 IF ( KEEP(459) .GT. 1 .AND. KEEP(50) .NE. 0 ) THEN
                   CALL MUMPS_LDLTPANEL_STORAGE( NELIM, KEEP, 
      &            IDUMMY_ARRAY(1), NRLADU_CURRENT )
                   SIZEFRNOCBLU = int(NELIM,8)*int(NELIM,8) -
-     &            NRLADU_CURRENT
+     &                           NRLADU_CURRENT
                 ELSE
+                  SIZEFRNOCBLU   = 0_8
                   NRLADU_CURRENT = int(NELIM,8)*int(NELIM,8)
                 ENDIF
               ENDIF
@@ -657,8 +666,8 @@ C
                NRLADULR_WC     = NRLADULR_WC + 
      &                           NRLADU_CURRENT
               ELSE
+               NRLADU_CURRENT_MISSING = 0_8
                NRLADU_if_LR_LU = NRLADU_if_LR_LU + NRLADU_CURRENT
-               NRLADU_CURRENT_MISSING = NRLADU_CURRENT
               ENDIF
               MAX_SIZE_FACTOR=max(MAX_SIZE_FACTOR,NRLADU_CURRENT)
                SIZECB     = 0_8
@@ -668,17 +677,24 @@ C
                SIZECBLR_WC    = 0_8
                SIZECBI    = NCB + SIZEHEADER + SLAVEF - 1
             ELSE
-             SIZEFRNOCBLU = 0_8
              SIZECB=SIZECB_SLAVE
              SIZECBINFR = SIZECB
              NIRADU       = NIRADU+4+NELIM+NBROWMAX
              NIRADU_OOC   = NIRADU_OOC+4+NELIM+NBROWMAX
              IF (KEEP(50).EQ.0) THEN
-               NRLADU_CURRENT   =  int(NELIM,8)*int(NBROWMAX,8)
+               IF (KEEP(251) .EQ. 2) THEN
+                 NRLADU_CURRENT = 0_8
+                 SIZEFRNOCBLU   = int(NELIM,8)*int(NBROWMAX,8)
+               ELSE
+                 NRLADU_CURRENT = int(NELIM,8)*int(NBROWMAX,8)
+                 SIZEFRNOCBLU   = 0_8
+               ENDIF
              ELSE
                NRLADU_CURRENT   = int(NELIM,8)*int(NCB/NSLAVES_LOC,8)
+               SIZEFRNOCBLU     = 0_8
              ENDIF
              NRLADU   = NRLADU + NRLADU_CURRENT
+             MAX_SIZE_FACTOR=max(MAX_SIZE_FACTOR,NRLADU_CURRENT)
              IF (COMPRESS_PANEL) THEN
                NRLADU_if_LR_LU = NRLADU_if_LR_LU + 0_8
                NRLADU_CURRENT_MISSING = NRLADU_CURRENT
@@ -687,10 +703,9 @@ C
                NRLADULR_WC     = NRLADULR_WC + 
      &                           NRLADU_CURRENT
              ELSE
+               NRLADU_CURRENT_MISSING = 0_8
                NRLADU_if_LR_LU = NRLADU_if_LR_LU + NRLADU_CURRENT
-               NRLADU_CURRENT_MISSING = 0
              ENDIF
-             MAX_SIZE_FACTOR=max(MAX_SIZE_FACTOR,NRLADU_CURRENT)
              IF (KEEP(50).EQ.0) THEN
                SIZECBI       = 7 + NBROWMAX + NCB
              ELSE
@@ -712,12 +727,9 @@ C
      &             (XSIZE_OOC-XSIZE_IC) ) 
          CURRENT_ACTIVE_MEM = ISTKR+SIZECBINFR
          IF ( KEEP(50).NE.0 .AND. LEVEL.EQ.1 ) THEN
-             CURRENT_ACTIVE_MEM = CURRENT_ACTIVE_MEM +
-     &              int(NELIM,8)*int(NCB,8)
+             SIZEFRNOCBLU = SIZEFRNOCBLU + int(NELIM,8)*int(NCB,8)
          ENDIF
-         IF ( KEEP(50).NE.0 .AND. KEEP(459) .GT. 1 ) THEN
-           CURRENT_ACTIVE_MEM = CURRENT_ACTIVE_MEM + SIZEFRNOCBLU
-         ENDIF
+         CURRENT_ACTIVE_MEM = CURRENT_ACTIVE_MEM + SIZEFRNOCBLU
          IF (MASTER .AND.  KEEP(219).NE.0.AND.
      &       KEEP(50).EQ.2.AND.LEVEL.EQ.2) THEN
              CURRENT_ACTIVE_MEM = CURRENT_ACTIVE_MEM + int(NELIM,8)
@@ -816,14 +828,12 @@ C
            DO WHILE (IFSON.GT.0) 
              IF (TNSTK(STEP(IFSON)).EQ.FLAG_L0OMP) THEN
                NFRS   = ND(STEP(IFSON))+KEEP(253)
-               NFRS8  = int(NFRS,8)
                NELIMS= 0 
                IN = IFSON
                DO WHILE (IN.GT.0)
                 IN     = FILS(IN)
                 NELIMS = NELIMS + 1
                ENDDO
-               NELIMS8=int(NELIMS,8)
                NCBS     = NFRS-NELIMS
                NCBS8    = int(NCBS,8)
                SIZECBINFRS = NCBS8*NCBS8
@@ -1806,10 +1816,7 @@ C
      &       PEAK_OOC_LRLUCB_WC, PEAK_LRCB_UD, PEAK_OOC_LRCB_UD
       LOGICAL :: INSSARBR
       INTEGER :: VIRTUAL_TASK, PHYSICAL_TASK
-      INTEGER :: LPOOL
-      INTEGER, ALLOCATABLE, DIMENSION(:) :: POOL
-      INTEGER :: INODE, IFATH, LEAF, I
-      INTEGER :: allocok
+      INTEGER :: INODE, IFATH, I
       INTEGER    :: SIZEHEADER, SIZEHEADER_OOC, XSIZE_OOC
       INTEGER    :: EXTRA_PERM_INFO_OOC
       LOGICAL :: PACKED_CB
@@ -1842,27 +1849,13 @@ C
           DO PHYSICAL_TASK=
      &       VIRT_L0_OMP ( VIRTUAL_TASK ),
      &       VIRT_L0_OMP ( VIRTUAL_TASK + 1 ) - 1
-            LPOOL = PTR_LEAFS_L0_OMP( PERM_L0_OMP(PHYSICAL_TASK) )
-     &            - PTR_LEAFS_L0_OMP( PERM_L0_OMP(PHYSICAL_TASK) + 1)
-            ALLOCATE(POOL(LPOOL), stat=allocok)
-            IF (allocok .GT. 0) THEN
-              WRITE(*,*) " Error alloc POOL ZMUMPS_ANA_DISTM_UNDERL0OMP"
-              IFLAG  =-7
-              IERROR =  NSTEPS
-              RETURN
-            ENDIF
-            LEAF = 0
-            DO I = PTR_LEAFS_L0_OMP ( PERM_L0_OMP ( PHYSICAL_TASK )+1 )
-     &              + 1,
-     &             PTR_LEAFS_L0_OMP ( PERM_L0_OMP ( PHYSICAL_TASK ) )
-              IF ( IPOOL_B_L0_OMP( I ) .GT. 0 ) THEN
-                LEAF = LEAF + 1
-                POOL( LEAF ) = IPOOL_B_L0_OMP( I )
+            DO I = PTR_LEAFS_L0_OMP ( PERM_L0_OMP ( PHYSICAL_TASK ) ),
+     &        PTR_LEAFS_L0_OMP ( PERM_L0_OMP ( PHYSICAL_TASK )+1 ) +1,
+     &              - 1
+              INODE = IPOOL_B_L0_OMP(I)
+              IF (INODE .LE. 0) THEN
+                CYCLE
               ENDIF
-            ENDDO
-            DO WHILE (LEAF .NE. 0)
-              INODE = POOL( LEAF )
-              LEAF = LEAF - 1
  10           CONTINUE
               IFATH = DAD(STEP(INODE))
               CALL ZMUMPS_PROCESS_NODE_UNDERL0 ()
@@ -1871,17 +1864,12 @@ C
               ENDIF
               IF ( PHYS_L0_OMP ( PERM_L0_OMP ( PHYSICAL_TASK ) )
      &             .EQ. INODE ) THEN
-                IF (LEAF .NE. 0) THEN
-                  WRITE(*,*) " Internal error ANA_DIST UNDERL0"
-                  CALL MUMPS_ABORT()
-                ENDIF
                 TNSTK(STEP(INODE)) = FLAG_L0OMP
               ELSE IF ( TNSTK( STEP(IFATH) ) .EQ. 0 ) THEN
                     INODE = IFATH
                     GOTO 10
               ENDIF
             ENDDO
-            DEALLOCATE(POOL)
           ENDDO
         ENDIF
       ENDDO
@@ -1893,10 +1881,10 @@ C
       LOGICAL    :: COMPRESS_PANEL, COMPRESS_CB
       INTEGER    :: STKI
       INTEGER(8) :: LSTK
-      INTEGER   :: K, NFR, NFRF, NELIM, NELIMF, NCB, NCBF, NSTK,
-     &             LEVEL, LEVELF, IN, IFSON, 
+      INTEGER   :: K, NFR, NFRF, NELIM, NELIMF, NCB, NSTK,
+     &             LEVEL, LEVELF, IN,
      &             MAXITEMPCB, PANEL_SIZE, SIZECBI
-      INTEGER(8):: NFR8, NELIM8, NCB8, 
+      INTEGER(8):: NFR8, NCB8, 
      &             K464_8, K465_8,
      &             CURRENT_ACTIVE_MEM,
      &             ENTRIES_NODE_LOWER_PART, ENTRIES_NODE_UPPER_PART, 
@@ -1907,7 +1895,7 @@ C
       INTEGER(8):: SIZECB_if_LRCB 
       INTEGER(8):: SIZECBLR_UD, SIZECBLR_WC
       LOGICAL          :: MASTER, MASTERF, STACKCB
-      DOUBLE PRECISION :: OPS_NODE, OPS_NODE_MASTER, OPS_NODE_SLAVE
+      DOUBLE PRECISION :: OPS_NODE
       INTRINSIC int
       INTEGER ZMUMPS_OOC_GET_PANEL_SIZE
       EXTERNAL ZMUMPS_OOC_GET_PANEL_SIZE
@@ -1924,10 +1912,8 @@ C
       NELIM = 0 
         IN = INODE
  100    NELIM = NELIM + 1 
-        NELIM8=int(NELIM,8)
         IN = FILS(IN)
         IF (IN .GT. 0 ) GOTO 100
-      IFSON = -IN
       IFATH = DAD(STEP(INODE))
       MASTER = MUMPS_PROCNODE(PROCNODE(STEP(INODE)),KEEP(199))
      &           .EQ. MYID
@@ -1988,9 +1974,15 @@ C
       NIRADU_OOC = NIRADU_OOC +
      &      EXTRA_PERM_INFO_OOC*(2+NELIM + NELIM/PANEL_SIZE+1)
       IF (KEEP(50).EQ.0) THEN
-              NRLADU_CURRENT = int(NELIM,8)*int(2*NFR-NELIM,8)
+              IF (KEEP(251) .EQ. 2) THEN
+                NRLADU_CURRENT = int(NELIM,8) * int(NFR,8)
+                SIZEFRNOCBLU   = int(NFR-NELIM,8)*int(NELIM)
+              ELSE
+                NRLADU_CURRENT = int(NELIM,8)*int(2*NFR-NELIM,8)
+                SIZEFRNOCBLU   = 0_8
+              ENDIF
               NRLADU = NRLADU + NRLADU_CURRENT
-              MAX_SIZE_FACTOR=max(MAX_SIZE_FACTOR,NRLADU_CURRENT)
+              MAX_SIZE_FACTOR  = max(MAX_SIZE_FACTOR,NRLADU_CURRENT)
       ELSE
               IF ( KEEP(459) .GT. 1 .AND. KEEP(50) .NE. 0 ) THEN
                 CALL MUMPS_LDLTPANEL_STORAGE( NELIM, KEEP, 
@@ -2000,6 +1992,7 @@ C
                 NRLADU_CURRENT = NRLADU_CURRENT +
      &          int(NELIM,8) * int(NFR-NELIM,8)
               ELSE
+                SIZEFRNOCBLU = 0_8
                 NRLADU_CURRENT = int(NELIM,8)*int(NFR,8)
               ENDIF
               NRLADU = NRLADU + NRLADU_CURRENT
@@ -2013,8 +2006,8 @@ C
                NRLADULR_WC     = NRLADULR_WC + 
      &                           NRLADU_CURRENT
       ELSE
-               NRLADU_if_LR_LU = NRLADU_if_LR_LU + NRLADU_CURRENT
                NRLADU_CURRENT_MISSING = 0_8
+               NRLADU_if_LR_LU = NRLADU_if_LR_LU + NRLADU_CURRENT
       ENDIF
       SIZECBI        = 2* NCB  + SIZEHEADER
       NIRNEC = max0(NIRNEC,
@@ -2024,12 +2017,9 @@ C
      &             (XSIZE_OOC-XSIZE_IC) ) 
       CURRENT_ACTIVE_MEM = ISTKR+SIZECBINFR
       IF ( KEEP(50).NE.0 .AND. LEVEL.EQ.1 ) THEN
-             CURRENT_ACTIVE_MEM = CURRENT_ACTIVE_MEM +
-     &              int(NELIM,8)*int(NCB,8)
+          SIZEFRNOCBLU = SIZEFRNOCBLU + int(NELIM,8)*int(NCB,8)
       ENDIF
-         IF ( KEEP(50).NE.0 .AND. KEEP(459) .GT. 1 ) THEN
-           CURRENT_ACTIVE_MEM = CURRENT_ACTIVE_MEM + SIZEFRNOCBLU
-         ENDIF
+      CURRENT_ACTIVE_MEM = CURRENT_ACTIVE_MEM + SIZEFRNOCBLU
       NRLNEC_if_LR_CB   = 
      &             max(NRLNEC_if_LR_CB  ,NRLADU+
      &             CURRENT_ACTIVE_MEM-ISTKR+ISTKR_if_LRCB)
@@ -2131,12 +2121,6 @@ C
      &           NELIM, NELIM,KEEP(50),
      &           1,OPS_NODE)
             ENDIF
-            IF (LEVEL.EQ.2) THEN
-              CALL MUMPS_GET_FLOPS_COST(NFR, 
-     &           NELIM, NELIM,KEEP(50),
-     &           2,OPS_NODE_MASTER)
-              OPS_NODE_SLAVE=OPS_NODE-OPS_NODE_MASTER
-            ENDIF
       ELSE
            OPS_NODE = 0.0D0
            ENTRIES_NODE_UPPER_PART = 0_8
@@ -2166,7 +2150,6 @@ C
               NELIMF = NELIMF+1
            ENDDO
          ENDIF
-         NCBF = NFRF - NELIMF
          LEVELF = MUMPS_TYPENODE(PROCNODE(STEP(IFATH)),KEEP(199))
          MASTERF= MUMPS_PROCNODE(PROCNODE(STEP(IFATH)),
      &                           KEEP(199)).EQ.MYID

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -19,7 +19,7 @@ C
      &  IPOOL_B_L0_OMP, LPOOL_A_L0_OMP, IPOOL_A_L0_OMP,
      &  L_VIRT_L0_OMP, VIRT_L0_OMP, VIRT_L0_OMP_MAPPING,
      &  L_PHYS_L0_OMP, PHYS_L0_OMP, PERM_L0_OMP, PTR_LEAFS_L0_OMP,
-     &  THREAD_LA, INFO, ICNTL )
+     & INFO, ICNTL )
       USE MUMPS_IDLL
       USE MUMPS_DDLL
       IMPLICIT NONE
@@ -46,12 +46,13 @@ C
       INTEGER, DIMENSION(:), POINTER :: VIRT_L0_OMP, VIRT_L0_OMP_MAPPING
       INTEGER, DIMENSION(:), POINTER :: PERM_L0_OMP
       INTEGER, DIMENSION(:), POINTER :: PTR_LEAFS_L0_OMP
-      INTEGER(8), INTENT ( OUT ) :: THREAD_LA
       INTEGER, INTENT(INOUT) :: INFO(80)
       INTEGER, INTENT(IN)    :: ICNTL(60)
       LOGICAL :: LPOK
       INTEGER :: LP
-      INTEGER :: NB_REPEAT_ACCEPTL0, NB_MAX_IN_L0_ACCEPTL0
+      INTEGER :: NB_REPEAT_ACCEPTL0, NB_MAX_IN_L0_ACCEPTL0,
+     &           NB_IN_L0
+      DOUBLE PRECISION :: SMALL_COST
       INTEGER :: THRESH_MEM, SLAVEF_DURING_MAPPING
       REAL    :: THRESH_EQUILIB
       DOUBLE PRECISION, DIMENSION(1,1,1) :: BENCH 
@@ -61,9 +62,7 @@ C
       DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: THREADS_CHARGE
       DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: COSTS_MONO_THREAD
       DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: COSTS_MULTI_THREAD
-      INTEGER(8), DIMENSION(:), ALLOCATABLE :: SCHUR_MEMORY
-      INTEGER(8), DIMENSION(:), ALLOCATABLE :: SUBTREE_FACTOR_MEMORY
-      INTEGER(8), DIMENSION(:), ALLOCATABLE :: SUBTREE_MEMORY
+      INTEGER         , DIMENSION(:), ALLOCATABLE :: IPOOL_B_INV
       INTEGER(8) :: FACTOR_SIZE_UNDER_L0, FACTOR_SIZE_PER_MPI
       INTEGER, DIMENSION(:), ALLOCATABLE :: CP_NSTK_STEPS
       TYPE ( IDLL_T ), POINTER :: L0_OMP_DLL
@@ -80,7 +79,7 @@ C
          THRESH_MEM = 50
         ELSEIF (NB_THREADS.LE.4) THEN
          THRESH_MEM = 60
-        ELSEIF (NB_THREADS.LT.8) THEN
+        ELSEIF (NB_THREADS.LE.8) THEN
          THRESH_MEM = 70
         ELSEIF (NB_THREADS.LE.12) THEN
          THRESH_MEM = 80
@@ -105,19 +104,14 @@ C
       NB_MAX_IN_L0_ACCEPTL0 = -1
       CALL MUMPS_ANA_INITIALIZE_L0_OMP ()
       IF (INFO(1) .LT. 0) GOTO 500
-10    CONTINUE
       DO WHILE ( .NOT. MUMPS_ANA_ACCEPT_L0_OMP () )
         IF (INFO(1) .LT. 0) GOTO 500
         CALL L0_REMOVE_NODE ( INODE )
           IF (INODE .LT. 0) THEN 
-              DO I = 1, LPOOL_B_L0_OMP
-                  IF (IPOOL_B_L0_OMP( I ) .EQ. (- INODE)) THEN
-                      IPOOL_B_L0_OMP( I ) = INODE 
-                      GOTO 10
-                  END IF
-              END DO
+            IPOOL_B_L0_OMP(IPOOL_B_INV(STEP(-INODE))) = INODE
+          ELSE
+            CALL L0_INSERT_CHILDREN ( INODE )
           END IF
-          CALL L0_INSERT_CHILDREN ( INODE )
       END DO
       CALL MUMPS_ANA_FINALIZE_L0_OMP ()
  500  CONTINUE
@@ -130,8 +124,7 @@ C
      &           NFRONT, NPIV, LEAF, VARNUM, IERR
       LOGICAL :: INODE_IS_A_LEAF
       INTEGER(8) :: NFRONT8, NPIV8
-      INTEGER(8) :: SUM_CB, MAX_MEM
-      DOUBLE PRECISION :: COST_NODE
+      DOUBLE PRECISION :: COST_NODE, SMALL_COST_TMP
       LOGICAL :: IN_L0INIT, SKIP_ABOVE
       LOGICAL, EXTERNAL :: MUMPS_ROOTSSARBR, MUMPS_IN_OR_ROOT_SSARBR
       INTEGER, EXTERNAL :: MUMPS_GET_POOL_LENGTH, MUMPS_TYPENODE
@@ -160,6 +153,13 @@ C
         CALL MUMPS_ABORT()
       ENDIF
       IERR = IDLL_CREATE ( L0_OMP_DLL )
+      NB_IN_L0 = 0
+      IF (KEEP(72).eq.1) THEN
+        SMALL_COST = 2.0D0
+      ELSE
+        SMALL_COST = 100.0D0
+      ENDIF
+      SMALL_COST_TMP = 0.0D0
       IERR = IDLL_CREATE ( LEAFS_ABOVE_L0_OMP_DLL )
       ALLOCATE( THREADS_CHARGE( NB_THREADS ), stat=IERR )
       IF (IERR .GT. 0) THEN
@@ -175,32 +175,20 @@ C
          IF (LPOK) WRITE(LP, 150) ' COSTS_MONO_THREAD'
          GOTO 500
       ENDIF
-      ALLOCATE( COSTS_MULTI_THREAD ( NSTEPS ), stat=IERR )
-      IF(IERR.GT.0) THEN
-         INFO(1) = -7
-         INFO(2) = NSTEPS
-         IF (LPOK) WRITE(LP, 150) ' COSTS_MULTI_THREAD'
-         GOTO 500
+      IF (KEEP(403) .NE. 0) THEN
+        ALLOCATE( COSTS_MULTI_THREAD ( NSTEPS ), stat=IERR )
+        IF(IERR.GT.0) THEN
+          INFO(1) = -7
+          INFO(2) = NSTEPS
+          IF (LPOK) WRITE(LP, 150) ' COSTS_MULTI_THREAD'
+          GOTO 500
+        ENDIF
       ENDIF
-      ALLOCATE( SCHUR_MEMORY ( NSTEPS ), stat=IERR )
+      ALLOCATE( IPOOL_B_INV ( NSTEPS ), stat=IERR )
       IF(IERR.GT.0) THEN
          INFO(1) = -7
          INFO(2) = NSTEPS
-         IF (LPOK) WRITE(LP, 150) ' SCHUR_MEMORY'
-         GOTO 500
-      ENDIF
-      ALLOCATE( SUBTREE_FACTOR_MEMORY ( NSTEPS ), stat=IERR )
-      IF(IERR.GT.0) THEN
-         INFO(1) = -7
-         INFO(2) = NSTEPS
-         IF (LPOK) WRITE(LP, 150) ' SCHUR_FACTOR_MEMORY'
-         GOTO 500
-      ENDIF
-      ALLOCATE( SUBTREE_MEMORY ( NSTEPS ), stat=IERR )
-      IF(IERR.GT.0) THEN
-         INFO(1) = -7
-         INFO(2) = NSTEPS
-         IF (LPOK) WRITE(LP, 150) ' SUBTREE_MEMORY'
+         IF (LPOK) WRITE(LP, 150) ' IPOOL_B_INV'
          GOTO 500
       ENDIF
       ALLOCATE( CP_NSTK_STEPS ( NSTEPS ), stat=IERR )
@@ -219,13 +207,12 @@ C
          GOTO 500
       ENDIF
       COSTS_MONO_THREAD = 0.0D0
-      COSTS_MULTI_THREAD = 0.0D0
-      COST_UNDER = 0.0D0
-      COST_ABOVE = 0.0D0
-      COST_TOTAL_BEST = huge(COST_TOTAL_BEST)
-      SCHUR_MEMORY = 0_8
-      SUBTREE_FACTOR_MEMORY = 0_8
-      SUBTREE_MEMORY = 0_8
+      IF (KEEP(403) .NE. 0) THEN
+        COSTS_MULTI_THREAD = 0.0D0
+        COST_UNDER = 0.0D0
+        COST_ABOVE = 0.0D0
+        COST_TOTAL_BEST = huge(COST_TOTAL_BEST)
+      ENDIF
       FACTOR_SIZE_UNDER_L0 = 0_8
       CP_NSTK_STEPS(:) = NSTK_STEPS(:)
       IF (KEEP(403).NE.0) THEN
@@ -237,6 +224,9 @@ C
      &                     KEEP(1), KEEP8(1), STEP(1),
      &                     PROCNODE_STEPS(1),
      &                     IPOOL_B_L0_OMP(1), LPOOL_B_L0_OMP)
+      DO I = 1, LEAF - 1
+        IPOOL_B_INV(STEP(IPOOL_B_L0_OMP(I))) = I
+      ENDDO
       LEAF = LEAF - 1
       NBLEAF_MYID = LEAF
       IF (NBLEAF_MYID .EQ. 0) THEN
@@ -257,26 +247,6 @@ C
       END DO
       NPIV8=int(NPIV,8)
       VARNUM = - VARNUM
-      IF (KEEP(50) .EQ. 0) THEN
-        SCHUR_MEMORY ( STEP ( INODE ) ) =
-     &           (NFRONT8 - NPIV8)*(NFRONT8 - NPIV8)
-        IF (KEEP(251) .EQ. 0) THEN
-          SUBTREE_FACTOR_MEMORY ( STEP ( INODE ) ) = NFRONT8 * NFRONT8
-     &           - SCHUR_MEMORY ( STEP ( INODE ) )
-        ELSE
-          SUBTREE_FACTOR_MEMORY ( STEP ( INODE ) ) = 0_8
-        END IF
-      ELSE
-        SCHUR_MEMORY ( STEP ( INODE ) ) =
-     &           (NFRONT8 - NPIV8)*(NFRONT8 + 1_8 - NPIV8)/2_8
-        IF (KEEP(251) .EQ. 0) THEN
-          SUBTREE_FACTOR_MEMORY ( STEP ( INODE ) ) = NFRONT8 * NPIV8
-        ELSE
-          SUBTREE_FACTOR_MEMORY ( STEP ( INODE ) ) = 0_8
-        END IF
-      END IF
-      SUM_CB  = 0_8
-      MAX_MEM = 0_8
       IF (KEEP(403) .EQ. 0) THEN
         CALL MUMPS_GET_FLOPS_COST ( NFRONT, NPIV, NPIV,
      &                              SYM, 1, COST_NODE )
@@ -292,17 +262,8 @@ C
      &                      COSTS_MONO_THREAD ( STEP ( INODE ) )
      &                      +
      &                      COSTS_MONO_THREAD ( STEP ( VARNUM ) )
-          MAX_MEM = max (MAX_MEM,
-     &                   SUBTREE_MEMORY ( STEP ( VARNUM ) ) + SUM_CB )
-          SUM_CB = SUM_CB + SCHUR_MEMORY ( STEP ( VARNUM ) ) +
-     &             SUBTREE_FACTOR_MEMORY ( STEP ( VARNUM ) )
-          SUBTREE_FACTOR_MEMORY ( STEP ( INODE ) ) =
-     &                         SUBTREE_FACTOR_MEMORY ( STEP ( INODE ) )
-     &                       + SUBTREE_FACTOR_MEMORY ( STEP ( VARNUM ) )
           VARNUM = FRERE ( STEP ( VARNUM ) )
       END DO
-      SUBTREE_MEMORY ( STEP ( INODE ) ) =
-     &                        max ( MAX_MEM, NFRONT8*NFRONT8 + SUM_CB )
       IFATH = DAD ( STEP ( INODE ) )
       IF (IFATH .NE. 0) THEN
         IGRANDFATH = DAD( STEP ( IFATH ) )
@@ -409,7 +370,10 @@ C
         ENDIF
       ENDIF
       IF ( IN_L0INIT ) THEN
+          SMALL_COST_TMP = max(SMALL_COST_TMP, 
+     &                      COSTS_MONO_THREAD ( STEP ( INODE ) ) )
           CALL L0_INSERT_NODE ( L0_OMP_DLL, INODE )
+          NB_IN_L0 = NB_IN_L0 + 1
       ELSE IF ( SKIP_ABOVE ) THEN
           IERR = IDLL_PUSH_BACK ( LEAFS_ABOVE_L0_OMP_DLL, INODE )
           IF ( .NOT. INODE_IS_A_LEAF ) THEN
@@ -431,6 +395,8 @@ C
       IF ( LEAF .GT. 0 ) THEN
         GOTO 90
       END IF
+      SMALL_COST = max(SMALL_COST_TMP / 100000d0, SMALL_COST)
+      SMALL_COST = min(SMALL_COST, 1D6)
  500  CONTINUE
       RETURN
  150  FORMAT(
@@ -443,6 +409,10 @@ C
       TYPE ( IDLL_T ), POINTER :: DLL
       INTEGER :: IERR
       TYPE ( IDLL_NODE_T ), POINTER :: IDLL_NODE
+      IF ( COSTS_MONO_THREAD ( STEP ( INODE ) ) .LT. SMALL_COST ) THEN
+        IERR = IDLL_PUSH_BACK( DLL, INODE )
+        RETURN
+      ENDIF
       IERR = IDLL_ITERATOR_BEGIN ( DLL, IDLL_NODE )
       DO WHILE ( associated ( IDLL_NODE ) )
           IF ( COSTS_MONO_THREAD ( STEP ( IDLL_NODE%ELMT ) )
@@ -463,10 +433,9 @@ C
       SUBROUTINE L0_INSERT_CHILDREN ( I_FATHER )
       IMPLICIT NONE
       INTEGER, INTENT ( IN ) :: I_FATHER
-      INTEGER :: I_SON, IERR
+      INTEGER :: I_SON, IERR, NB_SONS
       TYPE ( IDLL_T ), POINTER :: SON_DLL
       TYPE ( IDLL_NODE_T ), POINTER :: IDLL_NODE
-      IERR = IDLL_CREATE ( SON_DLL )
       I_SON = I_FATHER
       DO WHILE ( I_SON .GT. 0 )
           I_SON = FILS ( I_SON )
@@ -475,10 +444,14 @@ C
       IF ( I_SON .EQ. 0 ) THEN
           RETURN
       END IF
+      IERR = IDLL_CREATE ( SON_DLL )
+      NB_SONS = 0
       DO WHILE ( I_SON .GT. 0 )
           CALL L0_INSERT_NODE ( SON_DLL, I_SON )
-           I_SON = FRERE ( STEP ( I_SON ) )
+          I_SON = FRERE ( STEP ( I_SON ) )
+          NB_SONS = NB_SONS + 1
       END DO
+      NB_IN_L0 = NB_IN_L0 + NB_SONS
       IERR = IDLL_ITERATOR_BEGIN ( L0_OMP_DLL, IDLL_NODE )
       IERR = IDLL_POP_FRONT ( SON_DLL, I_SON )
       IF ( IERR .NE. 0 ) THEN
@@ -494,7 +467,19 @@ C
               END DO
       ELSE
           DO
-              IF ( COSTS_MONO_THREAD ( STEP ( I_SON )) .LE.
+              IF ( COSTS_MONO_THREAD ( STEP ( I_SON ) ) .LT.
+     &             SMALL_COST ) THEN
+                IERR = IDLL_PUSH_BACK(L0_OMP_DLL, I_SON)
+                IF (associated(SON_DLL%FRONT)) THEN
+                  L0_OMP_DLL%BACK%NEXT => SON_DLL%FRONT
+                  SON_DLL%FRONT%PREV   => L0_OMP_DLL%BACK
+                  L0_OMP_DLL%BACK      => SON_DLL%BACK
+                  NULLIFY(SON_DLL%FRONT)
+                  NULLIFY(SON_DLL%BACK)
+                ENDIF
+                GOTO 190
+              ENDIF
+              IF ( COSTS_MONO_THREAD ( STEP ( I_SON )) .LT.
      &             COSTS_MONO_THREAD ( STEP ( IDLL_NODE%ELMT ) ) ) THEN
                   IF ( associated ( IDLL_NODE%NEXT ) ) THEN
                       IDLL_NODE => IDLL_NODE%NEXT
@@ -523,6 +508,7 @@ C
       INTEGER, INTENT ( OUT ) :: INODE
       INTEGER :: I_SON, IERR, NPIV
       IERR = IDLL_POP_FRONT ( L0_OMP_DLL, INODE )
+      NB_IN_L0 = NB_IN_L0 - 1
       I_SON = INODE
       NPIV = 0
       DO WHILE ( I_SON .GT. 0 )
@@ -540,21 +526,43 @@ C
       IF ( I_SON .EQ. 0 ) THEN 
           IERR = IDLL_PUSH_BACK ( LEAFS_ABOVE_L0_OMP_DLL, INODE )
           INODE = -INODE
-      ELSE IF (INODE .GT. 0) THEN
-          COST_ABOVE = COST_ABOVE + COSTS_MULTI_THREAD (STEP ( INODE ))
+      ELSE IF (INODE .GT. 0 .AND. KEEP(403) .NE. 0) THEN
+          COST_ABOVE = COST_ABOVE +
+     &                 COSTS_MULTI_THREAD(STEP ( abs(INODE) ))
       END IF
       RETURN
       END SUBROUTINE L0_REMOVE_NODE
       FUNCTION MUMPS_ANA_ACCEPT_L0_OMP ()
       LOGICAL :: MUMPS_ANA_ACCEPT_L0_OMP
-      INTEGER :: I, I_LESS_CHARGED, IERR, NB_IN_L0
+      INTEGER :: I, I_LESS_CHARGED, IERR
       DOUBLE PRECISION :: LIGHTEST_CHARGE, HEAVIEST_CHARGE
       TYPE ( IDLL_NODE_T ), POINTER :: IDLL_NODE
-      THREADS_CHARGE = 0.0D0
-      NB_IN_L0 = 0 
-      IERR = IDLL_ITERATOR_BEGIN( L0_OMP_DLL, IDLL_NODE )
-      DO WHILE ( associated ( IDLL_NODE ) )
-          NB_IN_L0 = NB_IN_L0 + 1
+      LOGICAL :: DECISION_TAKEN
+      NB_MAX_IN_L0_ACCEPTL0 = max(NB_MAX_IN_L0_ACCEPTL0, NB_IN_L0)
+      LIGHTEST_CHARGE = -9999.0d0 
+      HEAVIEST_CHARGE = -9999.0d0 
+      IF ( KEEP(403) .EQ. 0) THEN
+        IF (NB_IN_L0 .EQ. 0) THEN
+          MUMPS_ANA_ACCEPT_L0_OMP = .TRUE.
+          DECISION_TAKEN          = .TRUE.
+        ELSE IF ( NB_IN_L0 .LT. NB_MAX_IN_L0_ACCEPTL0 .AND.
+     &            NB_IN_L0 .LT. KEEP(400) ) THEN
+          MUMPS_ANA_ACCEPT_L0_OMP = .TRUE.
+          DECISION_TAKEN = .TRUE.
+        ELSE IF ( FACTOR_SIZE_UNDER_L0 .GT.
+     &            FACTOR_SIZE_PER_MPI * int(THRESH_MEM,8) / 100_8 ) THEN
+          MUMPS_ANA_ACCEPT_L0_OMP= .FALSE.
+          DECISION_TAKEN = .TRUE.
+        ELSE
+          DECISION_TAKEN = .FALSE.
+        ENDIF
+      ELSE
+         DECISION_TAKEN = .FALSE.
+      ENDIF
+      IF (.NOT. DECISION_TAKEN ) THEN
+        THREADS_CHARGE = 0.0D0
+        IERR = IDLL_ITERATOR_BEGIN( L0_OMP_DLL, IDLL_NODE )
+        DO WHILE ( associated ( IDLL_NODE ) )
           I_LESS_CHARGED = 1
           LIGHTEST_CHARGE = THREADS_CHARGE ( 1 )
           DO I = 2, NB_THREADS
@@ -568,36 +576,38 @@ C
      &                   +
      &                   COSTS_MONO_THREAD ( STEP ( IDLL_NODE%ELMT ) )
           IDLL_NODE => IDLL_NODE%NEXT
-      END DO
-      NB_MAX_IN_L0_ACCEPTL0 = max(NB_MAX_IN_L0_ACCEPTL0, NB_IN_L0)
-      LIGHTEST_CHARGE = THREADS_CHARGE ( 1 )
-      HEAVIEST_CHARGE = THREADS_CHARGE ( 1 )
-      DO I = 2, NB_THREADS
+        END DO
+        LIGHTEST_CHARGE = THREADS_CHARGE ( 1 )
+        HEAVIEST_CHARGE = THREADS_CHARGE ( 1 )
+        DO I = 2, NB_THREADS
           IF ( THREADS_CHARGE ( I ) .LT. LIGHTEST_CHARGE ) THEN
               LIGHTEST_CHARGE = THREADS_CHARGE ( I )
           ELSEIF ( THREADS_CHARGE ( I ) .GT. HEAVIEST_CHARGE ) THEN
               HEAVIEST_CHARGE = THREADS_CHARGE ( I )
           END IF
-      END DO
-      COST_UNDER = HEAVIEST_CHARGE
+        END DO
+        COST_UNDER = HEAVIEST_CHARGE
+      ENDIF
       IF (KEEP(403) .EQ. 0) THEN
+        IF ( .NOT. DECISION_TAKEN ) THEN
           MUMPS_ANA_ACCEPT_L0_OMP =
-     &   (
-     &     dble(LIGHTEST_CHARGE)/(dble(HEAVIEST_CHARGE)+1.D-12) 
-     &     .GT.THRESH_EQUILIB .AND.
+     &    (
+     &    dble(LIGHTEST_CHARGE)/(dble(HEAVIEST_CHARGE)+1.D-12) 
+     &    .GT.THRESH_EQUILIB .AND.
      &
-     &     FACTOR_SIZE_UNDER_L0 .LE.
-     &     FACTOR_SIZE_PER_MPI * int(THRESH_MEM,8) / 100_8
+     &    FACTOR_SIZE_UNDER_L0 .LE.
+     &    FACTOR_SIZE_PER_MPI * int(THRESH_MEM,8) / 100_8
      &
-     &      )
-     &  .OR.
-     &   ( NB_IN_L0 .LT. NB_MAX_IN_L0_ACCEPTL0 .AND.
-     &     LIGHTEST_CHARGE .EQ. 0.0D0 ) 
-     &  .OR. ( NB_IN_L0 .EQ. 0 ) 
+     &    )
+     &    .OR.
+     &    ( NB_IN_L0 .LT. NB_MAX_IN_L0_ACCEPTL0 .AND.
+     &    LIGHTEST_CHARGE .EQ. 0.0D0 ) 
+     &    .OR. ( NB_IN_L0 .EQ. 0 ) 
+        ENDIF
         IF (MUMPS_ANA_ACCEPT_L0_OMP) THEN
           IF (associated(PHYS_L0_OMP)) THEN
             DEALLOCATE(PHYS_L0_OMP)
-            nullify(PHYS_L0_OMP)
+            NULLIFY(PHYS_L0_OMP)
           ENDIF
           IERR = IDLL_2_ARRAY ( L0_OMP_DLL, PHYS_L0_OMP, L_PHYS_L0_OMP )
           IF (IERR .EQ. -2) THEN
@@ -610,7 +620,7 @@ C
         IF (COST_UNDER + COST_ABOVE .LT. COST_TOTAL_BEST) THEN
           IF (associated(PHYS_L0_OMP)) THEN
             DEALLOCATE(PHYS_L0_OMP)
-            nullify(PHYS_L0_OMP)
+            NULLIFY(PHYS_L0_OMP)
           ENDIF
           IERR = IDLL_2_ARRAY ( L0_OMP_DLL, PHYS_L0_OMP, L_PHYS_L0_OMP )
           COST_TOTAL_BEST = COST_UNDER + COST_ABOVE
@@ -626,7 +636,6 @@ C
       INTEGER :: INODE, OLD_INODE, I, J, K, LEAF, IERR
       DOUBLE PRECISION :: LIGHTEST_CHARGE
       INTEGER :: I_LESS_CHARGED
-      INTEGER(8) :: SUM_CB, MAX_MEM, MAX_MEM_ALL_THREADS
       INTEGER :: MAX_TASK_PER_THREAD
       TYPE ( IDLL_NODE_T ), POINTER :: IDLL_NODE
       INTEGER, DIMENSION(:,:), ALLOCATABLE :: THREADS_TASKS
@@ -746,27 +755,6 @@ C
      &                  +
      &                  COSTS_MONO_THREAD ( STEP ( PHYS_L0_OMP ( I ) ) )
       END DO
-      MAX_MEM_ALL_THREADS = 0_8
-      DO I = 1, NB_THREADS
-          SUM_CB = 0_8
-          MAX_MEM = 0_8
-          DO J = 1, NB_TASK_PER_THREAD ( I )
-                  MAX_MEM = max ( MAX_MEM, SUBTREE_MEMORY ( STEP (
-     &                THREADS_TASKS (I,J) ) ) + SUM_CB )
-                  SUM_CB = SUM_CB
-     &              +SCHUR_MEMORY(STEP(THREADS_TASKS(I,J)))
-     &              +SUBTREE_FACTOR_MEMORY(
-     &                            STEP(THREADS_TASKS(I,J)))
-          END DO
-          MAX_MEM = max ( MAX_MEM, SUM_CB )
-          IF (KEEP(402) .EQ. 0) THEN
-              THREADS_CHARGE ( I ) = dble(MAX_MEM)
-          END IF
-          MAX_MEM_ALL_THREADS =  max ( MAX_MEM_ALL_THREADS, MAX_MEM )
-      END DO
-      MAX_MEM_ALL_THREADS =  ( MAX_MEM_ALL_THREADS 
-     &                         * int(100 + KEEP(12),8) ) / 100_8
-      THREAD_LA = max(MAX_MEM_ALL_THREADS,6_8)
       IF (KEEP(402) .EQ. 0) THEN
         K = 1
         DO I = 1, NB_THREADS
@@ -852,10 +840,7 @@ C
       IF (allocated(CP_NSTK_STEPS ))     DEALLOCATE(CP_NSTK_STEPS     )
       IF (allocated(COSTS_MONO_THREAD))  DEALLOCATE(COSTS_MONO_THREAD )
       IF (allocated(COSTS_MULTI_THREAD)) DEALLOCATE(COSTS_MULTI_THREAD)
-      IF (allocated(SCHUR_MEMORY))       DEALLOCATE(SCHUR_MEMORY      )
-      IF (allocated(SUBTREE_FACTOR_MEMORY))
-     &                                DEALLOCATE(SUBTREE_FACTOR_MEMORY)
-      IF (allocated(SUBTREE_MEMORY))     DEALLOCATE(SUBTREE_MEMORY    )
+      IF (allocated(IPOOL_B_INV))        DEALLOCATE(IPOOL_B_INV       )
       IERR = IDLL_DESTROY ( LEAFS_ABOVE_L0_OMP_DLL )
       IERR = IDLL_DESTROY ( L0_OMP_DLL )
       RETURN
@@ -1076,11 +1061,5 @@ C
       RETURN
       END SUBROUTINE MUMPS_QUICK_SORT_PHYS_L0
       SUBROUTINE MUMPS_ANA_OMP_RETURN()
-#if defined(BLR_MT)
-#if ! defined(_OPENMP)
-      COMPILATION FAILURE: -DBLR_MT requires compilation with openmp
-      Please modify Makefile.inc and do 'make clean; make'
-#endif
-#endif
       RETURN
       END SUBROUTINE MUMPS_ANA_OMP_RETURN

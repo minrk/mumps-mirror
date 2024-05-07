@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.5.1, released
-#  on Tue Jul 12 13:17:24 UTC 2022
+#  This file is part of MUMPS 5.6.0, released
+#  on Wed Apr 19 15:50:57 UTC 2023
 #
 # We are grateful to Evgenii Rudnyi for his help and suggestions
 # regarding Windows installation.
@@ -75,6 +75,7 @@ IORDERINGSC = $(IMETIS) $(IPORD) $(ISCOTCH)
 PLAT    =
 LIBEXT  = .lib
 LIBEXT_SHARED  = .so
+SONAME = -soname
 #FPIC_OPT = -fPIC
 #RPATH_OPT
 OUTC    = -Fo

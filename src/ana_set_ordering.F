@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -44,6 +44,11 @@ C
         IORD = 7
       END IF
 #endif
+      IF (IORD.EQ.4.AND.N.EQ.1) THEN
+        IF (PROK) WRITE(MP,*)
+     &  'WARNING: PORD not available for matrices of order 1'
+       IORD=0
+      ENDIF
       IF (IORD.EQ.7) THEN
         IF (SYM.NE.0) THEN
           IF ( N.LE.SMALLSYM ) THEN 
@@ -91,5 +96,6 @@ C
           ENDIF
         ENDIF
       ENDIF
+      IF (IORD.EQ.4.AND.N.EQ.1) IORD=0
       RETURN
       END SUBROUTINE MUMPS_SET_ORDERING

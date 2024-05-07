@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -25,6 +25,7 @@ C
       INTEGER INFO(80), LDLT
       COMPLEX(kind=8) RHS_SEQ( SIZE_ROOT *NRHS)
       COMPLEX(kind=8) A( LOCAL_M, LOCAL_N )
+#if ! defined(NOSCALAPACK)
       INTEGER IERR, NPROW, NPCOL, MYROW, MYCOL
       INTEGER LOCAL_N_RHS
       COMPLEX(kind=8), ALLOCATABLE, DIMENSION( :,: ) ::RHS_PAR
@@ -54,8 +55,10 @@ C
      &    MBLOCK, NBLOCK, RHS_PAR, MASTER_ROOT,
      &    NPROW, NPCOL, COMM )
       DEALLOCATE(RHS_PAR)
+#endif
       RETURN
       END SUBROUTINE ZMUMPS_ROOT_SOLVE
+#if ! defined(NOSCALAPACK)
       SUBROUTINE ZMUMPS_SOLVE_2D_BCYCLIC (SIZE_ROOT, NRHS, MTYPE,
      &     A, DESCA_PAR, LOCAL_M, LOCAL_N, LOCAL_N_RHS,
      &     IPIV, LPIV, RHS_PAR, LDLT, 
@@ -97,3 +100,4 @@ C
       END IF
       RETURN
       END SUBROUTINE ZMUMPS_SOLVE_2D_BCYCLIC
+#endif

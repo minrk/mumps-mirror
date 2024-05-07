@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -17,12 +17,13 @@ C
      &      DIAG_ORIG, SIZEDIAG_ORIG, GW_FACTCUMUL,
      &      NFRONT, NASS, IBEG_BLOCK_TO_SEND, IBEG_BLOCK, IEND_BLOCK,
      &      NASS2, TIPIV,
-     &      N, INODE, IW, LIW, A, LA, NNEGW, NB22T2W, NBTINYW,
+     &      N, INODE, IW, LIW, A, LA, NNEGW, NNULLNEGW,
+     &      NB22T2W, NBTINYW,
      &      DET_EXPW, DET_MANTW, DET_SIGNW,
-     &                   INOPV, IFLAG,
+     &                   INOPV, IFLAG,IERROR,
      &                   IOLDPS, POSELT, UU, 
      &                   SEUIL,KEEP,KEEP8,PIVSIZ,
-     &                   DKEEP,PIVNUL_LIST,LPN_LIST,
+     &                   DKEEP, PIVNUL_LIST_STRUCT, SWAP_OCCURRED,
      &                   PP_FIRST2SWAP_L, PP_LastPanelonDisk,
      &                   PP_LastPIVRPTRIndexFilled, 
      &                   PIVOT_OPTION,   
@@ -30,13 +31,14 @@ C
      &                   OOC_EFFECTIVE_ON_FRONT)
       USE MUMPS_OOC_COMMON, ONLY : TYPEF_L   
       USE ZMUMPS_FAC_FRONT_AUX_M
+      USE MUMPS_PIVNUL_MOD
       IMPLICIT NONE
       INTEGER SIZEDIAG_ORIG
       DOUBLE PRECISION    DIAG_ORIG(SIZEDIAG_ORIG)
       DOUBLE PRECISION    GW_FACTCUMUL
-      INTEGER NFRONT,NASS,N,LIW,INODE,IFLAG,INOPV
+      INTEGER NFRONT,NASS,N,LIW,INODE,IFLAG,IERROR,INOPV
       INTEGER NASS2, IBEG_BLOCK_TO_SEND, IBEG_BLOCK, IEND_BLOCK
-      INTEGER, intent(inout) :: NNEGW, NB22T2W, NBTINYW
+      INTEGER, intent(inout) :: NNEGW, NNULLNEGW, NB22T2W, NBTINYW
       INTEGER, intent(inout) :: DET_EXPW, DET_SIGNW
       COMPLEX(kind=8), intent(inout) :: DET_MANTW
       INTEGER TIPIV( NASS2 )
@@ -54,8 +56,8 @@ C
       INTEGER(8) :: POSELT
       INTEGER KEEP(500)
       INTEGER(8) KEEP8(150)
-      INTEGER LPN_LIST
-      INTEGER PIVNUL_LIST(LPN_LIST)
+      TYPE(PIVNUL_LIST_STRUCT_T)     :: PIVNUL_LIST_STRUCT
+      LOGICAL :: SWAP_OCCURRED
       DOUBLE PRECISION DKEEP(230)
       INTEGER PP_FIRST2SWAP_L, PP_LastPanelonDisk
       INTEGER PP_LastPIVRPTRIndexFilled
@@ -297,7 +299,14 @@ C
      &           ( abs(A(POSPV1)), DKEEP, KEEP, .TRUE.)
                KEEP(109) = KEEP(109) + 1
                IPIVNUL = KEEP(109)
-               PIVNUL_LIST(IPIVNUL) = IW( IOLDPS+HF+NPIV+IPIV-NPIVP1 )
+               IF (PIVNUL_LIST_STRUCT%SIZE_PIVNUL_LIST.LT.KEEP(109)) 
+     &         THEN
+                 CALL MUMPS_RESIZE_PIVNUL(KEEP, N, PIVNUL_LIST_STRUCT, 
+     &                                    IPIVNUL, IFLAG, IERROR ) 
+                 IF (IFLAG.LT.0) GOTO 430
+               ENDIF
+               PIVNUL_LIST_STRUCT%PIVNUL_LIST(IPIVNUL) = 
+     &                            IW( IOLDPS+HF+NPIV+IPIV-NPIVP1 )
                IF (dble(FIXA).GT.RZERO) THEN
                  IF(dble(PIVOT) .GE. RZERO) THEN
                    A(POSPV1) = FIXA
@@ -461,6 +470,7 @@ C
      &             IOLDPS, NPIVP1, LPIV, POSELT, NASS,
      &             LDAFS, NFRONT, 2, K219, KEEP(50),
      &             KEEP(IXSZ), IBEG_BLOCK_TO_SEND )
+              SWAP_OCCURRED = .TRUE.
               IF (K219.GE.3) THEN
                RSWOP = DIAG_ORIG(LPIV)   
                DIAG_ORIG(LPIV) = DIAG_ORIG(NPIVP1) 
@@ -508,6 +518,7 @@ C
          GW_FACTCUMUL = max(GW_FACT,GW_FACTCUMUL)
        ENDIF 
       ENDIF  
+  430 CONTINUE
       RETURN
       END SUBROUTINE ZMUMPS_FAC_I_LDLT_NIV2
       SUBROUTINE ZMUMPS_FAC_MQ_LDLT_NIV2
@@ -677,6 +688,7 @@ C
      &             NSTK_S,PERM,PROCNODE_STEPS, root,
      &             OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &             FILS, DAD, PTRARW, PTRAIW,
+     &             PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &             INTARR, DBLARR, ICNTL, KEEP,KEEP8,DKEEP, ND, FRERE,
      &             LPTRAR, NELT, FRTPTR, FRTELT, 
      &             ISTEP_TO_INIV2, TAB_POS_IN_PERE
@@ -712,6 +724,10 @@ C
      &        ITLOC(N+KEEP(253)), FILS(N), DAD( KEEP(28) ),
      &        ND( KEEP(28) ), FRERE( KEEP(28) )
       INTEGER(8), INTENT(IN) :: PTRARW(LPTRAR), PTRAIW(LPTRAR)
+      INTEGER(8), INTENT(IN) :: PTR8ARR(KEEP(193))
+      INTEGER, INTENT(IN) :: NINCOLARR(KEEP(194))
+      INTEGER, INTENT(IN) :: NINROWARR(KEEP(195))
+      INTEGER, INTENT(IN) :: PTRDEBARR(KEEP(196))
       COMPLEX(kind=8) :: RHS_MUMPS(KEEP(255))
       INTEGER(8) :: PTRAST  (KEEP(28))
       INTEGER(8) :: PTRFAC  (KEEP(28))
@@ -727,7 +743,7 @@ C
       INTEGER INTARR(KEEP8(27))
       LOGICAL, intent(in) ::  LR_ACTIVATED  
       TYPE (LRB_TYPE), DIMENSION(:) :: BLR_LorU
-      INTEGER, intent(in) :: LRGROUPS(N)
+      INTEGER, intent(in) :: LRGROUPS(KEEP(280))
       INTEGER ::  NELIM
       INTEGER, intent(in) :: NPARTSASS, CURRENT_BLR_PANEL
       INCLUDE 'mumps_headers.h'
@@ -801,7 +817,8 @@ C
      &       IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
      &       root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &       FILS, DAD, PTRARW, PTRAIW,
-     &       INTARR, DBLARR, ICNTL, KEEP,KEEP8,DKEEP, ND, FRERE,
+     &       PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &       INTARR, DBLARR, ICNTL, KEEP, KEEP8,DKEEP, ND, FRERE,
      &       LPTRAR, NELT, FRTPTR, FRTELT, 
      &       ISTEP_TO_INIV2, TAB_POS_IN_PERE, .TRUE.
      &               , LRGROUPS

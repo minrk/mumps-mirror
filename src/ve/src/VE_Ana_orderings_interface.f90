@@ -165,16 +165,16 @@ END SUBROUTINE VE_FMUMPS_SYMQAMD
 ! -----------------------------------------------------------------------
 !
 
- SUBROUTINE VE_FMUMPS_WRAP_GINP94(                                    &
+ SUBROUTINE VE_FMUMPS_WRAP_GINP94(                                         &
       N             , IPE     , IW             , LIW8        , PERM      , &
-      SizeOfBlocks  , KEEP60  , LISTVAR_SCHUR  , SIZE_SCHUR  , COLCOUNT  , &
-      PARENT        , PORDER  , IWTMP1         , IWTMP2      , IWTMP3    , &
-      IWTMP4        , IWTMP5  , INFO           )           
+      SizeOfBlocks  , KEEP60  , LISTVAR_SCHUR  , SIZE_SCHUR  , KEEP378   , &
+      COLCOUNT      , PARENT  , PORDER         , IWTMP1      , IWTMP2    , &
+      IWTMP3        , IWTMP4  , IWTMP5         , INFO        )
   USE ISO_C_BINDING, ONLY : C_INT,C_INT64_T
   IMPLICIT NONE
   ! INTERFACE TO C ROUTINE
   !     Input not modified
-        INTEGER(KIND=C_INT)    , INTENT(IN) :: N, KEEP60, SIZE_SCHUR
+        INTEGER(KIND=C_INT)    , INTENT(IN) :: N, KEEP60, SIZE_SCHUR, KEEP378
         INTEGER(KIND=C_INT)    , INTENT(IN) :: SizeOfBlocks(N)
         INTEGER(KIND=C_INT)    , INTENT(IN) :: LISTVAR_SCHUR(SIZE_SCHUR)
         INTEGER(KIND=C_INT64_T), INTENT(IN) :: LIW8,IPE(N+1)
@@ -189,16 +189,16 @@ END SUBROUTINE VE_FMUMPS_SYMQAMD
         INTEGER(KIND=C_INT), INTENT(INOUT)     :: PERM(N)
         INTEGER(KIND=C_INT), INTENT(INOUT)     :: INFO(2)
   INTERFACE
-    SUBROUTINE VE_MUMPS_WRAP_GINP94(                                    &
+    SUBROUTINE VE_MUMPS_WRAP_GINP94(                                          &
          N             , IPE     , IW             , LIW8        , PERM      , &
-         SizeOfBlocks  , KEEP60  , LISTVAR_SCHUR  , SIZE_SCHUR  , COLCOUNT  , &
-         PARENT        , PORDER  , IWTMP1         , IWTMP2      , IWTMP3    , &
-         IWTMP4        , IWTMP5  , INFO           )                           &
+         SizeOfBlocks  , KEEP60  , LISTVAR_SCHUR  , SIZE_SCHUR  , KEEP378   , &
+         COLCOUNT      , PARENT  , PORDER         , IWTMP1      , IWTMP2    , &
+         IWTMP3        , IWTMP4  , IWTMP5         , INFO        )             &
          BIND(C, NAME='VE_Mumps_wrap_ginp94')
       USE ISO_C_BINDING, ONLY : C_INT,C_INT64_T
         IMPLICIT NONE
   !     Input not modified
-        INTEGER(KIND=C_INT)    , VALUE , INTENT(IN) :: N, KEEP60, SIZE_SCHUR
+        INTEGER(KIND=C_INT)    , VALUE , INTENT(IN) :: N, KEEP60, SIZE_SCHUR, KEEP378
         INTEGER(KIND=C_INT64_T), VALUE , INTENT(IN) :: LIW8
         INTEGER(KIND=C_INT)            , INTENT(IN) :: SizeOfBlocks(N)
         INTEGER(KIND=C_INT)            , INTENT(IN) :: LISTVAR_SCHUR(SIZE_SCHUR)
@@ -219,7 +219,7 @@ END SUBROUTINE VE_FMUMPS_SYMQAMD
   WRITE(6,'(A)')'-----------------> Performing VH call of MUMPS_WRAP_GINP94'
   CALL VE_MUMPS_WRAP_GINP94(                                                &
              N             , IPE     , IW             , LIW8        , PERM      , &
-             SizeOfBlocks  , KEEP60  , LISTVAR_SCHUR  , SIZE_SCHUR  , COLCOUNT  , &
-             PARENT        , PORDER  , IWTMP1         , IWTMP2      , IWTMP3    , &
-             IWTMP4        , IWTMP5  , INFO           )           
+             SizeOfBlocks  , KEEP60  , LISTVAR_SCHUR  , SIZE_SCHUR  , KEEP378   , &
+             COLCOUNT      , PARENT  , PORDER         , IWTMP1      , IWTMP2    , &
+             IWTMP3        , IWTMP4  , IWTMP5         , INFO        )
 END SUBROUTINE VE_FMUMPS_WRAP_GINP94

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -50,7 +50,6 @@ C
       INTEGER NBRECORDS, NBUF
       INTEGER(8) :: RECV_IELTPTR8
       INTEGER(8) :: RECV_RELTPTR8
-      INTEGER INODE
       INTEGER(8) :: IELTPTR8, RELTPTR8
       LOGICAL FINI, PROKG, I_AM_SLAVE, EARLYT3ROOTINS
       INTEGER(8) :: PTR_ROOT
@@ -71,8 +70,6 @@ C
       COMPLEX, DIMENSION( : ), ALLOCATABLE :: TEMP_ELT_R
       INTEGER, DIMENSION( : ), ALLOCATABLE :: TEMP_ELT_I
       INTEGER(8), DIMENSION( : ), ALLOCATABLE :: ELROOTPOS8
-      INTEGER, DIMENSION( : ), ALLOCATABLE, TARGET :: RG2LALLOC
-      INTEGER, DIMENSION( : ), POINTER     :: RG2L
       MPG = id%ICNTL(3)
       LP  = id%ICNTL(1)
       I_AM_SLAVE = ( KEEP(46) .eq. 1 .or. MYID .ne.MASTER )
@@ -142,24 +139,6 @@ C
               GOTO 100
             END IF
           ENDIF
-          IF (KEEP(46) .eq. 0 ) THEN
-           ALLOCATE( RG2LALLOC( N ), stat = allocok )
-           IF ( allocok .gt. 0 ) THEN
-               id%INFO(1) = -13
-               id%INFO(2) = N
-               GOTO 100
-           END IF
-           INODE = KEEP(38)
-           I     = 1
-           DO WHILE ( INODE .GT. 0 )
-             RG2LALLOC( INODE ) = I
-             INODE = FILS( INODE )
-             I = I + 1
-           END DO
-           RG2L => RG2LALLOC
-          ELSE 
-           RG2L => root%RG2L_ROW
-          END IF
         END IF
         DO I = 1, NBUF
           BUFI( 1, I ) = 0
@@ -314,7 +293,7 @@ C
           IELT = FRTELT( IPTR )
           SIZEI = id%ELTPTR( IELT + 1 ) - id%ELTPTR( IELT )
           DO I = 1, SIZEI
-            TEMP_ELT_I( I ) = RG2L
+            TEMP_ELT_I( I ) = root%RG2L
      &              ( id%ELTVAR( id%ELTPTR(IELT) + I - 1 ) )
           END DO
           IVALPTR8 = ELROOTPOS8( IPTR - FRTPTR(KEEP(38)) + 1 ) - 1
@@ -444,11 +423,6 @@ C
         DEALLOCATE( BUFI )
         DEALLOCATE( BUFR )
         IF (allocated(ELROOTPOS8)) DEALLOCATE(ELROOTPOS8)
-        IF (KEEP(38).ne.0) THEN 
-          IF (KEEP(46) .eq. 0 ) THEN
-             DEALLOCATE(RG2LALLOC)
-          ENDIF
-        ENDIF
         DEALLOCATE( TEMP_ELT_I )
       END IF
       KEEP(49) = ARROW_ROOT

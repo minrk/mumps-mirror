@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -17,21 +17,28 @@ C
       TYPE(LMATRIX_T) :: LMAT
       INTEGER :: J
       IF (associated(LMAT%COL)) THEN
-        DO J = 1,LMAT%NBCOL
-         IF (associated(LMAT%COL(J)%IRN)) THEN
-           DEALLOCATE(LMAT%COL(J)%IRN)
-           NULLIFY(LMAT%COL(J)%IRN)
-         ENDIF
-        ENDDO
+        IF (LMAT%NBCOL_LOC.GT.0) THEN
+         DO J = 1,LMAT%NBCOL_LOC
+           IF (associated(LMAT%COL(J)%IRN)) THEN
+             DEALLOCATE(LMAT%COL(J)%IRN)
+             NULLIFY(LMAT%COL(J)%IRN)
+           ENDIF
+         ENDDO
+        ENDIF
         DEALLOCATE(LMAT%COL)
         NULLIFY(LMAT%COL)
       ENDIF
       RETURN
       END SUBROUTINE MUMPS_AB_FREE_LMAT
-      SUBROUTINE MUMPS_AB_FREE_GCOMP ( GCOMP )
+      SUBROUTINE MUMPS_AB_FREE_GCOMP ( GCOMP, MEMCNT )
       USE MUMPS_ANA_BLK_M, ONLY : COMPACT_GRAPH_T
       IMPLICIT NONE
-      TYPE(COMPACT_GRAPH_T) :: GCOMP
+      TYPE(COMPACT_GRAPH_T)      :: GCOMP
+      INTEGER(8), INTENT(INOUT)  :: MEMCNT
+      IF (associated(GCOMP%IPE)) 
+     &        MEMCNT = MEMCNT - int(size(GCOMP%IPE),8)
+      IF (associated(GCOMP%ADJ)) 
+     &        MEMCNT = MEMCNT - GCOMP%SIZEADJALLOCATED - 5
       IF (associated(GCOMP%IPE)) THEN
           DEALLOCATE(GCOMP%IPE)
           NULLIFY(GCOMP%IPE)
@@ -63,7 +70,8 @@ C
      &     NBLK, NDOF, NNZ, IRN, JCN,
      &     DOF2BLOCK, 
      &     IFLAG, IERROR, LP, LPOK,
-     &     LMAT)
+     &     LMAT, OFFDIAG, KEEP 
+     &     )
       USE MUMPS_ANA_BLK_M, ONLY : LMATRIX_T
       IMPLICIT NONE
       INTEGER, INTENT(IN)    :: MYID, NBLK, NDOF
@@ -72,14 +80,22 @@ C
       INTEGER, INTENT(IN) :: DOF2BLOCK(NDOF)
       INTEGER             :: LP, IFLAG, IERROR
       LOGICAL, INTENT(IN) :: LPOK
+      INTEGER(8), INTENT(OUT) :: OFFDIAG
+      INTEGER, INTENT(INOUT) :: KEEP(500)
       TYPE(LMATRIX_T)     :: LMAT
+      LOGICAL :: LU_WITH_SYM_STRUCT, NO_DUPPLICATES
       INTEGER, ALLOCATABLE, DIMENSION(:) :: FLAG
-      INTEGER :: allocok
+      INTEGER :: allocok, IERROR_LOC
       INTEGER :: I, J, JJB, IIB, IB, JB, NB, PT
       INTEGER(8) :: I8
+      LU_WITH_SYM_STRUCT = (KEEP(202).EQ.1)
+      NO_DUPPLICATES     = (KEEP(203).EQ.1)
       LMAT%NBCOL = NBLK
       LMAT%NZL   = 0_8
-      ALLOCATE(LMAT%COL(NBLK),FLAG(NBLK), STAT=allocok)
+      LMAT%NBCOL_LOC = NBLK
+      LMAT%FIRST     = 1
+      ALLOCATE(LMAT%COL(NBLK),
+     &         FLAG(NBLK), STAT=allocok)
       IF (allocok.NE.0) THEN
            IFLAG = -7
            IERROR = 2*NBLK
@@ -88,37 +104,45 @@ C
            END IF
            RETURN
       ENDIF
-      DO IB=1,NBLK
+      DO IB=1,LMAT%NBCOL_LOC
        LMAT%COL(IB)%NBINCOL = 0
+      ENDDO
+      DO IB=1,LMAT%NBCOL
        FLAG(IB)             = 0
       ENDDO
-      IERROR = 0 
+      IERROR_LOC = 0 
+      OFFDIAG    = 0
       DO I8=1, NNZ
          I = IRN(I8)
          J = JCN(I8)
          IF ( (I.GT.NDOF).OR.(J.GT.NDOF).OR.(I.LT.1)
      &                     .OR.(J.LT.1)) THEN
-           IERROR = IERROR + 1
+           IERROR_LOC = IERROR_LOC + 1
          ELSE
           IB  = DOF2BLOCK(I)
           JB  = DOF2BLOCK(J)
           JJB = min(IB,JB)
           IF (IB.NE.JB) THEN
+           OFFDIAG = OFFDIAG + 1
+           IF (LU_WITH_SYM_STRUCT.AND.IB.LT.JB) CYCLE
            LMAT%NZL = LMAT%NZL+1_8
            LMAT%COL(JJB)%NBINCOL =  LMAT%COL(JJB)%NBINCOL + 1
-          ENDIF
+           ENDIF
          ENDIF
       ENDDO
-      IF (IERROR.GE.1) THEN
-         IF (mod(IFLAG,2) .EQ. 0) IFLAG = IFLAG+1
+      IF (IERROR_LOC.GE.1) THEN
+         IF (mod(IFLAG,2) .EQ. 0) THEN 
+           IFLAG = IFLAG+1
+           IERROR = IERROR_LOC
+         ENDIF
       ENDIF
-      DO JB=1,NBLK
+      DO JB=1,LMAT%NBCOL_LOC
        NB =  LMAT%COL(JB)%NBINCOL
        IF (NB.GT.0) THEN
         ALLOCATE(LMAT%COL(JB)%IRN(NB), STAT=allocok)
         IF (allocok.NE.0) THEN
            IFLAG  = -7
-           IERROR = NBLK
+           IERROR = NB
            IF ( LPOK ) THEN
               WRITE(LP, *) " ERROR allocate of LMAT%COL"
            END IF
@@ -133,6 +157,7 @@ C
      &                     .AND.(J.GE.1)) THEN
           IB  = DOF2BLOCK(I)
           JB  = DOF2BLOCK(J)
+          IF (LU_WITH_SYM_STRUCT.AND.IB.LT.JB) CYCLE
           JJB = min(IB,JB)
           IIB = max(IB,JB)
           IF (IIB.NE.JJB) THEN
@@ -142,38 +167,50 @@ C
           ENDIF
          ENDIF
       ENDDO
-      CALL MUMPS_AB_LOCALCLEAN_LMAT ( MYID,
-     &     NBLK, LMAT, FLAG(1), IFLAG, IERROR, LP, LPOK
-     & )
+      IF (  ( NDOF.NE.NBLK ) 
+     &     .OR. 
+     &      ( KEEP(50).NE.0 .AND. .NOT.NO_DUPPLICATES )
+     &     .OR.
+     &      ( KEEP(50).EQ.0.AND.
+     &       .NOT.(LU_WITH_SYM_STRUCT.AND.NO_DUPPLICATES) ) 
+     &     )
+     &   THEN
+        CALL MUMPS_AB_LOCALCLEAN_LMAT ( MYID,
+     &     LMAT, FLAG(1), LMAT%NBCOL, IFLAG, IERROR, LP, LPOK
+     &   )
+      ENDIF
       DEALLOCATE(FLAG)
       RETURN
       END SUBROUTINE MUMPS_AB_COORD_TO_LMAT
       SUBROUTINE MUMPS_AB_LOCALCLEAN_LMAT (  MYID,
-     &     NBLK, LMAT, FLAG, IFLAG, IERROR, LP, LPOK
+     &     LMAT, FLAG, NBCOL, IFLAG, IERROR, LP, LPOK
      &     )
       USE MUMPS_ANA_BLK_M, ONLY : LMATRIX_T
       IMPLICIT NONE
-      INTEGER, INTENT(IN) :: MYID, NBLK, LP
+      INTEGER, INTENT(IN) :: MYID, LP
       LOGICAL, INTENT(IN) :: LPOK
-      INTEGER, INTENT(OUT) :: FLAG(NBLK)
+      INTEGER, INTENT(IN)  :: NBCOL
+      INTEGER, INTENT(OUT) :: FLAG(NBCOL)
       INTEGER, INTENT(INOUT) :: IFLAG, IERROR
       TYPE(LMATRIX_T), INTENT(INOUT)  :: LMAT
       INTEGER, POINTER, DIMENSION(:)     :: PTCLEAN
-      INTEGER :: allocok, IB, JB, NB
-      DO JB=1, NBLK
+      INTEGER :: allocok, IB, JB, NB, LMAT_FIRST, NBCOL_LOC
+      LMAT_FIRST = LMAT%FIRST
+      NBCOL_LOC  = LMAT%NBCOL_LOC
+      DO JB=1, NBCOL
         FLAG(JB) = 0
       ENDDO
       LMAT%NZL = 0_8
-      DO JB=1, NBLK
+      DO JB=1, NBCOL_LOC
        IF ( LMAT%COL(JB)%NBINCOL.EQ.0) CYCLE
        NB = 0
        DO IB=1,  LMAT%COL(JB)%NBINCOL
-        IF (FLAG(LMAT%COL(JB)%IRN(IB)).EQ.JB) THEN
+        IF (FLAG(LMAT%COL(JB)%IRN(IB)).EQ.JB+LMAT_FIRST-1) THEN
          LMAT%COL(JB)%IRN(IB)=0
         ELSE
          NB = NB+1
          LMAT%NZL = LMAT%NZL+1_8
-         FLAG(LMAT%COL(JB)%IRN(IB)) = JB
+         FLAG(LMAT%COL(JB)%IRN(IB)) = JB+LMAT_FIRST-1
         ENDIF
        ENDDO
        IF (NB.GT.0) THEN
@@ -199,13 +236,14 @@ C
          LMAT%COL(JB)%IRN => PTCLEAN
          NULLIFY(PTCLEAN)
        ELSE
-          deallocate(LMAT%COL(JB)%IRN)
+          if (associated(LMAT%COL(JB)%IRN)) 
+     &           deallocate(LMAT%COL(JB)%IRN)
           NULLIFY(LMAT%COL(JB)%IRN)
        ENDIF
       ENDDO
       RETURN
       END SUBROUTINE MUMPS_AB_LOCALCLEAN_LMAT
-      SUBROUTINE MUMPS_AB_LMAT_TO_LUMAT( 
+      SUBROUTINE MUMPS_AB_CLEANLMAT_TO_LUMAT( 
      &     LMAT, LUMAT, INFO, ICNTL )
       USE MUMPS_ANA_BLK_M, ONLY : LMATRIX_T
       IMPLICIT NONE
@@ -220,10 +258,12 @@ C
       PROKG = ( MPG .GT. 0 .and. (ICNTL(4).GE.2) ) 
       LUMAT%NBCOL  = LMAT%NBCOL
       LUMAT%NZL    = 2_8*LMAT%NZL
-      ALLOCATE( LUMAT%COL(LMAT%NBCOL),STAT=allocok)
+      LUMAT%FIRST     = LMAT%FIRST
+      LUMAT%NBCOL_LOC = LMAT%NBCOL
+      ALLOCATE( LUMAT%COL(LUMAT%NBCOL_LOC),STAT=allocok)
       IF (allocok.NE.0) THEN
            INFO( 1 ) = -7
-           INFO( 2 ) = LMAT%NBCOL
+           INFO( 2 ) = LUMAT%NBCOL_LOC
            IF ( LPOK ) THEN
              WRITE(LP, *) " ERROR allocating LUMAT%COL "
            END IF
@@ -232,13 +272,13 @@ C
       DO JB=1,  LMAT%NBCOL
          LUMAT%COL(JB)%NBINCOL = LMAT%COL(JB)%NBINCOL
       ENDDO
-      DO JB=1,  LMAT%NBCOL
+      DO JB=1,  LMAT%NBCOL_LOC
         DO IB=1, LMAT%COL(JB)%NBINCOL
           IIB=LMAT%COL(JB)%IRN(IB)
           LUMAT%COL(IIB)%NBINCOL = LUMAT%COL(IIB)%NBINCOL + 1
         ENDDO
       ENDDO
-      DO JB=1,  LMAT%NBCOL
+      DO JB=1,  LMAT%NBCOL_LOC
         NB = LUMAT%COL(JB)%NBINCOL
         ALLOCATE(LUMAT%COL(JB)%IRN(NB), STAT=IERR)
         IF (IERR.NE.0) THEN
@@ -250,10 +290,10 @@ C
            RETURN
         ENDIF
       ENDDO
-      DO JB=1, LMAT%NBCOL
+      DO JB=1, LMAT%NBCOL_LOC
         LUMAT%COL(JB)%NBINCOL = 0
       ENDDO
-      DO JB=1, LMAT%NBCOL
+      DO JB=1, LMAT%NBCOL_LOC
         DO IB=1, LMAT%COL(JB)%NBINCOL
           IIB=LMAT%COL(JB)%IRN(IB)
           NB = LUMAT%COL(JB)%NBINCOL+1
@@ -265,29 +305,11 @@ C
         ENDDO
       ENDDO
       RETURN
-      END SUBROUTINE MUMPS_AB_LMAT_TO_LUMAT
-      SUBROUTINE MUMPS_AB_PRINT_LMATRIX (LMAT, MYID, LP)
-      USE MUMPS_ANA_BLK_M, ONLY : LMATRIX_T
-      IMPLICIT NONE
-      TYPE(LMATRIX_T), INTENT(IN) :: LMAT
-      INTEGER, INTENT(IN)         :: MYID, LP
-      INTEGER :: JB
-      write(LP,*) MYID, " ... LMATRIX  %NBCOL, %NZL= ", 
-     &                  LMAT%NBCOL, LMAT%NZL
-      IF (LMAT%NBCOL.GE.0.AND.associated(LMAT%COL)) THEN
-       DO JB=1,  LMAT%NBCOL
-        IF (LMAT%COL(JB)%NBINCOL.GT.0) THEN
-         WRITE(LP,*) MYID, " ... Column=", JB , " nb entries =", 
-     &    LMAT%COL(JB)%NBINCOL, " List of entries:",
-     &    LMAT%COL(JB)%IRN(1:LMAT%COL(JB)%NBINCOL)
-        ENDIF
-       ENDDO
-      ENDIF
-      RETURN
-      END SUBROUTINE MUMPS_AB_PRINT_LMATRIX
+      END SUBROUTINE MUMPS_AB_CLEANLMAT_TO_LUMAT
       SUBROUTINE MUMPS_AB_LMAT_TO_CLEAN_G( MYID, UNFOLD, 
      &     READY_FOR_ANA_F,
-     &     LMAT, GCOMP, INFO, ICNTL )
+     &     LMAT, GCOMP, INFO, ICNTL
+     &     , MEMCNT )
       USE MUMPS_ANA_BLK_M, ONLY : LMATRIX_T, COMPACT_GRAPH_T
       IMPLICIT NONE
       INTEGER, INTENT(IN)    :: MYID
@@ -296,7 +318,9 @@ C
       TYPE(COMPACT_GRAPH_T)  :: GCOMP
       INTEGER, INTENT(IN)    :: ICNTL(60)
       INTEGER, INTENT(INOUT) :: INFO(80)
-      INTEGER    :: IB, IIB, JJB, allocok, LP, MPG
+      INTEGER(8), INTENT(INOUT) :: MEMCNT
+      INTEGER    :: IB, IIB, JJB, allocok, LP, MPG 
+      INTEGER    :: JFIRST, NG_LOCAL
       INTEGER(8) :: JPOS, SIZEGCOMPALLOCATED
       INTEGER(8), ALLOCATABLE, DIMENSION(:) :: IQ
 #if defined(DETERMINISTIC_PARALLEL_GRAPH)
@@ -309,21 +333,25 @@ C
       LPOK  = ((LP.GT.0).AND.(ICNTL(4).GE.1))
       MPG   = ICNTL( 3 )
       PROKG = ( MPG .GT. 0 .and. (ICNTL(4).GE.2) ) 
-      GCOMP%NG  = LMAT%NBCOL
+      GCOMP%NG    = LMAT%NBCOL
+      GCOMP%FIRST = LMAT%FIRST
+      GCOMP%LAST  = LMAT%FIRST+LMAT%NBCOL_LOC-1
+      JFIRST     = GCOMP%FIRST
+      NG_LOCAL   = LMAT%NBCOL_LOC
       IF (UNFOLD) THEN 
-       GCOMP%NZG = 2_8*LMAT%NZL
+       GCOMP%NZG   = 2_8*LMAT%NZL
        SIZEGCOMPALLOCATED = GCOMP%NZG + int(GCOMP%NG,8)+1_8
       ELSE IF (READY_FOR_ANA_F) THEN
        GCOMP%NZG = LMAT%NZL
        SIZEGCOMPALLOCATED = GCOMP%NZG + int(GCOMP%NG,8)+1_8
       ELSE
-       GCOMP%NZG = LMAT%NZL
+       GCOMP%NZG          = LMAT%NZL
        SIZEGCOMPALLOCATED = GCOMP%NZG
       ENDIF
       GCOMP%SIZEADJALLOCATED= SIZEGCOMPALLOCATED
       ALLOCATE( GCOMP%ADJ(SIZEGCOMPALLOCATED), 
-     &          GCOMP%IPE(GCOMP%NG+1), 
-     &          IQ(GCOMP%NG),STAT=allocok)
+     &          GCOMP%IPE(NG_LOCAL+1),
+     &          IQ(NG_LOCAL),STAT=allocok)
       IF (allocok.NE.0) THEN
            INFO( 1 ) = -7
            CALL MUMPS_SET_IERROR(
@@ -334,11 +362,11 @@ C
            END IF
            RETURN
       ENDIF
-      DO JJB=1, GCOMP%NG
+      DO JJB=1, NG_LOCAL
          IQ(JJB)=0_8
       ENDDO
       IF (UNFOLD) THEN 
-       DO JJB=1, GCOMP%NG
+       DO JJB=1, NG_LOCAL
         DO IB=1, LMAT%COL(JJB)%NBINCOL
           IIB=LMAT%COL(JJB)%IRN(IB)
           IQ(JJB)=IQ(JJB)+1
@@ -346,19 +374,19 @@ C
         ENDDO
        ENDDO
       ELSE
-       DO JJB=1, GCOMP%NG
+       DO JJB=1, NG_LOCAL
          IQ(JJB) = LMAT%COL(JJB)%NBINCOL
        ENDDO
       ENDIF
       GCOMP%IPE(1) = 1_8
-      DO JJB=1, GCOMP%NG
+      DO JJB=1, NG_LOCAL
         GCOMP%IPE(JJB+1) = GCOMP%IPE(JJB)+IQ(JJB)
       ENDDO
       IF (UNFOLD) THEN 
        DO JJB=1, GCOMP%NG
         IQ(JJB)= GCOMP%IPE(JJB)
        ENDDO
-       DO JJB=1, GCOMP%NG
+       DO JJB=1, NG_LOCAL
         DO IB=1, LMAT%COL(JJB)%NBINCOL
           IIB=LMAT%COL(JJB)%IRN(IB)
           GCOMP%ADJ(IQ(IIB))= JJB
@@ -368,7 +396,7 @@ C
         ENDDO
        ENDDO
       ELSE
-       DO JJB=1, GCOMP%NG
+       DO JJB=1, NG_LOCAL
         JPOS =  GCOMP%IPE(JJB)
         DO IB=1, LMAT%COL(JJB)%NBINCOL
           IIB=LMAT%COL(JJB)%IRN(IB)
@@ -390,7 +418,7 @@ C
           END IF
           RETURN
         ENDIF
-        DO JJB=1, GCOMP%NG
+        DO JJB=1, NG_LOCAL
           IFIRST = GCOMP%IPE(JJB)
           ILAST= GCOMP%IPE(JJB+1)-1
           L = int(ILAST-IFIRST+1)
@@ -409,6 +437,9 @@ C
         DEALLOCATE(WORK)
       ENDIF
 #endif
+      MEMCNT = MEMCNT + GCOMP%SIZEADJALLOCATED 
+     &          + (GCOMP%LAST-GCOMP%FIRST+1)+1 
+     &          + 5
       RETURN
 #if defined(DETERMINISTIC_PARALLEL_GRAPH)
       CONTAINS
@@ -416,7 +447,6 @@ C
       INTEGER    :: N
       INTEGER    :: K(:), L(0:)
       INTEGER    :: P, Q, S, T
-      CONTINUE
       L(0) = 1
       T = N + 1
       DO  P = 1,N - 1
@@ -442,12 +472,10 @@ C
       IF(Q .EQ. 0) RETURN
  300  CONTINUE
       IF(K(P) .GT. K(Q)) GOTO 600 
-      CONTINUE
       L(S) = sign(P,L(S))
       S = P
       P = L(P)
       IF (P .GT. 0) GOTO 300
-      CONTINUE
       L(S) = Q
       S = T
       DO
@@ -461,7 +489,6 @@ C
       S = Q
       Q = L(Q)
       IF (Q .GT. 0) GOTO 300
-      CONTINUE
       L(S) = P
       S = T
       DO
@@ -504,7 +531,7 @@ C
       END SUBROUTINE MUMPS_AB_LMAT_TO_CLEAN_G
       SUBROUTINE MUMPS_AB_COL_DISTRIBUTION ( OPTION,
      &     INFO, ICNTL, COMM, NBLK, MYID, NPROCS,
-     &     LMAT, MAPCOL )
+     &     LMAT, MAPCOL, CONTIGUOUS_COL )
       USE MUMPS_ANA_BLK_M, ONLY : LMATRIX_T
       IMPLICIT NONE
       INCLUDE 'mpif.h'
@@ -515,6 +542,7 @@ C
       INTEGER             :: INFO(80)
       TYPE(LMATRIX_T)     :: LMAT
       INTEGER, INTENT(OUT):: MAPCOL(NBLK)
+      LOGICAL, INTENT(OUT):: CONTIGUOUS_COL
       INTEGER    :: LP, SIZE_NZROW, I
       LOGICAL    :: LPOK
       INTEGER(8) :: NZL, NNZ
@@ -541,7 +569,7 @@ C
      &     COMM, MYID )
       IF (INFO(1).LT.0) GOTO 500
       IF (OPTION.NE.1) THEN
-        DO I = 1, NBLK
+        DO I = 1, LMAT%NBCOL_LOC
          MAPCOL(I) = LMAT%COL(I)%NBINCOL
         ENDDO
         CALL MPI_ALLREDUCE(MAPCOL(1), NZ_ROW(1), NBLK, 
@@ -550,19 +578,22 @@ C
      &        MPI_INTEGER8, MPI_SUM, COMM, IERR)
       ENDIF
       CALL MUMPS_AB_COMPUTE_MAPCOL (OPTION, INFO, ICNTL, MYID,
-     &   NNZ, NZ_ROW(1), SIZE_NZROW, NBLK, NPROCS, MAPCOL(1))
+     &   NNZ, NZ_ROW(1), SIZE_NZROW, NBLK, NPROCS, MAPCOL(1),
+     &   CONTIGUOUS_COL)
  500  CONTINUE
       IF (allocated(NZ_ROW)) DEALLOCATE(NZ_ROW)
       RETURN
       END SUBROUTINE MUMPS_AB_COL_DISTRIBUTION
       SUBROUTINE MUMPS_AB_COMPUTE_MAPCOL (OPTION, INFO, ICNTL, 
-     &    MYID, NNZ, NZ_ROW, SIZE_NZROW, NBLK,  NPROCS, MAPCOL )
+     &    MYID, NNZ, NZ_ROW, SIZE_NZROW, NBLK,  NPROCS, MAPCOL,
+     &    CONTIGUOUS_COL )
       INTEGER, INTENT(IN) :: OPTION, MYID, SIZE_NZROW, NBLK
       INTEGER, INTENT(IN) :: ICNTL(60), NPROCS
       INTEGER             :: INFO(80)
       INTEGER(8)          :: NNZ
       INTEGER, INTENT(IN) :: NZ_ROW(SIZE_NZROW)
       INTEGER, INTENT(OUT):: MAPCOL(NBLK)
+      LOGICAL, INTENT(OUT) :: CONTIGUOUS_COL
       INTEGER    :: I, J, P, F, LP, IERR
       LOGICAL    :: LPOK
       INTEGER(8) :: SHARE, T
@@ -582,6 +613,7 @@ C
       DO I=1,NPROCS+1
        FIRST(I) = 0
       ENDDO
+      CONTIGUOUS_COL = .TRUE.
       IF (OPTION.EQ.1) THEN
        SHARE = int(NBLK/NPROCS,8)
        DO I=1, NPROCS
@@ -628,7 +660,7 @@ C
       RETURN
       END SUBROUTINE MUMPS_AB_COMPUTE_MAPCOL
       SUBROUTINE MUMPS_AB_BUILD_DCLEAN_LUMATRIX ( 
-     &     MAPCOLonLUMAT, MAPCOL_IN_NSTEPS,
+     &     MAPCOLonLUMAT, MAPCOL_IN_NSTEPS, CONTIGUOUS_COL,
      &     INFO, ICNTL, KEEP, COMM, MYID, NBLK, NPROCS,
      &     LMAT, MAPCOL, SIZEMAPCOL,
      &     STEP, SIZESTEP, 
@@ -638,6 +670,7 @@ C
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'
       LOGICAL, INTENT(IN) :: MAPCOLonLUMAT, MAPCOL_IN_NSTEPS
+      LOGICAL, INTENT(INOUT) :: CONTIGUOUS_COL
       INTEGER, INTENT(IN) :: MYID, NPROCS, NBLK, SIZEMAPCOL
       INTEGER, INTENT(IN) :: ICNTL(60), COMM, KEEP(500)
       INTEGER, INTENT(IN) :: SIZESTEP
@@ -660,10 +693,10 @@ C
       ENDIF
       LP  = ICNTL( 1 )
       LPOK  = ((LP.GT.0).AND.(ICNTL(4).GE.1))
-      ALLOCATE(WT(NBLK), WNBINCOL(NBLK), STAT=IERR)
+      ALLOCATE(WT(NBLK),WNBINCOL(NBLK),STAT=IERR)
       IF (IERR.NE.0) THEN
            INFO(1) = -7
-           INFO(2) = 2*NBLK
+           INFO(2) = 2*LMAT%NBCOL_LOC
            IF ( LPOK ) THEN
               WRITE(LP, *) " ERROR allocate of LUMAT%COL; WT"
            END IF
@@ -672,10 +705,11 @@ C
       CALL MUMPS_PROPINFO(  ICNTL(1), INFO(1),
      &     COMM, MYID )
        IF ( INFO(1) .LT. 0 ) GOTO 500
-      DO JB=1, NBLK
+      WT = 0
+      DO JB=1, LMAT%NBCOL_LOC
        WT(JB) = LMAT%COL(JB)%NBINCOL
       ENDDO
-      DO JB=1,NBLK
+      DO JB=1,LMAT%NBCOL_LOC
        IF ( LMAT%COL(JB)%NBINCOL.EQ.0) CYCLE
        DO IB=1,  LMAT%COL(JB)%NBINCOL
         I = LMAT%COL(JB)%IRN(IB)
@@ -692,40 +726,60 @@ C
        ENDDO
        CALL  MUMPS_AB_COMPUTE_MAPCOL (OPTION, INFO, ICNTL,
      &     MYID, NNZ, WNBINCOL(1), NBLK, 
-     &     NBLK, NPROCS, MAPCOL(1))
+     &     NBLK, NPROCS, MAPCOL(1), CONTIGUOUS_COL)
        CALL MUMPS_PROPINFO(  ICNTL(1), INFO(1),
      &     COMM, MYID )
        IF ( INFO(1) .LT. 0 ) GOTO 500
       ENDIF
-      LUMAT%NBCOL = NBLK
-      LUMAT%NZL   = 0_8
-      ALLOCATE(LUMAT%COL(NBLK), STAT=IERR)
-      IF (IERR.NE.0) THEN
+      LUMAT%NBCOL     = NBLK
+      LUMAT%NZL       = 0_8
+      LUMAT%FIRST     = 1
+      LUMAT%NBCOL_LOC = NBLK
+      IF (CONTIGUOUS_COL) THEN
+        LUMAT%NBCOL_LOC = 0
+        LUMAT%FIRST     = -9991
+        DO JB=1,NBLK
+         IF (MAPCOL(JB).EQ.MYID) THEN
+           IF ( LUMAT%FIRST .LT.0 ) LUMAT%FIRST=JB
+           LUMAT%NBCOL_LOC = LUMAT%NBCOL_LOC + 1
+         ENDIF
+        ENDDO
+        IF (LUMAT%FIRST.LT.0) THEN
+          LUMAT%FIRST     = 1
+        ENDIF
+      ENDIF
+      IF (LUMAT%NBCOL_LOC.GT.0) THEN
+       ALLOCATE(LUMAT%COL(LUMAT%NBCOL_LOC), STAT=IERR)
+       IF (IERR.NE.0) THEN
            INFO(1) = -7
-           INFO(2) = NBLK
+           INFO(2) = LUMAT%NBCOL_LOC
            IF ( LPOK ) THEN
               WRITE(LP, *) " ERROR allocate of LUMAT%COL; WT"
            END IF
+       ENDIF
       ENDIF
       IF ( INFO(1) .GE. 0 ) THEN
        DO JB=1,NBLK
         NB =  WNBINCOL(JB)
         IF (MAPCOL_IN_NSTEPS) THEN
          IF (MAPCOL(abs(STEP(JB))).EQ.MYID) THEN
-          LUMAT%NZL             = LUMAT%NZL + int(NB,8)
+          LUMAT%NZL       = LUMAT%NZL + int(NB,8)
          ELSE
           NB = 0
          ENDIF
+         LUMAT%COL(JB)%NBINCOL = NB
         ELSE
+         IF (LUMAT%NBCOL.EQ.LUMAT%NBCOL_LOC) 
+     &      LUMAT%COL(JB)%NBINCOL = 0
          IF (MAPCOL(JB).EQ.MYID) THEN
-          LUMAT%NZL             = LUMAT%NZL + int(NB,8)
+          LUMAT%NZL       = LUMAT%NZL + int(NB,8)
+          LUMAT%COL(JB-LUMAT%FIRST+1)%NBINCOL = NB
          ELSE
           NB = 0
          ENDIF
         ENDIF
-        LUMAT%COL(JB)%NBINCOL = NB
         IF (NB.GT.0) THEN
-         ALLOCATE(LUMAT%COL(JB)%IRN(NB), STAT=IERR)
+         ALLOCATE(LUMAT%COL(JB-LUMAT%FIRST+1)%IRN(NB), STAT=IERR)
          IF (IERR.NE.0) THEN
            INFO(1)  = -7
            INFO(2)  = NB
@@ -758,7 +812,7 @@ C
       CALL MUMPS_PROPINFO(  ICNTL(1), INFO(1),
      &     COMM, MYID )
       IF ( INFO(1) .LT. 0 ) GOTO 500
-      ALLOCATE(WT(NBLK), STAT=IERR)
+      ALLOCATE(WT(LUMAT%NBCOL), STAT=IERR)
       IF (IERR.NE.0) THEN
            INFO(1) = -7
            INFO(2) = 2*NBLK
@@ -768,7 +822,7 @@ C
            GOTO 500
       ENDIF
       CALL MUMPS_AB_LOCALCLEAN_LMAT ( MYID,
-     &     NBLK, LUMAT, WT(1), INFO(1), INFO(2), LP, LPOK
+     &     LUMAT, WT(1), LUMAT%NBCOL, INFO(1), INFO(2), LP, LPOK
      & )
       CALL MUMPS_PROPINFO(  ICNTL(1), INFO(1),
      &     COMM, MYID )
@@ -820,8 +874,9 @@ C
       CALL MUMPS_PROPINFO(  ICNTL(1), INFO(1),
      &     COMM, MYID )
       IF ( INFO(1) .LT. 0 ) GOTO 500
-      DO JB=1, NBLK
-       WT(JB) = LUMAT%COL(JB)%NBINCOL
+      WT = 0
+      DO JB=1, LUMAT%NBCOL_LOC
+       WT(JB+LUMAT%FIRST-1) = LUMAT%COL(JB)%NBINCOL
       ENDDO
       CALL MPI_ALLREDUCE(WT(1), WNBINCOL(1), NBLK, 
      &        MPI_INTEGER, MPI_SUM, COMM, IERR)
@@ -829,24 +884,26 @@ C
       IF (MYID.EQ.MASTER) THEN
        DO ISTEP=1, NSTEPS
         MAPCOL(ISTEP) = 
-     &              MUMPS_PROCNODE(PROCNODE_STEPS(ISTEP),KEEP(199))
+     &              MUMPS_PROCNODE(PROCNODE_STEPS(ISTEP),KEEP(199)) 
        ENDDO
       ENDIF
       CALL MPI_BCAST( MAPCOL(1), NSTEPS, MPI_INTEGER,
      &     MASTER, COMM, IERR )
       CALL MPI_BCAST( STEP(1), NBLK, MPI_INTEGER,
      &     MASTER, COMM, IERR )
-      LUMAT_REMAP%NBCOL = NBLK
-      ALLOCATE(LUMAT_REMAP%COL(NBLK), STAT=IERR)
+      LUMAT_REMAP%NBCOL     = NBLK
+      LUMAT_REMAP%NBCOL_LOC = NBLK
+      LUMAT_REMAP%FIRST     = 1
+      ALLOCATE(LUMAT_REMAP%COL(LUMAT_REMAP%NBCOL_LOC), STAT=IERR)
       IF (IERR.NE.0) THEN
            INFO(1) = -7
-           INFO(2) = NBLK
+           INFO(2) = LUMAT_REMAP%NBCOL_LOC
            IF ( LPOK ) THEN
               WRITE(LP, *) " ERROR allocate of LUMAT_REMAP%COL"
            END IF
       ENDIF
       IF ( INFO(1) .GE. 0 ) THEN
-        LUMAT_REMAP%NZL = 0_8
+       LUMAT_REMAP%NZL = 0_8
        DO JB=1,NBLK
         NB =  WNBINCOL(JB)
         IF (MAPCOL(abs(STEP(JB))).EQ.MYID) THEN
@@ -890,7 +947,7 @@ C
      &     NBLK, NDOF, NNZ, 
      &     IRN, JCN, DOF2BLOCK, 
      &     ICNTL, INFO, KEEP, 
-     &     LUMAT, GCOMP, READY_FOR_ANA_F)
+     &     LUMAT, LUMAT_AVAIL, GCOMP, READY_FOR_ANA_F)
       USE MUMPS_ANA_BLK_M, ONLY: LMATRIX_T, COMPACT_GRAPH_T
       IMPLICIT NONE
       INCLUDE 'mpif.h'
@@ -906,18 +963,21 @@ C
       INTEGER, INTENT(INOUT) :: KEEP(500), INFO(80)
       TYPE(COMPACT_GRAPH_T)  :: GCOMP
       TYPE(LMATRIX_T)        :: LUMAT  
+      LOGICAL, INTENT(OUT)   :: LUMAT_AVAIL
       TYPE(LMATRIX_T)        :: LMAT
       INTEGER :: IDUMMY_ARRAY(1)
       INTEGER :: allocok, LP, MPG
       LOGICAL :: LPOK, PROKG
       INTEGER, DIMENSION(:), ALLOCATABLE :: MAPCOL
-      LOGICAL :: MAPCOLonLUMAT, MAPCOL_IN_NSTEPS
+      LOGICAL :: MAPCOLonLUMAT, MAPCOL_IN_NSTEPS, CONTIGUOUS_COL
+      INTEGER(8) :: MEMCNT, IDUMMY8
       INTEGER OPTION
       PARAMETER (OPTION=2)
       LP  = ICNTL( 1 )
       LPOK  = ((LP.GT.0).AND.(ICNTL(4).GE.1))
       MPG = ICNTL( 3 )
       PROKG = ( MPG .GT. 0 .and. MYID .eq. MASTER )
+      MEMCNT = 0_8
       MAPCOLonLUMAT    = .FALSE.
       MAPCOL_IN_NSTEPS = .FALSE.
       IF (KEEP(14).EQ.1) THEN
@@ -931,7 +991,7 @@ C
      &          NBLK, NDOF, NNZ, IRN, JCN,
      &          DOF2BLOCK, 
      &          INFO(1), INFO(2), LP, LPOK, 
-     &          LMAT)
+     &          LMAT, IDUMMY8, KEEP )
       CALL MUMPS_PROPINFO(  ICNTL(1), INFO(1),
      &     COMM, MYID )
       IF ( INFO(1) .LT. 0 ) GOTO 500
@@ -950,13 +1010,13 @@ C
       IF (.NOT.MAPCOLonLUMAT) THEN 
         CALL MUMPS_AB_COL_DISTRIBUTION (OPTION, 
      &     INFO, ICNTL, COMM, NBLK, MYID, NPROCS,
-     &     LMAT, MAPCOL)
+     &     LMAT, MAPCOL, CONTIGUOUS_COL)
         CALL MUMPS_PROPINFO(  ICNTL(1), INFO(1),
      &     COMM, MYID )
         IF ( INFO(1) .LT. 0 ) GOTO 500
       ENDIF
       CALL MUMPS_AB_BUILD_DCLEAN_LUMATRIX (
-     &    MAPCOLonLUMAT, MAPCOL_IN_NSTEPS,
+     &    MAPCOLonLUMAT, MAPCOL_IN_NSTEPS, CONTIGUOUS_COL,
      &    INFO, ICNTL, KEEP, COMM,  MYID, NBLK, NPROCS,
      &    LMAT, MAPCOL, NBLK, 
      &    IDUMMY_ARRAY, 1, 
@@ -967,14 +1027,124 @@ C
        IF (allocated(MAPCOL))  DEALLOCATE(MAPCOL)
        CALL MUMPS_AB_LMAT_TO_CLEAN_G ( MYID, .FALSE., 
      &         READY_FOR_ANA_F,
-     &         LUMAT, GCOMP, INFO, ICNTL
+     &         LUMAT, GCOMP, INFO, ICNTL, MEMCNT
      &      )
       CALL MUMPS_PROPINFO(  ICNTL(1), INFO(1),
      &     COMM, MYID )
       IF ( INFO(1) .LT. 0 ) GOTO 500
       IF (KEEP(494).EQ.0) THEN
        CALL MUMPS_AB_FREE_LMAT(LUMAT)
+       LUMAT_AVAIL=.FALSE.
+      ELSE
+       LUMAT_AVAIL=.TRUE.
       ENDIF
+      GOTO 600
+  500 CONTINUE
+      IF (allocated(MAPCOL))  DEALLOCATE(MAPCOL)
+      CALL MUMPS_AB_FREE_LMAT(LMAT)
+      CALL MUMPS_AB_FREE_LMAT(LUMAT)
+      LUMAT_AVAIL=.FALSE.
+  600 CONTINUE
+      RETURN
+      END SUBROUTINE MUMPS_AB_DCOORD_TO_DCOMPG
+      SUBROUTINE MUMPS_AB_DCOORD_TO_DLUMAT (
+     &     MYID, NPROCS, COMM, 
+     &     NPROCS_PARAORD, PARAORD_to_idCOMM,
+     &     NBLK, NDOF, NNZ, 
+     &     IRN, JCN, DOF2BLOCK, 
+     &     ICNTL, INFO, KEEP, KEEP8,
+     &     LUMAT)
+      USE MUMPS_ANA_BLK_M, ONLY : LMATRIX_T
+      IMPLICIT NONE
+      INCLUDE 'mpif.h'
+      INCLUDE 'mumps_tags.h'
+      INTEGER IERR, MASTER
+      PARAMETER( MASTER = 0 )
+      INTEGER, INTENT(IN)    :: MYID, NPROCS, NBLK, NDOF
+      INTEGER, INTENT(IN)    :: NPROCS_PARAORD, 
+     &                          PARAORD_to_idCOMM(NPROCS_PARAORD)
+      INTEGER(8), INTENT(IN) :: NNZ
+      INTEGER, INTENT(IN)    :: IRN(max(1_8,NNZ)), JCN(max(1_8,NNZ))
+      INTEGER, INTENT(INOUT) :: DOF2BLOCK(NDOF)
+      INTEGER, INTENT(IN)    :: ICNTL(60), COMM
+      INTEGER, INTENT(INOUT) :: KEEP(500), INFO(80)
+      INTEGER(8), INTENT(INOUT) :: KEEP8(150)
+      TYPE(LMATRIX_T)        :: LUMAT  
+      TYPE(LMATRIX_T)        :: LMAT
+      INTEGER :: IDUMMY_ARRAY(1)
+      INTEGER :: allocok, LP, MPG, I
+      LOGICAL :: LPOK, PROKG
+      INTEGER(8) :: OFFDIAG
+      INTEGER, DIMENSION(:), ALLOCATABLE :: MAPCOL
+      LOGICAL :: MAPCOLonLUMAT, MAPCOL_IN_NSTEPS, CONTIGUOUS_COL
+      INTEGER OPTION
+      LP  = ICNTL( 1 )
+      LPOK  = ((LP.GT.0).AND.(ICNTL(4).GE.1))
+      MPG = ICNTL( 3 )
+      PROKG = ( MPG .GT. 0 .and. MYID .eq. MASTER )
+      OPTION =2
+      IF (KEEP(72).EQ.1 .and. NBLK.LE.10) THEN
+       OPTION =1
+      ENDIF
+      IF (KEEP(72).NE.1 .AND. NDOF.LE.500) THEN
+       OPTION =1
+      ENDIF
+      MAPCOLonLUMAT    = .FALSE.
+      MAPCOL_IN_NSTEPS = .FALSE.
+      IF (KEEP(14).EQ.1) THEN
+         CALL MUMPS_ABORT()
+      ENDIF
+      IF (KEEP(14).EQ.0) THEN
+         CALL MPI_BCAST( DOF2BLOCK, NDOF, MPI_INTEGER, MASTER, 
+     &     COMM, IERR )
+      ENDIF
+      CALL MUMPS_AB_COORD_TO_LMAT (  MYID, 
+     &          NBLK, NDOF, NNZ, IRN, JCN,
+     &          DOF2BLOCK, 
+     &          INFO(1), INFO(2), LP, LPOK, 
+     &          LMAT, OFFDIAG,  KEEP )
+      CALL MPI_ALLREDUCE (OFFDIAG, KEEP8(127), 1, MPI_INTEGER8,
+     &     MPI_SUM, COMM, IERR)
+      KEEP8(127) = KEEP8(127)+3*NDOF
+      KEEP8(126) = KEEP8(127)-2*NDOF
+      CALL MUMPS_PROPINFO(  ICNTL(1), INFO(1),
+     &     COMM, MYID )
+      IF ( INFO(1) .LT. 0 ) GOTO 500
+      ALLOCATE(MAPCOL(NBLK), STAT=allocok) 
+      IF (allocok.NE.0) THEN
+           INFO(1)  = -7
+           INFO(2)  = NBLK
+           IF ( LPOK ) THEN
+              WRITE(LP, *) " ERROR allocate MAPCOL of size", 
+     &           INFO(2)
+           END IF
+      ENDIF
+      CALL MUMPS_PROPINFO(  ICNTL(1), INFO(1),
+     &     COMM, MYID )
+      IF ( INFO(1) .LT. 0 ) GOTO 500
+      IF (.NOT.MAPCOLonLUMAT) THEN 
+        CALL MUMPS_AB_COL_DISTRIBUTION (OPTION, 
+     &     INFO, ICNTL, COMM, NBLK, MYID, NPROCS_PARAORD, 
+     &     LMAT, MAPCOL, CONTIGUOUS_COL)
+        IF (NPROCS_PARAORD.LE.NPROCS) THEN
+         DO I=1, NBLK
+           MAPCOL(I) = PARAORD_to_idCOMM(MAPCOL(I)+1)
+         ENDDO
+        ENDIF
+        CALL MUMPS_PROPINFO(  ICNTL(1), INFO(1),
+     &     COMM, MYID )
+        IF ( INFO(1) .LT. 0 ) GOTO 500
+      ENDIF
+      CALL MUMPS_AB_BUILD_DCLEAN_LUMATRIX (
+     &    MAPCOLonLUMAT, MAPCOL_IN_NSTEPS, CONTIGUOUS_COL,
+     &    INFO, ICNTL, KEEP, COMM,  MYID, NBLK, NPROCS,
+     &    LMAT, MAPCOL, NBLK, 
+     &    IDUMMY_ARRAY, 1, 
+     &    LUMAT)
+      CALL MUMPS_PROPINFO(  ICNTL(1), INFO(1),
+     &     COMM, MYID )
+      IF ( INFO(1) .LT. 0 ) GOTO 500
+       IF (allocated(MAPCOL))  DEALLOCATE(MAPCOL)
       GOTO 600
   500 CONTINUE
       IF (allocated(MAPCOL))  DEALLOCATE(MAPCOL)
@@ -982,7 +1152,7 @@ C
       CALL MUMPS_AB_FREE_LMAT(LUMAT)
   600 CONTINUE
       RETURN
-      END SUBROUTINE MUMPS_AB_DCOORD_TO_DCOMPG
+      END SUBROUTINE MUMPS_AB_DCOORD_TO_DLUMAT
       SUBROUTINE MUMPS_AB_DCOORD_TO_DTREE_LUMAT ( 
      &     MYID, NPROCS, COMM, 
      &     NBLK, NDOF, NNZ, 
@@ -1010,7 +1180,8 @@ C
       INTEGER :: allocok, LP
       LOGICAL :: LPOK
       INTEGER :: IDOF, ISTEP
-      LOGICAL :: MAPCOL_IN_NSTEPS, MAPCOLonLUMAT
+      LOGICAL :: MAPCOL_IN_NSTEPS, MAPCOLonLUMAT, CONTIGUOUS_COL
+      INTEGER(8) :: IDUMMY8
       INTEGER OPTION
       PARAMETER (OPTION=2)
       INTEGER MUMPS_PROCNODE
@@ -1037,7 +1208,7 @@ C
      &          NBLK, NDOF, NNZ, IRN, JCN,
      &          DOF2BLOCK, 
      &          INFO(1), INFO(2), LP, LPOK, 
-     &          LMAT)
+     &          LMAT, IDUMMY8, KEEP )
       CALL MUMPS_PROPINFO(  ICNTL(1), INFO(1),
      &     COMM, MYID )
       IF ( INFO(1) .LT. 0 ) GOTO 500
@@ -1052,8 +1223,9 @@ C
      &     MASTER, COMM, IERR )
       CALL MPI_BCAST( STEP(1), NBLK, MPI_INTEGER,
      &     MASTER, COMM, IERR )
+      CONTIGUOUS_COL = .FALSE.
       CALL MUMPS_AB_BUILD_DCLEAN_LUMATRIX(
-     &    MAPCOLonLUMAT, MAPCOL_IN_NSTEPS,
+     &    MAPCOLonLUMAT, MAPCOL_IN_NSTEPS, CONTIGUOUS_COL,
      &    INFO, ICNTL, KEEP, COMM,  MYID, NBLK, NPROCS,
      &    LMAT, MAPCOL, NSTEPS,
      &    STEP, NBLK, LUMAT)
@@ -1076,7 +1248,7 @@ C
      &  UNFOLD,
      &  MAPCOL_IN_NSTEPS,
      &  INFO, ICNTL, COMM, MYID, NBLK, SLAVEF,
-     &  LMAT, MAPCOL, SIZEMAPCOL, STEP, SIZESTEP, 
+     &  LMAT, MAPCOL, SIZE_MAPCOL, STEP, SIZE_STEP, 
      &  LUMAT, NBRECORDS, NSEND8, NLOCAL8
      &  )
       USE MUMPS_ANA_BLK_M, ONLY : LMATRIX_T
@@ -1088,20 +1260,22 @@ C
       INTEGER :: STATUS(MPI_STATUS_SIZE)
       LOGICAL, INTENT(IN) :: UNFOLD, MAPCOL_IN_NSTEPS
       INTEGER, INTENT(IN) :: MYID, SLAVEF, NBLK 
-      INTEGER, INTENT(IN) :: SIZEMAPCOL, SIZESTEP 
+      INTEGER, INTENT(IN) :: SIZE_MAPCOL, SIZE_STEP 
       INTEGER, INTENT(IN) :: ICNTL(60), COMM, NBRECORDS
       INTEGER             :: INFO(80)
       TYPE(LMATRIX_T), INTENT(IN)  :: LMAT
-      INTEGER, INTENT(IN)          :: MAPCOL(SIZEMAPCOL)
-      INTEGER, INTENT(IN)          :: STEP(SIZESTEP)
+      INTEGER, INTENT(IN)          :: MAPCOL(SIZE_MAPCOL)
+      INTEGER, INTENT(IN)          :: STEP(SIZE_STEP)
       TYPE(LMATRIX_T), INTENT(INOUT) :: LUMAT
       INTEGER(8), INTENT(OUT) :: NSEND8, NLOCAL8
       INTEGER :: LP, MP, allocok
       INTEGER :: IB, JB, I, II, ISEND, JSEND, ITOSEND
       LOGICAL :: LPOK 
       INTEGER :: NBTOSEND
+      INTEGER :: LMAT_FIRST, LUMAT_FIRST
       INTEGER END_MSG_2_RECV
       INTEGER KPROBE, FREQPROBE
+      INTEGER                            :: SIZE_PTLOC
       INTEGER, ALLOCATABLE, DIMENSION(:) :: PTLOC
       INTEGER, ALLOCATABLE, DIMENSION(:,:,:) :: BUFI
       INTEGER, ALLOCATABLE, DIMENSION(:) :: BUFRECI
@@ -1170,7 +1344,8 @@ C
         INFO(2) = NBRECORDS * 2 + 1
         GOTO 20
       END IF
-      ALLOCATE( PTLOC( NBLK ), stat = allocok )
+      SIZE_PTLOC =  max(LUMAT%NBCOL_LOC,1)
+      ALLOCATE( PTLOC( SIZE_PTLOC ), stat = allocok )
       IF ( allocok .GT. 0 ) THEN
         IF ( LP > 0 ) THEN
           WRITE(LP,*)
@@ -1193,13 +1368,15 @@ C
         SEND_ACTIVE( I ) = .FALSE.
         IACT( I ) = 1
       END DO
-      DO I = 1, NBLK
+      DO I = 1, SIZE_PTLOC
         PTLOC(I) = 0
       END DO
       KPROBE = 0
       FREQPROBE = max(1,NBRECORDS/10)
       IF (SLAVEF .EQ. 1) FREQPROBE = huge(FREQPROBE)
-      DO JB=1,NBLK
+      LUMAT_FIRST = LUMAT%FIRST
+      LMAT_FIRST  = LMAT%FIRST
+      DO JB=1, LMAT%NBCOL_LOC
        IF ( LMAT%COL(JB)%NBINCOL.EQ.0) CYCLE
        DO II=1,  LMAT%COL(JB)%NBINCOL
         KPROBE = KPROBE + 1
@@ -1214,7 +1391,7 @@ C
      &                 MSGSOU, LMATDIST, COMM, STATUS, IERR )
             CALL MUMPS_AB_LMAT_TREAT_RECV_BUF(
      &             MYID, BUFRECI(1), NBRECORDS, LUMAT, 
-     &             NBLK, PTLOC(1), END_MSG_2_RECV
+     &             PTLOC(1), SIZE_PTLOC, END_MSG_2_RECV
      &             )
           END IF
         END IF
@@ -1222,30 +1399,31 @@ C
         DO ITOSEND=1,NBTOSEND
          IF (ITOSEND.EQ.1) THEN
           IF (MAPCOL_IN_NSTEPS) THEN
-           DEST  = MAPCOL(abs(STEP(JB)))
+           DEST  = MAPCOL(abs(STEP(JB+LMAT_FIRST-1)))
           ELSE
-           DEST  = MAPCOL(JB)
+           DEST  = MAPCOL(JB+LMAT_FIRST-1)
           ENDIF
           ISEND = IB
-          JSEND = JB
+          JSEND = JB+LMAT_FIRST-1
          ELSE
           IF (MAPCOL_IN_NSTEPS) THEN
            DEST  = MAPCOL(abs(STEP(IB)))
           ELSE
            DEST  = MAPCOL(IB)
           ENDIF
-          ISEND = JB
+          ISEND = JB+LMAT_FIRST-1
           JSEND = IB
          ENDIF
          IF (DEST.EQ.MYID) THEN
-          LUMAT%COL(JSEND)%IRN(1+PTLOC(JSEND))= ISEND
-          PTLOC(JSEND)    = PTLOC(JSEND) + 1
+          LUMAT%COL(JSEND-LUMAT_FIRST+1)
+     &                     %IRN(1+PTLOC(JSEND-LUMAT_FIRST+1))= ISEND
+          PTLOC(JSEND-LUMAT_FIRST+1)    = PTLOC(JSEND-LUMAT_FIRST+1) + 1
           NLOCAL8 = NLOCAL8 + 1_8
          ELSE
           NSEND8 = NSEND8 + 1_8
           CALL MUMPS_AB_LMAT_FILL_BUFFER( 
-     &     DEST, ISEND, JSEND, NBLK,
-     &     BUFI, BUFRECI, PTLOC,
+     &     DEST, ISEND, JSEND, 
+     &     BUFI, BUFRECI, PTLOC, SIZE_PTLOC,
      &     NBRECORDS, SLAVEF, COMM, MYID, IACT, IREQI, 
      &     SEND_ACTIVE, LMAT, LUMAT, END_MSG_2_RECV
      &      )
@@ -1255,7 +1433,7 @@ C
       ENDDO
       DEST = -3
       CALL MUMPS_AB_LMAT_FILL_BUFFER(DEST, ISEND, JSEND, 
-     &     NBLK, BUFI, BUFRECI, PTLOC,
+     &     BUFI, BUFRECI, PTLOC, SIZE_PTLOC,
      &     NBRECORDS, SLAVEF, COMM, MYID, IACT, IREQI, 
      &     SEND_ACTIVE, LMAT, LUMAT, END_MSG_2_RECV
      &      )
@@ -1264,7 +1442,7 @@ C
      &                 MPI_ANY_SOURCE, LMATDIST, COMM, STATUS, IERR )
         CALL MUMPS_AB_LMAT_TREAT_RECV_BUF(
      &             MYID, BUFRECI(1), NBRECORDS, LUMAT, 
-     &             NBLK, PTLOC(1), END_MSG_2_RECV
+     &             PTLOC(1), SIZE_PTLOC, END_MSG_2_RECV
      &             )
       END DO
       DO I = 1, SLAVEF
@@ -1283,34 +1461,36 @@ C
       END SUBROUTINE MUMPS_AB_DIST_LMAT_TO_LUMAT
       SUBROUTINE MUMPS_AB_LMAT_TREAT_RECV_BUF (
      &   MYID, BUFI, NBRECORDS, LUMAT,  
-     &   NBLK, PTLOC, END_MSG_2_RECV
+     &   PTLOC, SIZE_PTLOC, END_MSG_2_RECV
      & )
       USE MUMPS_ANA_BLK_M, ONLY : LMATRIX_T
       IMPLICIT NONE
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'
-      INTEGER, INTENT(IN)   :: NBLK, MYID, NBRECORDS
+      INTEGER, INTENT(IN)   :: MYID, NBRECORDS, SIZE_PTLOC
       INTEGER, INTENT(IN)   :: BUFI( NBRECORDS * 2 + 1 ) 
-      INTEGER, INTENT(INOUT):: END_MSG_2_RECV, PTLOC(NBLK)
+      INTEGER, INTENT(INOUT):: END_MSG_2_RECV, PTLOC(SIZE_PTLOC)
       TYPE(LMATRIX_T), INTENT(INOUT) :: LUMAT
-      INTEGER :: IREC, NB_REC, IB, JB
+      INTEGER :: IREC, NB_REC, IB, JB, LUMAT_FIRST
       NB_REC = BUFI( 1 )
       IF ( NB_REC .LE. 0 ) THEN
         END_MSG_2_RECV = END_MSG_2_RECV - 1
         NB_REC = - NB_REC
       END IF
       IF ( NB_REC .eq. 0 ) RETURN
+      LUMAT_FIRST = LUMAT%FIRST
       DO IREC = 1, NB_REC
        IB = BUFI( IREC * 2 )
        JB = BUFI( IREC * 2 + 1 )
+       JB = JB - LUMAT_FIRST + 1
        LUMAT%COL(JB)%IRN(1+PTLOC(JB))= IB
        PTLOC(JB) = PTLOC(JB) + 1
       ENDDO
       RETURN
       END SUBROUTINE MUMPS_AB_LMAT_TREAT_RECV_BUF
       SUBROUTINE MUMPS_AB_LMAT_FILL_BUFFER (
-     &     DEST, ISEND, JSEND, NBLK,
-     &     BUFI, BUFRECI, PTLOC,
+     &     DEST, ISEND, JSEND, 
+     &     BUFI, BUFRECI, PTLOC, SIZE_PTLOC,
      &     NBRECORDS, SLAVEF, COMM, MYID, IACT, IREQI, 
      &     SEND_ACTIVE, LMAT, LUMAT, END_MSG_2_RECV
      &      )
@@ -1320,8 +1500,8 @@ C
       INCLUDE 'mumps_tags.h'
       INTEGER :: STATUS(MPI_STATUS_SIZE)
       INTEGER, INTENT(IN)  :: DEST, ISEND, JSEND, SLAVEF, COMM, MYID, 
-     &                        NBRECORDS, NBLK
-      INTEGER, INTENT(INOUT) :: END_MSG_2_RECV, PTLOC(NBLK)
+     &                        NBRECORDS, SIZE_PTLOC
+      INTEGER, INTENT(INOUT) :: END_MSG_2_RECV, PTLOC(SIZE_PTLOC)
       TYPE(LMATRIX_T), INTENT(IN)     :: LMAT
       TYPE(LMATRIX_T), INTENT(INOUT)  :: LUMAT
       LOGICAL, INTENT(INOUT) ::  SEND_ACTIVE(SLAVEF)
@@ -1356,7 +1536,7 @@ C
      &                  STATUS, IERR )
                   CALL MUMPS_AB_LMAT_TREAT_RECV_BUF(
      &             MYID, BUFRECI, NBRECORDS, LUMAT, 
-     &             NBLK, PTLOC(1), END_MSG_2_RECV
+     &             PTLOC(1), SIZE_PTLOC, END_MSG_2_RECV
      &             )
                 END IF
             ELSE
@@ -1404,10 +1584,11 @@ C
      &                          KEEP(500)
       INTEGER, INTENT(INOUT) ::  INFO(80)
       TYPE(COMPACT_GRAPH_T) :: GCOMP
-       INTEGER    :: NG, allocok, LP, MPG, I, J, K
+       INTEGER    :: NG, allocok, LP, MPG, I, J, K, PI
        INTEGER    :: INDX, NB_BLOCK_SENT, MAX_NBBLOCK_loc, NRECV,
-     &               BLOCKSIZE, SIZE_SENT, NB_BLOCKS, NBNONEMPTY,
-     &               FIRSTNONEMPTY, LASTNONEMPTY, NBBLOCK_loc
+     &               BLOCKSIZE, SIZE_SENT, NB_BLOCKS, NBBLOCK_loc 
+       INTEGER    :: JFIRST_GDIST, JLAST_GDIST, NG_LOCAL_GDIST, 
+     &                NBNONEMPTY_PI
        INTEGER(4) :: IOVFLO
        INTEGER(8) :: NZG, NZG_CENT, I8, IBEG8, IEND8, 
      &               SIZEGCOMPALLOCATED
@@ -1424,11 +1605,16 @@ C
       BLOCKSIZE = int(max(100000_8,int(IOVFLO,8)/200_8))
       NZG =  GCOMP_DIST%NZG
       NG  =  GCOMP_DIST%NG
+      JFIRST_GDIST    = GCOMP_DIST%FIRST
+      JLAST_GDIST     = GCOMP_DIST%LAST
+      NG_LOCAL_GDIST  = JLAST_GDIST - JFIRST_GDIST + 1
       CALL MPI_REDUCE( NZG, NZG_CENT, 1, MPI_INTEGER8, 
      &     MPI_SUM, MASTER, COMM, IERR )
       IF (MYID.EQ.MASTER) THEN
-        GCOMP%NZG = NZG_CENT
-        GCOMP%NG  = NG
+        GCOMP%NZG    = NZG_CENT
+        GCOMP%NG     = NG
+        GCOMP%FIRST  = 1
+        GCOMP%LAST   = NG
         SIZEGCOMPALLOCATED     = NZG_CENT+int(NG,8)+1_8
         GCOMP%SIZEADJALLOCATED = SIZEGCOMPALLOCATED
         ALLOCATE( GCOMP%ADJ(SIZEGCOMPALLOCATED),
@@ -1447,7 +1633,7 @@ C
      &                  " MUMPS_AB_GATHER_GRAPH"
         ENDIF
       ELSE
-        ALLOCATE( IQ(NG+1), STAT=allocok)
+        ALLOCATE( IQ(NG_LOCAL_GDIST), STAT=allocok)
         IF (allocok.NE.0) THEN
            INFO( 1 ) = -7
            INFO( 2 ) = NG+1
@@ -1459,47 +1645,38 @@ C
       CALL MUMPS_PROPINFO( ICNTL(1), INFO(1),
      &     COMM, MYID )
       IF (INFO(1).LT.0) GOTO 500
-      FIRSTNONEMPTY = 0
-      LASTNONEMPTY  = -1
-      DO I=1,NG
+      DO I=1,NG_LOCAL_GDIST
        IQ(I) = int(GCOMP_DIST%IPE(I+1)-GCOMP_DIST%IPE(I))
-       IF (IQ(I).NE.0) THEN
-         IF (FIRSTNONEMPTY.EQ.0) FIRSTNONEMPTY=I
-         LASTNONEMPTY = I
-       ENDIF
       ENDDO
-      NBNONEMPTY = LASTNONEMPTY-FIRSTNONEMPTY+1
       IF (MYID.EQ.MASTER) THEN
        DO J=1, NG
         GCOMP%IPE(J) = 0
        ENDDO
-       J=FIRSTNONEMPTY   
-       IF (NBNONEMPTY.GT.0) THEN
-        DO I=FIRSTNONEMPTY, LASTNONEMPTY
-          GCOMP%IPE(J) = IQ(I)
-          J = J+1
+       IF (NG_LOCAL_GDIST.GT.0) THEN
+        DO J=1, NG_LOCAL_GDIST
+          GCOMP%IPE(J+JFIRST_GDIST-1) = IQ(J)
         ENDDO
        ENDIF
-       DO I = 1, NPROCS - 1
-         CALL MPI_RECV( NBNONEMPTY, 1, 
-     &           MPI_INTEGER, I,
+       DO PI = 1, NPROCS - 1
+         CALL MPI_RECV( NBNONEMPTY_PI, 1, 
+     &           MPI_INTEGER, PI,
      &           GATHERG_NB, COMM, STATUS, IERR )
-         IF (NBNONEMPTY.GT.0) THEN
+         IF (NBNONEMPTY_PI.GT.0) THEN
            CALL MPI_RECV( J, 1, 
-     &           MPI_INTEGER, I,
+     &           MPI_INTEGER, PI,
      &           GATHERG_FIRST, COMM, STATUS, IERR )
-           CALL MPI_RECV( GCOMP%IPE(J), NBNONEMPTY, 
-     &           MPI_INTEGER8, I,
+           CALL MPI_RECV( GCOMP%IPE(J), NBNONEMPTY_PI, 
+     &           MPI_INTEGER8, PI,
      &           GATHERG_IPE, COMM, STATUS, IERR )
          ENDIF
        ENDDO
       ELSE
-        CALL MPI_SEND( NBNONEMPTY, 1, MPI_INTEGER, MASTER,
+        CALL MPI_SEND( NG_LOCAL_GDIST, 1, MPI_INTEGER, MASTER,
      &       GATHERG_NB, COMM, IERR )
-        IF (NBNONEMPTY.GT.0) THEN
-          CALL MPI_SEND( FIRSTNONEMPTY, 1, MPI_INTEGER, MASTER,
+        IF (NG_LOCAL_GDIST.GT.0) THEN
+          CALL MPI_SEND( JFIRST_GDIST, 1, MPI_INTEGER, MASTER,
      &       GATHERG_FIRST, COMM, IERR )
-          CALL MPI_SEND( IQ(FIRSTNONEMPTY), NBNONEMPTY, 
+          CALL MPI_SEND( IQ(1), NG_LOCAL_GDIST, 
      &       MPI_INTEGER8, MASTER,
      &       GATHERG_IPE, COMM, IERR )
         ENDIF

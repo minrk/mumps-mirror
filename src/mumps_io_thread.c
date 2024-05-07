@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.5.1, released
- *  on Tue Jul 12 13:17:24 UTC 2022
+ *  This file is part of MUMPS 5.6.0, released
+ *  on Wed Apr 19 15:50:57 UTC 2023
  *
  *
- *  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -196,13 +196,16 @@ MUMPS_INT mumps_test_request_th(MUMPS_INT* request_id,MUMPS_INT *flag){
   return 0;
 }
 MUMPS_INT mumps_wait_req_sem_th(MUMPS_INT *request_id){
-  MUMPS_INT i,j;
+  MUMPS_INT i,j,nb_active_loc;
+  pthread_mutex_lock(&io_mutex);
+  nb_active_loc=nb_active;
   j=first_active;
   for(i=0;i<nb_active;i++){
     if(io_queue[j].req_num==*request_id) break;
     j=(j+1)%MAX_IO;
   }
-  if(i<nb_active){
+  pthread_mutex_unlock(&io_mutex);
+  if(i<nb_active_loc){
     mumps_wait_sem(&(io_queue[j].int_local_cond),&(io_queue[j].local_cond));
   }
   return 0;

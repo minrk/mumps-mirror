@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -414,7 +414,7 @@ C
      &                  K48, K50, SLAVEF, NMB_OF_CAND, K375, K119
       INTEGER(8), INTENT(IN) :: K821
       INTEGER NSLAVES
-      INTEGER KMAX, NPIV,
+      INTEGER NPIV,
      &        NSLAVES_ref, NSLAVES_max
       REAL WK_MASTER, WK_SLAVE
       INTEGER  MUMPS_REG_GETKMAX, MUMPS_BLOC2_GET_NSLAVESMIN, 
@@ -426,7 +426,6 @@ C
       IF (NMB_OF_CAND.LE.0) THEN
       ENDIF
       IF ( (K48.EQ.0).OR. (K48.EQ.3) ) THEN
-         KMAX = MUMPS_REG_GETKMAX( K821, NCB )
          NSLAVES_ref = MUMPS_BLOC2_GET_NSLAVESMIN(
      &     SLAVEF, K48, K821, K50, NFRONT, NCB, K375, K119 )
          NSLAVES = NSLAVES_ref

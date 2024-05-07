@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -70,7 +70,7 @@ C
       DOUBLE PRECISION :: mincostw
       DOUBLE PRECISION:: cv_costw_upper,cv_costm_upper,
      &      cv_costw_layer0,cv_costm_layer0,cv_relax,
-     &      cv_costw_total,cv_costm_total,cv_l0wthresh,cv_splitthresh
+     &      cv_costw_total,cv_costm_total,cv_l0wthresh
       logical::cv_constr_work,cv_constr_mem
       integer,pointer,dimension(:):: cv_nodetype,cv_nodelayer,
      &          cv_layerl0_array,cv_proc_sorted,cv_depth
@@ -2088,7 +2088,6 @@ C
       cv_nodelayer=n+2
       cv_depth=cv_invalid
       cv_l0wthresh=0.0D0 
-      cv_splitthresh=0.45D0
       cv_relax=dble(1) + dble(max(0,keep(68)))/dble(100)
       cv_maxlayer=0
       cv_maxnsteps= cv_nsteps+1
@@ -3919,7 +3918,7 @@ C
       integer,intent(out)::istat
       character (len=48):: subname
       subname='SELECT_TYPE3'
-      CALL MUMPS_SELECT_K38K20(cv_n, slavef, cv_mp, cv_icntl(13),
+      CALL MUMPS_SELECT_K38(cv_n, slavef, cv_mp, cv_icntl(13),
      &     cv_keep(1), cv_frere(1), cv_nfsiz(1), istat)
       IF (istat .NE. 0) THEN
             if(cv_lp.gt.0)
@@ -4791,20 +4790,26 @@ C
       return
       end subroutine MUMPS_SORT_MSORT
       END MODULE MUMPS_STATIC_MAPPING
-      SUBROUTINE MUMPS_SELECT_K38K20(N, SLAVEF, MP,
+      SUBROUTINE MUMPS_SELECT_K38(N, SLAVEF, MP,
      &                   ICNTL13, KEEP, FRERE, ND, ISTAT)
       IMPLICIT NONE
       INTEGER, intent(in) :: N, SLAVEF, ICNTL13, MP
       INTEGER KEEP(500)
       INTEGER FRERE(N), ND(N)
       INTEGER, intent(out) :: ISTAT
+#if ! defined(NOSCALAPACK)
       INTEGER IROOTTREE, SIZEROOT, NFRONT, I
+#endif
       ISTAT = 0
       IF (KEEP(60).EQ.2 .or. KEEP(60).EQ.3 ) THEN
-      ELSE
+      ELSE IF ( KEEP(53) .NE. 0 .OR. KEEP(60) .NE. 0) THEN
+      ELSE 
+#if ! defined(NOSCALAPACK)
         IF((SLAVEF.EQ.1).OR.(ICNTL13.GT.0).OR.
      &     (KEEP(60).NE.0)) THEN
+#endif
           KEEP(38) = 0
+#if ! defined(NOSCALAPACK)
         ELSE
          IROOTTREE=-1
          SIZEROOT=-1
@@ -4823,9 +4828,7 @@ C
          ENDIF
          IF (SIZEROOT.LE.SLAVEF) THEN
             KEEP(38) = 0
-         ELSE IF((SIZEROOT.GT.KEEP(37))
-     &           .AND. (KEEP(53).EQ.0)
-     &           ) THEN
+         ELSE IF ( SIZEROOT.GT.KEEP(37) ) THEN
             IF (MP.GT.0) WRITE(MP,*) 'A root of estimated size ',
      &           SIZEROOT,' has been selected for Scalapack.'
             KEEP(38) = IROOTTREE
@@ -4835,15 +4838,11 @@ C
      &          ' WARNING: Largest root node of size ', SIZEROOT,
      &          ' not selected for parallel execution'
          END IF
-         IF ((KEEP(38).EQ.0).AND.(KEEP(53).NE.0)) THEN
-            KEEP(20) = IROOTTREE
-         ELSE IF (KEEP(60).EQ.0) THEN
-            KEEP(20) = 0
-         ENDIF
        ENDIF
-      ENDIF
+#endif
+      ENDIF 
       RETURN
-      END SUBROUTINE MUMPS_SELECT_K38K20
+      END SUBROUTINE MUMPS_SELECT_K38
       SUBROUTINE MUMPS_SPLITNODE_INTREE(inode,nfront,npiv,k,
      &     lnpivsplit, npivsplit, keep, n, fils, frere,
      &     nfsiz, ne, info5_nfrmax, k28_nsteps, nodetype,

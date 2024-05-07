@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -857,7 +857,7 @@ C
       SUBROUTINE SMUMPS_SOL_OMEGA(N, RHS,
      &    X, Y, R_W, C_W, IW, IFLAG,
      &    OMEGA, NOITER, TESTConv, 
-     &    LP, ARRET, GRAIN )
+     &    LP, ARRET, GRAIN, CGCE )
       IMPLICIT NONE
       INTEGER N,  IFLAG
       INTEGER IW(N,2)
@@ -869,8 +869,8 @@ C
       LOGICAL TESTConv
       REAL OMEGA(2)
       REAL ARRET
+      REAL CGCE
       INTEGER, intent(in) :: GRAIN
-      REAL, PARAMETER :: CGCE=0.2E0
       REAL, PARAMETER :: CTAU=1.0E3
       INTEGER I, IMAX
       REAL OM1, OM2, DXMAX
@@ -879,7 +879,6 @@ C
       REAL, PARAMETER :: ZERO=0.0E0
       REAL, PARAMETER :: ONE=1.0E0
       INTEGER SMUMPS_IXAMAX
-      INTRINSIC  abs, max
       SAVE  OM1, OLDOMG
       IMAX = SMUMPS_IXAMAX(N, X, 1, GRAIN)
       DXMAX = abs(X(IMAX))
@@ -1391,7 +1390,7 @@ C
       LOGICAL, INTENT(IN) :: OOCWRITE_COMPATIBLE_WITH_BLR
       LOGICAL, INTENT(IN) :: IGNORE_K459
       INTEGER    :: J1, J3
-      INTEGER    :: IPOSINRHSCOMP, JJ, K, NBK,
+      INTEGER    :: IPOSINRHSCOMP, JJ, K,
      &              LDAJ, NRHS_B
       INTEGER(8) :: IFR8 , APOS1, APOS2, APOSOFF, IFR_ini8, 
      &              POSWCB1, POSWCB2
@@ -1441,7 +1440,7 @@ C
          IFR_ini8 = PPIV_COURANT
 !$           OMP_FLAG = ( JBFIN-JBDEB+1.GE.KEEP(362) .AND.
 !$   &                  ((J3-J1+1)*(JBFIN-JBDEB+1) .GE. KEEP(363)))
-!$OMP  PARALLEL DO PRIVATE(JJ,IFR8,NBK,APOS1,APOS2,APOSOFF,VALPIV,
+!$OMP  PARALLEL DO PRIVATE(JJ,IFR8,APOS1,APOS2,APOSOFF,VALPIV,
 !$OMP&      IPANEL,ICOL,
 !$OMP&      POSWCB1,POSWCB2,A11,A22,A12,DETPIV,LDAJ,SKIP_IT)
 !$OMP&      IF(OMP_FLAG)
@@ -1519,7 +1518,7 @@ C
       REAL, INTENT(INOUT) :: RHSCOMP(LRHSCOMP, NRHS)
       LOGICAL, INTENT(IN) :: OOCWRITE_COMPATIBLE_WITH_BLR
       LOGICAL, INTENT(IN) :: IGNORE_K459
-      INTEGER    :: TempNROW, J1, J3, PANEL_SIZE, TYPEF
+      INTEGER    :: TempNROW, J1, J3, PANEL_SIZE
       INTEGER    :: IPOSINRHSCOMP, JJ, K, NBK, LDAJ, 
      &              LDAJ_ini, NBK_ini, LDAJ_FIRST_PANEL, NRHS_B
       INTEGER(8) :: IFR8 , APOS1, APOS2, APOSOFF, IFR_ini8, 
@@ -1557,11 +1556,9 @@ C
                TempNROW= LIELL
                LDAJ_FIRST_PANEL=TempNROW
              ENDIF
-             TYPEF=TYPEF_L
            ELSE 
              TempNROW= NPIV
              LDAJ_FIRST_PANEL=LIELL  
-             TYPEF= TYPEF_U
            ENDIF
            PANEL_SIZE = SMUMPS_OOC_PANEL_SIZE( LDAJ_FIRST_PANEL )
            LDAJ = TempNROW  

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -25,6 +25,7 @@ C
      &
      &    OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &    FILS, DAD, PTRARW, PTRAIW,
+     &    PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &    INTARR, DBLARR,ICNTL,KEEP,KEEP8,DKEEP,ND,
      &    LPTRAR, NELT, FRTPTR, FRTELT, 
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE  
@@ -48,7 +49,7 @@ C
       INTEGER N, LIW
       INTEGER IW( LIW )
       COMPLEX A( LA )
-      INTEGER, intent(in) :: LRGROUPS(N)
+      INTEGER, intent(in) :: LRGROUPS(KEEP(280))
       INTEGER(8) :: PTRAST(KEEP(28))
       INTEGER(8) :: PTRFAC(KEEP(28))
       INTEGER(8) :: PAMASTER(KEEP(28))
@@ -69,6 +70,10 @@ C
       INTEGER ITLOC( N+KEEP(253) ), FILS( N ), DAD( KEEP(28) )
       COMPLEX :: RHS_MUMPS(KEEP(255))
       INTEGER(8), INTENT(IN) :: PTRARW( LPTRAR ), PTRAIW( LPTRAR )
+      INTEGER(8), INTENT(IN) :: PTR8ARR(KEEP(193))
+      INTEGER, INTENT(IN) :: NINCOLARR(KEEP(194))
+      INTEGER, INTENT(IN) :: NINROWARR(KEEP(195))
+      INTEGER, INTENT(IN) :: PTRDEBARR(KEEP(196))
       INTEGER ND(KEEP(28)), FRERE(KEEP(28))
       COMPLEX DBLARR( KEEP8(26) )
       INTEGER INTARR( KEEP8(27) )
@@ -114,6 +119,7 @@ C
      &    OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS, DAD,
      &    LPTRAR, NELT, FRTPTR, FRTELT,
      &    PTRARW, PTRAIW,
+     &    PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &    INTARR,DBLARR,ICNTL,KEEP,KEEP8,DKEEP,ND )
        IF (IFLAG < 0 ) RETURN
       HF = 6 + KEEP(IXSZ)
@@ -181,6 +187,7 @@ C
      &
      &       OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &       FILS, DAD, PTRARW, PTRAIW,
+     &       PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &       INTARR, DBLARR, ICNTL, KEEP, KEEP8, DKEEP, ND, FRERE,
      &       LPTRAR, NELT, FRTPTR, FRTELT, 
      &       ISTEP_TO_INIV2, TAB_POS_IN_PERE

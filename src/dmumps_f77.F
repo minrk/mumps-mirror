@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -172,6 +172,8 @@ C
       mumps_par%KEEP(1:500)=KEEP(1:500)
       mumps_par%DKEEP(1:230)=DKEEP(1:230)
       mumps_par%KEEP8(1:150)=KEEP8(1:150)
+      CALL MUMPS_ADDR_C( ICNTL(50), mumps_par%KEEP8(83) )
+      CALL MUMPS_ADDR_C( RINFO(3), mumps_par%KEEP8(84) )
       mumps_par%METIS_OPTIONS(1:40)=METIS_OPTIONS(1:40)
       mumps_par%NRHS  = NRHS
       mumps_par%LRHS  = LRHS

@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -70,9 +70,6 @@ C
      &         DMUMPS_ANA_K,
      &         DMUMPS_ANA_LNEW, DMUMPS_ANA_M,
      &         MUMPS_AMD_ELT
-#if defined(OLDDFS)
-      EXTERNAL DMUMPS_ANA_L
-#endif
         ALLOCATE( IW ( LIW ), stat = allocok )
         IF ( allocok .GT. 0 ) THEN
           INFO( 1 ) = -7
@@ -333,11 +330,6 @@ C
      &    IKEEP(1,2), IW(L1),
      &    IW(L2), NCMPA, ITEMP, IWtemp)
       ENDIF
-#if defined(OLDDFS)
-      CALL DMUMPS_ANA_L(N, IWtemp, IW(L1), IKEEP, IKEEP(1,2),
-     &     IKEEP(1,3),
-     &     NFSIZ, INFO(6), FILS, FRERE, IWtemp(1,3), NEMIN, KEEP(60))
-#else
       CALL DMUMPS_ANA_LNEW(N, IWtemp, IW(L1), IKEEP, IKEEP(1,2),
      &     IKEEP(1,3),
      &     NFSIZ, IWtemp(1,2), 
@@ -346,7 +338,6 @@ C
      &     IW2,KEEP(104),IW(L2+N),KEEP(50),
      &     ICNTL(13), KEEP(37), KEEP(197), NSLAVES, KEEP(250).EQ.1,
      &     .FALSE., IDUMMY, LIDUMMY)
-#endif
       DEALLOCATE(IW2)
       IF (KEEP(60).NE.0) THEN
          IF (KEEP(60)==1) THEN
@@ -383,9 +374,7 @@ C
           CALL DMUMPS_SET_K821_SURFACE(KEEP8(21), KEEP(2),
      &    KEEP(48), KEEP(50), NSLAVES)
       END IF
-      IF (KEEP(210).LT.0.OR.KEEP(210).GT.2) KEEP(210)=0
-      IF (KEEP(210).EQ.0.AND.KEEP(201).GT.0) KEEP(210)=1 
-      IF (KEEP(210).EQ.0.AND.KEEP(201).EQ.0) KEEP(210)=2 
+      IF (KEEP(210).LT.1.OR.KEEP(210).GT.2) KEEP(210)=2
       IF (KEEP(210).EQ.2) KEEP8(79)=huge(KEEP8(79))
       IF (KEEP(210).EQ.1.AND.KEEP8(79).LE.0_8) THEN
         KEEP8(79)=K79REF * int(NSLAVES,8)
@@ -407,8 +396,13 @@ C
         ENDIF
        ENDIF
       ENDIF
-      SPLITROOT = ((ICNTL(13).GT.0 .AND. NSLAVES.GT.ICNTL(13)) .OR.
-     &     ICNTL(13).EQ.-1 )
+      SPLITROOT = ICNTL(13) .EQ. -1
+#if defined(NOSCALAPACK)
+      SPLITROOT = SPLITROOT .OR. NSLAVES.GT.0
+#else
+      SPLITROOT = SPLITROOT .OR.
+     &            (ICNTL(13).GT.0 .AND. NSLAVES .GT. ICNTL(13))
+#endif
       IF (KEEP(53) .NE. 0) THEN
          SPLITROOT = .TRUE.
       ENDIF

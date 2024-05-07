@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -23,7 +23,9 @@ C
      &    FPERE, COMM, MYID, IPOOL, LPOOL, LEAF, NSTK_S,
      &    PERM, BUFR, LBUFR, LBUFR_BYTES, NBFIN, root,
      &    OPASSW, ITLOC, RHS_MUMPS,
-     &    FILS, DAD, PTRARW, PTRAIW, INTARR, DBLARR,
+     &    FILS, DAD, PTRARW, PTRAIW,
+     &    PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &    INTARR, DBLARR,
      &    ND, FRERE, LPTRAR, NELT, FRTPTR, FRTELT,
      &    ISTEP_TO_INIV2, TAB_POS_IN_PERE
      &               , LRGROUPS
@@ -50,7 +52,7 @@ C
       INTEGER PTRIST(KEEP(28)), PTLUST_S(KEEP(28))
       INTEGER STEP(N), PIMASTER(KEEP(28)), NE(KEEP(28))
       COMPLEX(kind=8)    A(LA)
-      INTEGER, intent(in) :: LRGROUPS(N)
+      INTEGER, intent(in) :: LRGROUPS(KEEP(280))
       DOUBLE PRECISION OPASSW, OPELIW
       COMPLEX(kind=8) DBLARR(KEEP8(26))
       INTEGER INTARR(KEEP8(27)) 
@@ -62,6 +64,10 @@ C
       INTEGER NELT, LPTRAR
       INTEGER FRTPTR( N+1 ), FRTELT( NELT )
       INTEGER(8), INTENT(IN) :: PTRAIW( LPTRAR ), PTRARW( LPTRAR )
+      INTEGER(8), INTENT(IN) :: PTR8ARR(KEEP(193))
+      INTEGER, INTENT(IN) :: NINCOLARR(KEEP(194))
+      INTEGER, INTENT(IN) :: NINROWARR(KEEP(195))
+      INTEGER, INTENT(IN) :: PTRDEBARR(KEEP(196))
       INTEGER LPOOL, LEAF, COMP
       INTEGER IPOOL( LPOOL )
       INTEGER NSTK_S( KEEP(28) )
@@ -173,7 +179,9 @@ C
       ELSE
         FAC_ENTRIES = ( int(NPIV,8)*int(NPIV+1,8) )/ 2_8
       ENDIF
-      FAC_ENTRIES = FAC_ENTRIES + int(NBROW,8) * int(NPIV,8)
+      IF ( KEEP(451) .NE. 2 ) THEN
+        FAC_ENTRIES = FAC_ENTRIES + int(NBROW,8) * int(NPIV,8)
+      ENDIF
       IF ( KEEP(405) .EQ. 0 ) THEN
         KEEP8(10) = KEEP8(10) + FAC_ENTRIES
         KEEP(429) = KEEP(429) - 1
@@ -246,13 +254,11 @@ C
        SHIFT_VAL_SON      = int(NASS,8)*int(NFRONT+1,8)
        IF (TYPE.EQ.1) THEN
          CALL ZMUMPS_BUILD_AND_SEND_CB_ROOT(
-     &    COMM_LOAD, ASS_IRECV, 
-     &    N, INODE, FPERE,
+     &    COMM_LOAD, ASS_IRECV, N, INODE, FPERE,
      &    PTLUST_S, PTRAST,
      &    root, NCB, NCB, SHIFT_LIST_ROW_SON,
      &    SHIFT_LIST_COL_SON , SHIFT_VAL_SON, NFRONT,
      &    ROOT_CONT_STATIC, MYID, COMM,
-     &
      &    BUFR, LBUFR, LBUFR_BYTES, PROCNODE_STEPS, POSFAC,
      &    IWPOS, IWPOSCB, IPTRLU, LRLU, LRLUS, IW, LIW, A, LA,
      &    PTRIST, PTLUST_S, PTRFAC,
@@ -260,11 +266,11 @@ C
      &    NSTK_S, COMP, IFLAG, IERROR, PERM,
      &    IPOOL, LPOOL, LEAF, NBFIN, SLAVEF,
      &    OPASSW, OPELIW, ITLOC, RHS_MUMPS, FILS, DAD, PTRARW, PTRAIW,
+     &    PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &    INTARR,DBLARR,ICNTL,KEEP,KEEP8,DKEEP,.FALSE., ND, FRERE,
      &    LPTRAR, NELT, FRTPTR, FRTELT, 
-     &    ISTEP_TO_INIV2, TAB_POS_IN_PERE
-     &               , LRGROUPS
-     &     )
+     &    ISTEP_TO_INIV2, TAB_POS_IN_PERE,
+     &    LRGROUPS, 0, 0, 0 )
           IF (IFLAG < 0 ) GOTO 500
        ENDIF
        MSGDEST=  MUMPS_PROCNODE(PROCNODE_STEPS(STEP(FPERE)),KEEP(199))
@@ -308,6 +314,7 @@ C
      &       IPOOL, LPOOL, LEAF, NBFIN, MYID, SLAVEF,
      &       root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &       FILS, DAD, PTRARW, PTRAIW,
+     &       PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &       INTARR, DBLARR, ICNTL, KEEP,KEEP8,DKEEP,
      &       ND, FRERE, LPTRAR, NELT,
      &       FRTPTR, FRTELT, 
@@ -389,6 +396,7 @@ C
      &
      &       root, OPASSW, OPELIW, ITLOC, RHS_MUMPS,
      &       FILS, DAD, PTRARW, PTRAIW,
+     &       PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &       INTARR, DBLARR, ICNTL, KEEP,KEEP8,DKEEP, ND, FRERE,
      &       LPTRAR, NELT, FRTPTR, FRTELT,
      &       ISTEP_TO_INIV2, TAB_POS_IN_PERE, .TRUE.  

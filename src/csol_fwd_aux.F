@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -437,9 +437,7 @@ C
       INTEGER :: SIZEBLOCK, NB, JCourant, NB_LOCK
       INCLUDE 'mpif.h'
       INCLUDE 'mumps_tags.h'
-      INTEGER DUMMY( 1 )
       ERROR_WAS_BROADCASTED = .FALSE.
-      DUMMY(1)=1
       LR_ACTIVATED   = (IW(PTRIST(STEP(INODE))+XXLR).GT.0)
       COMPRESS_PANEL = (IW(PTRIST(STEP(INODE))+XXLR).GE.2)
       OOCWRITE_COMPATIBLE_WITH_BLR =
@@ -867,14 +865,16 @@ C
             IF ( CBINITZERO ) THEN
               IF ( NUPDATE .NE. NUPDATE_NONCRITICAL) THEN
                 NB_LOCK = 1
-                IF (.NOT.DO_NBSPARSE.AND.(KEEP(400).GT.1)) THEN
+                IF ( KEEP(400) .GT. 1 ) THEN
                  NB_LOCK = min(KEEP(400),NB_LOCK_MAX)
                 ENDIF
-                SIZEBLOCK = (JBFIN-JBDEB+1+NB_LOCK-1) / NB_LOCK
-                DO NB = 1, NB_LOCK
-                  JCourant = JBDEB+SIZEBLOCK*(NB-1)
+                SIZEBLOCK = (NRHS+NB_LOCK-1) / NB_LOCK
+                DO NB = 1 + (JBDEB-1)/SIZEBLOCK, NB_LOCK
+                  JCourant = 1+SIZEBLOCK*(NB-1)
+                  IF ( JCourant .GT. JBFIN ) EXIT
 !$                CALL OMP_SET_LOCK(LOCK_FOR_SCATTER(NB))
-                  DO K = Jcourant, min(JBFIN,Jcourant+SIZEBLOCK-1)
+                  DO K = max(Jcourant,JBDEB),
+     &                   min(JBFIN,Jcourant+SIZEBLOCK-1)
                     IFR8 = PCB_COURANT + int(K-JBDEB,8)*int(LD_WCBCB,8)
 #if defined(__ve__)
 !NEC$ IVDEP

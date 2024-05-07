@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.5.1, released
-#  on Tue Jul 12 13:17:24 UTC 2022
+#  This file is part of MUMPS 5.6.0, released
+#  on Wed Apr 19 15:50:57 UTC 2023
 #
 #
 topdir = ..
@@ -46,6 +46,7 @@ zshared: $(incdir)/mumps_int_def.h libcommonshared
 
 
 OBJS_COMMON_MOD = \
+        mumps_pivnul_mod.o \
         ana_omp_m.o\
         ana_blk_m.o\
         ana_orderings_wrappers_m.o\
@@ -78,6 +79,7 @@ OBJS_COMMON_OTHER = \
         mumps_type2_blocking.o \
         mumps_version.o \
         mumps_print_defined.o \
+        mumps_addr.o\
         mumps_common.o\
         mumps_pord.o\
         mumps_metis.o\
@@ -86,7 +88,6 @@ OBJS_COMMON_OTHER = \
         mumps_scotch.o\
         mumps_scotch64.o\
         mumps_scotch_int.o\
-        mumps_size.o\
         mumps_io.o\
         mumps_io_basic.o\
         mumps_io_thread.o\
@@ -134,7 +135,8 @@ OBJS_MOD =   \
         $(ARITH)omp_tps_m.o\
         $(ARITH)sol_lr.o\
         $(ARITH)sol_omp_m.o\
-        $(ARITH)static_ptr_m.o
+        $(ARITH)static_ptr_m.o\
+        $(ARITH)mumps_mpi3_mod.o
 
 OBJS_OTHER = \
         $(ARITH)ini_driver.o\
@@ -212,7 +214,7 @@ $(libdir)/libmumps_common$(PLAT)$(LIBEXT):      $(OBJS_COMMON_MOD) $(OBJS_COMMON
 	$(RANLIB) $@
 
 $(libdir)/libmumps_common$(PLAT)$(LIBEXT_SHARED):      $(OBJS_COMMON_MOD) $(OBJS_COMMON_OTHER)
-	$(FC) $(OPTL) -shared $^ -Wl,-soname,libmumps_common$(PLAT).so -L$(libdir) $(RPATH_OPT) $(LORDERINGS) $(LIBS) $(LIBOTHERS) -o $@ 
+	$(FC) $(OPTL) -shared $^ -Wl,$(SONAME),libmumps_common$(PLAT)$(LIBEXT_SHARED) -L$(libdir) $(RPATH_OPT) $(LORDERINGS) $(LIBS) $(LIBOTHERS) -o $@ 
 
 $(libdir)/lib$(ARITH)mumps$(PLAT)$(LIBEXT):    $(OBJS_MOD) $(OBJS_OTHER)
 	$(AR)$@ $?
@@ -268,7 +270,8 @@ $(ARITH)fac_front_aux.o:        $(ARITH)lr_type.o\
                                 $(ARITH)mumps_load.o\
                                 $(ARITH)mumps_ooc.o\
                                 mumps_ooc_common.o\
-                                mumps_l0_omp_m.o
+                                mumps_l0_omp_m.o \
+                                mumps_pivnul_mod.o
 
 $(ARITH)fac_front_LU_type1.o   : $(ARITH)fac_front_aux.o\
                                  $(ARITH)mumps_ooc.o\
@@ -277,7 +280,8 @@ $(ARITH)fac_front_LU_type1.o   : $(ARITH)fac_front_aux.o\
                                  $(ARITH)lr_stats.o\
                                  $(ARITH)ana_lr.o\
                                  $(ARITH)mumps_lr_data_m.o\
-                                 mumps_l0_omp_m.o
+                                 mumps_l0_omp_m.o\
+                                 mumps_pivnul_mod.o
 
 $(ARITH)fac_front_LU_type2.o   : $(ARITH)fac_front_aux.o\
                                  $(ARITH)fac_front_type2_aux.o\
@@ -290,7 +294,8 @@ $(ARITH)fac_front_LU_type2.o   : $(ARITH)fac_front_aux.o\
                                  $(ARITH)lr_stats.o\
                                  $(ARITH)ana_lr.o\
                                  $(ARITH)mumps_lr_data_m.o\
-                                 $(ARITH)mumps_struc_def.o
+                                 $(ARITH)mumps_struc_def.o\
+                                 mumps_pivnul_mod.o
 
 $(ARITH)fac_front_LDLT_type1.o : $(ARITH)fac_front_aux.o\
                                  $(ARITH)mumps_ooc.o\
@@ -299,7 +304,8 @@ $(ARITH)fac_front_LDLT_type1.o : $(ARITH)fac_front_aux.o\
                                  $(ARITH)lr_stats.o\
                                  $(ARITH)ana_lr.o\
                                  $(ARITH)mumps_lr_data_m.o\
-                                 mumps_l0_omp_m.o
+                                 mumps_l0_omp_m.o\
+                                 mumps_pivnul_mod.o
 
 $(ARITH)fac_front_LDLT_type2.o : $(ARITH)fac_front_aux.o\
                                  $(ARITH)fac_front_type2_aux.o\
@@ -311,7 +317,8 @@ $(ARITH)fac_front_LDLT_type2.o : $(ARITH)fac_front_aux.o\
                                  $(ARITH)lr_stats.o\
                                  $(ARITH)ana_lr.o\
                                  $(ARITH)mumps_lr_data_m.o\
-                                 $(ARITH)mumps_struc_def.o
+                                 $(ARITH)mumps_struc_def.o\
+                                 mumps_pivnul_mod.o
 
 $(ARITH)fac_front_type2_aux.o : mumps_ooc_common.o\
                                 $(ARITH)fac_front_aux.o\
@@ -320,7 +327,8 @@ $(ARITH)fac_front_type2_aux.o : mumps_ooc_common.o\
                                 $(ARITH)mumps_comm_buffer.o\
                                 $(ARITH)mumps_load.o\
                                 mumps_comm_ibcast.o\
-                                fac_ibct_data_m.o
+                                fac_ibct_data_m.o\
+                                mumps_pivnul_mod.o
 
 $(ARITH)fac_lr.o:               $(ARITH)lr_core.o\
                                 $(ARITH)lr_type.o\
@@ -339,14 +347,16 @@ $(ARITH)fac_omp_m.o:            $(ARITH)fac_asm_master_m.o\
                                 $(ARITH)lr_stats.o\
                                 $(ARITH)mumps_struc_def.o\
                                 omp_tps_common_m.o\
-                                mumps_l0_omp_m.o
+                                mumps_l0_omp_m.o \
+                                mumps_pivnul_mod.o
 
 $(ARITH)fac_sol_l0omp_m.o:      $(ARITH)mumps_struc_def.o
 
 $(ARITH)fac_omp_m.o:            $(ARITH)mumps_struc_def.o \
                                 $(ARITH)fac_mem_dynamic.o\
                                 $(ARITH)omp_tps_m.o\
-                                omp_tps_common_m.o
+                                omp_tps_common_m.o\
+                                mumps_pivnul_mod.o
 
 $(ARITH)fac_par_m.o:            $(ARITH)mumps_load.o\
                                 $(ARITH)mumps_ooc.o\
@@ -361,7 +371,8 @@ $(ARITH)fac_par_m.o:            $(ARITH)mumps_load.o\
                                 $(ARITH)mumps_struc_def.o\
                                 $(ARITH)lr_stats.o\
                                 omp_tps_common_m.o\
-                                mumps_l0_omp_m.o
+                                mumps_l0_omp_m.o\
+                                mumps_pivnul_mod.o
 
 $(ARITH)lr_core.o:              $(ARITH)lr_type.o\
                                 $(ARITH)mumps_lr_data_m.o\
@@ -400,6 +411,7 @@ $(ARITH)mumps_save_restore.o:   $(ARITH)mumps_struc_def.o \
                                 $(ARITH)mumps_lr_data_m.o \
                                 $(ARITH)mumps_ooc.o \
                                 $(ARITH)fac_sol_l0omp_m.o \
+                                $(ARITH)mumps_mpi3_mod.o \
                                 front_data_mgt_m.o
 
 $(ARITH)mumps_save_restore_files.o : $(ARITH)mumps_struc_def.o

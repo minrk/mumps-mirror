@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -357,15 +357,12 @@ C
         INTEGER, INTENT(IN) :: LRSTATUS, IWHANDLER
         INTEGER, INTENT(IN) :: IW(LIW)
         LOGICAL, INTENT(IN) :: IS_ROOT
-        INTEGER(8) :: NCB, NELIM, LIELL, NPIV, NROW, FACTOR_SIZE
+        INTEGER(8) :: NPIV, NROW, FACTOR_SIZE
         INTEGER :: NB_PANELS, IPANEL, LorU, IBLOCK
         LOGICAL :: LR_ACTIVATED
         TYPE(LRB_TYPE), POINTER, DIMENSION(:) :: LRB_PANEL
-        NCB   = int(IW(PTR),8)     
-        NELIM = int(IW(PTR+1),8)   
         NROW  = int(IW(PTR+2),8)
         NPIV  = int(IW(PTR+3),8)
-        LIELL = NPIV + NCB
         LR_ACTIVATED=(LRSTATUS.GE.2)
         IF (LR_ACTIVATED) THEN
           FACTOR_SIZE = 0_8
@@ -635,7 +632,7 @@ C
       LOGICAL, INTENT(IN) :: behaviour_L0,
      &                        reorder, PROKG
       INTEGER, INTENT(INOUT) :: PERM_RHS(SIZE_PERM)
-      INTEGER :: I, J, K,
+      INTEGER :: I, J, K, IVAR, IBLOCK,
      &           entry,            
      &           node,             
      &           SIZE_PERM_WORKING,
@@ -653,18 +650,19 @@ C
      &           IERR
       INTEGER, ALLOCATABLE, DIMENSION(:) :: TMP_RHS,    
      &                                      PTR_PROCS,  
-     &                                      LOAD_PROCS,  
      &                                      IPTR_PERM_WORKING,
      &                                      PERM_WORKING,
-     &                                      MYTYPENODE,
-     &                                      PERM_PO
+     &                                      MYTYPENODE
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: 
+     &         PERM_PO,     
+     &         ISTEP2BLOCK, 
+     &         NEXTINBLOCK  
       LOGICAL, ALLOCATABLE, DIMENSION(:) :: USED
       LOGICAL :: allow_above_L0
       INTEGER, EXTERNAL :: MUMPS_TYPENODE_ROUGH
       NPROCS = SIZE_IPTR_WORKING - 1
       ALLOCATE(TMP_RHS(SIZE_PERM),
      &         PTR_PROCS(NPROCS),
-     &         LOAD_PROCS(NPROCS),
      &         USED(SIZE_PERM),
      &         IPTR_PERM_WORKING(NPROCS+1),
      &         MYTYPENODE(NSTEPS),
@@ -737,7 +735,6 @@ C
         to_be_found = NB_NON_EMPTY
       END IF
       PTR_PROCS(1:NPROCS) = IPTR_PERM_WORKING(1:NPROCS)
-      LOAD_PROCS = 0
       USED = .FALSE.
       current_proc = 1
       n_select_loc = n_select
@@ -783,51 +780,45 @@ C
           IF(posintmprhs.EQ.SIZE_PERM) EXIT
         END IF
       END DO
+      DEALLOCATE(PTR_PROCS, USED,
+     &           IPTR_PERM_WORKING,
+     &           PERM_WORKING, MYTYPENODE)
       IF(reorder) THEN
-        posintmprhs = 0 
-        ALLOCATE(PERM_PO(N),STAT=IERR)
+        nblocks = (N+NBRHS-1)/NBRHS 
+        ALLOCATE(PERM_PO(N), ISTEP2BLOCK(N), NEXTINBLOCK(nblocks),
+     &           stat=IERR)
         IF(IERR.GT.0) THEN
-          WRITE(*,*)'Allocation error in INTERLEAVE_RHS_AM1'
-          CALL MUMPS_ABORT()
-        END IF
-        DO J=1,N
-          PERM_PO(SYM_PERM(J))=J
+          IF (PROKG ) WRITE(MPG,*)
+     &    'Warning: reorder not done in DMUMPS_INTERLEAVE_RHS_AM1'
+          PERM_RHS = TMP_RHS
+          GOTO 500
+        ENDIF
+        DO IVAR = 1, N
+          K = SYM_PERM( IVAR )
+          PERM_PO( K ) = IVAR
         END DO
-        nblocks = N/NBRHS
-        DO I = 1, nblocks
-          USED = .FALSE.
-          DO J=1, NBRHS
-            USED(TMP_RHS(NBRHS*(I-1)+J))=.TRUE.
-          END DO
-          DO J=1,N
-            IF(USED(PERM_PO(J))) THEN
-              posintmprhs = posintmprhs + 1
-              PERM_RHS(posintmprhs) = PERM_PO(J)
-            END IF
-          END DO
+        DO I = 1, N
+          IBLOCK = 1 + ( I - 1 ) / NBRHS
+          IVAR = TMP_RHS( I )
+          K = SYM_PERM( IVAR ) 
+          ISTEP2BLOCK( K ) = IBLOCK
         END DO
-        IF(mod(N,NBRHS).NE.0) THEN
-          USED = .FALSE.
-          DO J=1, mod(N,NBRHS)
-            USED(TMP_RHS(NBRHS*nblocks+J))=.TRUE.
-          END DO
-          DO J=1,N
-            IF(USED(PERM_PO(J))) THEN
-              posintmprhs = posintmprhs + 1
-              PERM_RHS(posintmprhs) = PERM_PO(J)
-            END IF
-          END DO
-        END IF
-        DEALLOCATE(PERM_PO)
+        DO IBLOCK = 1, NBLOCKS
+          NEXTINBLOCK(IBLOCK) = 1 + (IBLOCK-1)*NBRHS
+        ENDDO
+        DO K = 1, N
+          IBLOCK = ISTEP2BLOCK(K)
+          IVAR = PERM_PO(K)
+          PERM_RHS(NEXTINBLOCK(IBLOCK)) = IVAR
+          NEXTINBLOCK(IBLOCK) = NEXTINBLOCK(IBLOCK) + 1
+        ENDDO
       ELSE
         PERM_RHS = TMP_RHS
       END IF
-      DEALLOCATE(TMP_RHS,
-     &           PTR_PROCS,
-     &           LOAD_PROCS,
-     &           USED,
-     &           IPTR_PERM_WORKING,
-     &           PERM_WORKING,
-     &           MYTYPENODE)
+ 500  CONTINUE
+      DEALLOCATE(TMP_RHS)
+      IF (allocated(PERM_PO    )) DEALLOCATE(PERM_PO    )
+      IF (allocated(ISTEP2BLOCK)) DEALLOCATE(ISTEP2BLOCK)
+      IF (allocated(NEXTINBLOCK)) DEALLOCATE(NEXTINBLOCK)
       RETURN
       END SUBROUTINE DMUMPS_INTERLEAVE_RHS_AM1

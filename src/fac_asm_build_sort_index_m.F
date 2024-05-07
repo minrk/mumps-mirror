@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -17,7 +17,8 @@ C
      &           MYID, INODE, N, IOLDPS, HF, LP, LPOK, 
      &           NFRONT, NFRONT_EFF, PERM, DAD,
      &           NASS1, NASS, NUMSTK, NUMORG, IWPOSCB, IWPOS,
-     &           IFSON, STEP, PIMASTER, PTRIST, PTRAIW, IW, LIW, 
+     &           IFSON, STEP, PIMASTER, PTRIST, PTR8ARR,
+     &           NINCOLARR, NINROWARR, PTRDEBARR, IW, LIW, 
      &           INTARR, LINTARR, ITLOC, FILS, FRERE_STEPS, 
      &           SON_LEVEL2, NIV1, KEEP,KEEP8, IFLAG,
      &           ISON_IN_PLACE, PROCNODE_STEPS, SLAVEF,
@@ -32,7 +33,10 @@ C
       INTEGER, intent(in) :: ISON_IN_PLACE
       INTEGER KEEP(500)
       INTEGER(8) KEEP8(150)
-      INTEGER(8), INTENT(IN) :: PTRAIW(N)
+      INTEGER(8), INTENT(IN) :: PTR8ARR(KEEP(193))
+      INTEGER, INTENT(IN) :: NINCOLARR(KEEP(194))
+      INTEGER, INTENT(IN) :: NINROWARR(KEEP(195))
+      INTEGER, INTENT(IN) :: PTRDEBARR(KEEP(196))
       INTEGER STEP(N), PIMASTER(KEEP(28)), PTRIST(KEEP(28)),
      &        ITLOC(N+KEEP(253)), FILS(N), FRERE_STEPS(KEEP(28)),
      &        PERM(N)
@@ -70,10 +74,13 @@ C
       INTEGER, POINTER, DIMENSION(:) :: PTTRI, PTLAST
       INTEGER                        :: LREQ, allocok
       INTEGER, ALLOCATABLE, TARGET   :: TMP_ALLOC_ARRAY(:)
+      INTEGER :: ISTEP, IARR1, IARR1DAD, IORGDAD
       INTEGER  MUMPS_TYPESPLIT, MUMPS_TYPENODE
       EXTERNAL MUMPS_TYPESPLIT, MUMPS_TYPENODE 
       IW(IOLDPS+XXNBPR) = 0
-      TYPESPLIT  = MUMPS_TYPESPLIT (PROCNODE_STEPS(STEP(INODE)), 
+      ISTEP = STEP(INODE)
+      IARR1 = PTRDEBARR( ISTEP )
+      TYPESPLIT  = MUMPS_TYPESPLIT (PROCNODE_STEPS(ISTEP), 
      &              KEEP(199))
       SON_LEVEL2 = .FALSE.
       IOLDP2     = IOLDPS + HF - 1
@@ -171,13 +178,11 @@ C
          IW(IOLDP2 + NTOTFS) = JT1
         ENDDO
         NFRONT_EFF = NTOTFS
-        IBROT = INODE
         DO IORG = 1, NUMORG
-          J18 = PTRAIW(IBROT) + 2
+          J18 = PTR8ARR(IARR1+IORG-1)
           JT1 = INTARR(J18)
           INTARR(J18) = ITLOC(JT1)
-          IBROT = FILS(IBROT)
-         J28 = J18 + INTARR(J18 - 2) - INTARR(J18 - 1)
+         J28 = J18 +NINCOLARR(IARR1+IORG-1)+NINROWARR(IARR1+IORG-1)
          J18 = J18 + 1
          IF (J18 .LE. J28) THEN
           DO JJ8 = J18, J28
@@ -239,19 +244,21 @@ C
       IN = INODE
       INEW = IOLDPS + HF +  NTOTFS
       INEW1 = NTOTFS + 1
-      JDEBROW8 = PTRAIW(INODE)+3
+      JDEBROW8 = PTR8ARR(IARR1) + 1
       PTTRI(NUMSTK+1)  = 0
-      PTLAST(NUMSTK+1) = 0 + INTARR(JDEBROW8-3) - 1
+      PTLAST(NUMSTK+1) = NINCOLARR(IARR1)-1
+      IORG = 0
    50 CONTINUE
-      J18 = PTRAIW(IN) + 2
-      JT1 = INTARR(J18)
-      INTARR(J18) = INEW1
-      ITLOC(JT1) = INEW1
-      IW(INEW)         = JT1
-      IW(INEW+NFRONT)  = JT1
-      INEW = INEW + 1
-      INEW1 = INEW1 + 1
-      IN = FILS(IN)
+        IORG = IORG + 1
+        J18 = PTR8ARR(IARR1+IORG-1)
+        JT1 = INTARR(J18)
+        INTARR(J18) = INEW1
+        ITLOC(JT1) = INEW1
+        IW(INEW)         = JT1
+        IW(INEW+NFRONT)  = JT1
+        INEW = INEW + 1
+        INEW1 = INEW1 + 1
+        IN = FILS(IN)
       IF (IN .GT. 0) GOTO 50
       NTOTFS = NTOTFS + NUMORG
       IF (NUMSTK .NE. 0) THEN
@@ -430,14 +437,12 @@ C
       NEWEL_SAVE  = NEWEL
       NEWEL1_SAVE = NFRONT_EFF
       IF (NEWEL1_SAVE.LT.NFRONT - KEEP(253)) THEN 
-      IBROT = INODE
       DO IORG = 1, NUMORG
-         J18    = PTRAIW(IBROT) + 2
-         J28    = J18 + INTARR(J18 - 2) - INTARR(J18-1)
-         IBROT = FILS( IBROT )
+         J18 = PTR8ARR(IARR1+IORG-1)
+         J28 = J18 + NINCOLARR(IARR1+IORG-1) + NINROWARR(IARR1+IORG-1)
          IF ( IORG.EQ. 1) THEN
-           IF ( KEEP(50).NE.0 ) CYCLE
-           J18 = J18 + 1 + INTARR(J18-2)
+           IF ( KEEP(50).NE.0 ) GOTO 100
+           J18 = J18 + 1 + NINCOLARR(IARR1+IORG-1)
          ELSE
            J18 = J18 + 1
          ENDIF
@@ -450,6 +455,7 @@ C
             ITLOC( J ) = NFRONT_EFF
            END IF
          ENDDO
+ 100     CONTINUE
       ENDDO
        IF ( (TYPESPLIT.EQ.4).AND.
      &      (NFRONT_EFF.LT.NFRONT-KEEP(253)) ) THEN
@@ -467,10 +473,14 @@ C
      &        )
      &      )
           IBROT = DAD(STEP(IBROT))
+          IARR1DAD= PTRDEBARR(STEP(IBROT))
+          IORGDAD = 0
           IN = IBROT
           DO WHILE (IN.GT.0.AND.NFRONT_EFF.LT.NFRONT-KEEP(253))
-            J18    = PTRAIW(IN) + 2
-            J28    = J18 + INTARR(J18 - 2) - INTARR(J18-1)
+            IORGDAD = IORGDAD + 1
+            J18    = PTR8ARR(IARR1DAD+IORGDAD-1)
+            J28    = J18 + NINCOLARR(IARR1DAD+IORGDAD-1) +
+     &                     NINROWARR(IARR1DAD+IORGDAD-1)
             IN = FILS( IN )
             DO JJ8 = J18, J28
               J     = INTARR( JJ8 )
@@ -592,11 +602,9 @@ C
           ISON = FRERE_STEPS(STEP(ISON))
         ENDDO
       ENDIF
-      IBROT = INODE
       DO IORG = 1, NUMORG
-        J18 = PTRAIW(IBROT) + 2
-        IBROT = FILS(IBROT)
-        J28 = J18 + INTARR(J18 - 2) - INTARR(J18 - 1)
+        J18 = PTR8ARR(IARR1+IORG-1)
+        J28    = J18 + NINCOLARR(IARR1+IORG-1) + NINROWARR(IARR1+IORG-1)
         J18 = J18 + 1
         DO JJ8 = J18, J28
           J = INTARR(JJ8)

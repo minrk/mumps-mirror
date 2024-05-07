@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -26,6 +26,7 @@ C
      &    FILS, DAD,
      &    LPTRAR, NELT, FRTPTR, FRTELT, 
      &    PTRARW, PTRAIW,
+     &    PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
      &    INTARR, DBLARR, ICNTL, KEEP, KEEP8, DKEEP, ND)
       USE SMUMPS_LOAD
       USE SMUMPS_OOC        
@@ -60,6 +61,10 @@ C
       INTEGER LPTRAR, NELT
       INTEGER FRTPTR( N+1 ), FRTELT( NELT )
       INTEGER(8), INTENT(IN) :: PTRARW(LPTRAR), PTRAIW(LPTRAR)
+      INTEGER(8), INTENT(IN) :: PTR8ARR(KEEP(193))
+      INTEGER, INTENT(IN) :: NINCOLARR(KEEP(194))
+      INTEGER, INTENT(IN) :: NINROWARR(KEEP(195))
+      INTEGER, INTENT(IN) :: PTRDEBARR(KEEP(196))
       REAL :: RHS_MUMPS(KEEP(255))
       INTEGER INTARR(KEEP8(27))
       REAL DBLARR(KEEP8(26))
@@ -148,9 +153,11 @@ C
      &      root%SCHUR_LLD, root%SCHUR_MLOC, root%SCHUR_NLOC,
      &      KEEP)
             IF (KEEP(55).EQ.0) THEN
-              CALL SMUMPS_ASM_ARR_ROOT( N, root, IROOT,
+              CALL SMUMPS_ASM_ARR_ROOT( N, root, IROOT, STEP(IROOT),
      &        root%SCHUR_POINTER(1), root%SCHUR_LLD, root%SCHUR_MLOC,
-     &        root%SCHUR_NLOC, FILS, PTRAIW, PTRARW, INTARR, DBLARR,
+     &        root%SCHUR_NLOC, FILS,
+     &        KEEP, PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &        INTARR, DBLARR,
      &        KEEP8(27), KEEP8(26), MYID )
             ELSE
               CALL SMUMPS_ASM_ELT_ROOT(N, root,
@@ -216,10 +223,12 @@ C
           CALL SMUMPS_SET_TO_ZERO(A(PTRAST(STEP(IROOT))),
      &    NEW_LOCAL_M, NEW_LOCAL_M, NEW_LOCAL_N, KEEP)
           IF (KEEP(55) .EQ.0 ) THEN
-            CALL SMUMPS_ASM_ARR_ROOT( N, root, IROOT,
+            CALL SMUMPS_ASM_ARR_ROOT( N, root, IROOT, STEP(IROOT),
      &      A(PTRAST(STEP(IROOT))),
      &      NEW_LOCAL_M, NEW_LOCAL_M, NEW_LOCAL_N,
-     &      FILS, PTRAIW, PTRARW, INTARR, DBLARR,
+     &      FILS,
+     &      KEEP, PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &      INTARR, DBLARR,
      &      KEEP8(27), KEEP8(26), MYID )
           ELSE
             CALL SMUMPS_ASM_ELT_ROOT( N, root,

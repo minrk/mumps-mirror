@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -120,7 +120,6 @@ C
       TYPE(CMUMPS_STRUC), TARGET :: id
       INTEGER IERR
       INTEGER allocok
-      INTEGER ASYNC
       CHARACTER(len=1):: TMP_DIR(TMPDIR_MAX_LENGTH),
      &            TMP_PREFIX(PREFIX_MAX_LENGTH)
       INTEGER DIM_DIR,DIM_PREFIX
@@ -130,7 +129,6 @@ C
       ICNTL1=id%ICNTL(1)
       MAX_SIZE_FACTOR_OOC=0_8
       N_OOC=id%N
-      ASYNC=0
       SOLVE=.FALSE.
       IERR=0
       IF (id%KEEP(400).GT.0) THEN
@@ -234,9 +232,6 @@ C
             RETURN
          ENDIF
       ENDIF
-      IF(STRAT_IO_ASYNC)THEN
-         ASYNC=1
-      ENDIF
       DIM_ERR_STR_OOC = ERR_STR_OOC_MAX_LEN
       CALL MUMPS_LOW_LEVEL_INIT_ERR_STR(DIM_ERR_STR_OOC,ERR_STR_OOC)
       DIM_DIR=len(trim(id%OOC_TMPDIR))
@@ -289,19 +284,12 @@ C
       INTEGER(8) KEEP8(150)
       INTEGER(8) :: PTRFAC(KEEP(28)), SIZE
       COMPLEX A(LA)
-      INTEGER IERR,NODE,ASYNC,REQUEST
-      LOGICAL IO_C
+      INTEGER IERR,REQUEST
       INTEGER ADDR_INT1,ADDR_INT2
       INTEGER TYPE
       INTEGER SIZE_INT1,SIZE_INT2
       TYPE=FCT
-      IF(STRAT_IO_ASYNC)THEN
-         ASYNC=1
-      ELSE
-         ASYNC=0
-      ENDIF
       IERR=0
-      IO_C=.TRUE.
       SIZE_OF_BLOCK(STEP_OOC(INODE),OOC_FCT_TYPE)=SIZE
       MAX_SIZE_FACTOR_OOC=max(MAX_SIZE_FACTOR_OOC,SIZE)
       OOC_VADDR(STEP_OOC(INODE),OOC_FCT_TYPE)=OOC_VADDR_PTR
@@ -362,7 +350,8 @@ C
      &           INODE,REQUEST,TYPE,ADDR_INT1,ADDR_INT2,IERR)
             IF(IERR.LT.0)THEN
                IF (ICNTL1.GT.0)
-     &         WRITE(*,*)MYID_OOC,': ',ERR_STR_OOC(1:DIM_ERR_STR_OOC)
+     &         WRITE(ICNTL1,*)MYID_OOC,': ',
+     &         ERR_STR_OOC(1:DIM_ERR_STR_OOC)
                RETURN
             ENDIF
             IF(I_CUR_HBUF_NEXTPOS(OOC_FCT_TYPE).GT.KEEP_OOC(28))THEN
@@ -376,7 +365,6 @@ C
             CALL CMUMPS_OOC_NEXT_HBUF(OOC_FCT_TYPE)
          ENDIF
       END IF
-      NODE=-9999
       PTRFAC(STEP_OOC(INODE))=-777777_8
       IF(STRAT_IO_ASYNC)THEN
          IERR=0
@@ -395,8 +383,6 @@ C
       INCLUDE 'mpif.h'
       INTEGER IERR,INODE
       COMPLEX DEST
-      INTEGER ASYNC
-      LOGICAL IO_C
       INTEGER ADDR_INT1,ADDR_INT2
       INTEGER TYPE
       INTEGER SIZE_INT1,SIZE_INT2
@@ -405,13 +391,7 @@ C
      &     .EQ.0_8)THEN
          GOTO 555      
       ENDIF
-      IF(STRAT_IO_ASYNC)THEN
-        ASYNC=1
-      ELSE
-        ASYNC=0
-      ENDIF
       IERR=0
-      IO_C=.TRUE.
       OOC_STATE_NODE(STEP_OOC(INODE))=NOT_USED
       CALL MUMPS_OOC_CONVERT_BIGINTTO2INT(ADDR_INT1,ADDR_INT2,
      &     OOC_VADDR(STEP_OOC(INODE),OOC_FCT_TYPE))
@@ -1209,7 +1189,7 @@ C
       INTEGER(8) :: PTRFAC(NSTEPS)
       LOGICAL FLAG
       INTEGER(8) FREE_SIZE
-      INTEGER TMP,TMP_NODE,I,ZONE,J, FREE_HOLE_FLAG
+      INTEGER TMP,TMP_NODE,I,ZONE,J
       INTEGER WHICH
       INTEGER(8) :: DUMMY_SIZE
       DUMMY_SIZE=1_8
@@ -1252,7 +1232,6 @@ C
      &           DUMMY_SIZE,PTRFAC,KEEP_OOC(28),ZONE,IERR)
          ENDIF
       ELSE
-         FREE_HOLE_FLAG=0
          IF(SOLVE_STEP.EQ.0)THEN
             IF(TMP.GT.POS_HOLE_B(ZONE))THEN
                WHICH=0
@@ -3097,7 +3076,7 @@ C
      &        OOC_VADDR(STEP_OOC(MonBloc%INODE),TempFTYPE),
      &        SIZE_OF_BLOCK(STEP_OOC(MonBloc%INODE),TempFTYPE),
      &        FILESIZE, LAST_CALL )
-         IF (IERR .LT. 0) RETURN
+         IF (IERR .LT. 0) GOTO 300
          IF (DO_U_FIRST) GOTO 300
       ENDIF
  200  IF (WRITE_U) THEN
@@ -3109,7 +3088,7 @@ C
      &        OOC_VADDR(STEP_OOC(MonBloc%INODE),TempFTYPE),
      &        SIZE_OF_BLOCK(STEP_OOC(MonBloc%INODE),TempFTYPE),
      &        FILESIZE, LAST_CALL) 
-         IF (IERR .LT. 0) RETURN
+         IF (IERR .LT. 0) GOTO 300
          IF (DO_U_FIRST) GOTO 100
       ENDIF
  300  CONTINUE
@@ -3149,7 +3128,7 @@ C
       LOGICAL VIRTUAL_ADDRESS_JUST_RESERVED
       LOGICAL HOLE_PROCESSED_BEFORE_CALL
       LOGICAL TMP_ESTIM
-      INTEGER ICUR, INODE_CUR, ILAST
+      INTEGER ICUR, INODE_CUR
       INTEGER(8) :: ADDR_LAST
       IERR = 0
       IF (TYPEF == TYPEF_L ) THEN 
@@ -3282,7 +3261,6 @@ C
         IF ( INODE_CUR .NE. MonBloc%INODE .AND.
      &       OOC_VADDR(STEP_OOC(MonBloc%INODE),TYPEF) .NE. -9999 ) THEN
  10       CONTINUE
-          ILAST = ICUR
           IF ( OOC_VADDR(STEP_OOC(INODE_CUR),TYPEF) .NE. -9999_8) THEN
             ADDR_LAST = OOC_VADDR(STEP_OOC(INODE_CUR), TYPEF)
           ENDIF

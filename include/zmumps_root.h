@@ -1,9 +1,9 @@
 !
-!  This file is part of MUMPS 5.5.1, released
-!  on Tue Jul 12 13:17:24 UTC 2022
+!  This file is part of MUMPS 5.6.0, released
+!  on Wed Apr 19 15:50:57 UTC 2023
 !
 !
-!  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+!  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 !  Mumps Technologies, University of Bordeaux.
 !
 !  This version of MUMPS is provided to you free of charge. It is
@@ -25,19 +25,18 @@
 !       descriptor for scalapack
         INTEGER, DIMENSION( 9 ) :: DESCRIPTOR
         INTEGER :: CNTXT_BLACS, LPIV, rootpad0
-        INTEGER, DIMENSION(:), POINTER :: RG2L_ROW
-        INTEGER, DIMENSION(:), POINTER :: RG2L_COL
-        INTEGER , DIMENSION(:), POINTER :: IPIV, rootpad1
+        INTEGER, DIMENSION(:), POINTER :: RG2L
+        INTEGER, DIMENSION(:), POINTER :: IPIV
 !       Centralized master of root
         COMPLEX(kind=8), DIMENSION(:), POINTER :: RHS_CNTR_MASTER_ROOT
 !       Used to access Schur easily from root structure
         COMPLEX(kind=8), DIMENSION(:), POINTER :: SCHUR_POINTER
 !       for try_null_space preprocessing constant only:
-        COMPLEX(kind=8), DIMENSION(:), POINTER :: QR_TAU, rootpad2
+        COMPLEX(kind=8), DIMENSION(:), POINTER :: QR_TAU, rootpad1
 !       Fwd in facto: 
 !           case of scalapack root: to store RHS in 2D block cyclic
 !           format compatible with root distribution
-        COMPLEX(kind=8), DIMENSION(:,:), POINTER :: RHS_ROOT, rootpad
+        COMPLEX(kind=8), DIMENSION(:,:), POINTER :: RHS_ROOT, rootpad2
 !       for try_nullspace preprocessing constant only:
         DOUBLE PRECISION :: QR_RCOND, rootpad3
         LOGICAL :: yes, gridinit_done

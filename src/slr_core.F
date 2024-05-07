@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -41,12 +41,12 @@ C
       SUBROUTINE IS_FRONT_BLR_CANDIDATE(INODE, NIV, NFRONT, NASS, 
      &                    BLRON, K489,
      &                    K490, K491, K492, K20, K60, IDAD, K38,
-     &                    LRSTATUS, N, LRGROUPS)
+     &                    LRSTATUS, K280, LRGROUPS)
         INTEGER,INTENT(IN) :: INODE, NFRONT, NASS, BLRON, K489, K490,
      &                        K491, K492, NIV, K20, K60, IDAD, K38
         INTEGER,INTENT(OUT):: LRSTATUS 
-        INTEGER, INTENT(IN):: N
-        INTEGER, INTENT(IN), OPTIONAL :: LRGROUPS(N)
+        INTEGER, INTENT(IN):: K280
+        INTEGER, INTENT(IN), OPTIONAL :: LRGROUPS(K280)
 C
 C     Local variables
         LOGICAL :: COMPRESS_PANEL, COMPRESS_CB
@@ -1303,7 +1303,7 @@ C     Alloc NOT ok!!
       SUBROUTINE MAX_CLUSTER(CUT,CUT_SIZE,MAXI_CLUSTER)
         INTEGER, intent(in) :: CUT_SIZE
         INTEGER, intent(out) :: MAXI_CLUSTER
-        INTEGER, POINTER, DIMENSION(:) :: CUT
+        INTEGER, DIMENSION(:), intent(in) :: CUT
         INTEGER :: I
         MAXI_CLUSTER = 0
         DO I = 1, CUT_SIZE
@@ -1446,7 +1446,7 @@ C
         ELSE
           IBIS_END = NB_INCB*(NB_INCB+1)/2
         ENDIF
-#if defined(BLR_MT)         
+#if ! defined(BLR_NOOPENMP)
 !$OMP PARALLEL         
 !$OMP DO PRIVATE(IBIS, I, J, M, N, SON_LA, SON_LDA, FIRST_ROW,
 !$OMP&         LAST_ROW, FIRST_COL, LAST_COL, LRB, SON_A, II, KK,
@@ -1588,7 +1588,7 @@ C               LDLT diag block: assemble only lower half
 C         Deallocate SON_A
           DEALLOCATE(SON_A)
         ENDDO
-#if defined(BLR_MT)         
+#if ! defined(BLR_NOOPENMP)
 !$OMP END DO
 !$OMP END PARALLEL         
 #endif

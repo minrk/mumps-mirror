@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -94,7 +94,8 @@ C
       SUBROUTINE ZMUMPS_REDISTRIBUTION(
      & N, NZ_loc8, id,
      & DBLARR, LDBLARR, INTARR, LINTARR,
-     & PTRAIW, PTRARW, KEEP,KEEP8, MYID, COMM, NBRECORDS,
+     & PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     & FILS, KEEP,KEEP8, MYID, COMM, NBRECORDS,
      &
      & A, LA, root, PROCNODE_STEPS, SLAVEF, PERM, STEP,
      & ICNTL, INFO, NSEND8, NLOCAL8,
@@ -109,9 +110,13 @@ C
       INTEGER(8) :: LDBLARR, LINTARR
       COMPLEX(kind=8) DBLARR( LDBLARR )
       INTEGER INTARR( LINTARR )
-      INTEGER(8), INTENT(IN) :: PTRAIW( N ), PTRARW( N )
       INTEGER KEEP(500)
+      INTEGER(8), INTENT(IN) :: PTR8ARR(KEEP(193))
+      INTEGER, INTENT(IN) :: NINCOLARR(KEEP(194))
+      INTEGER, INTENT(IN) :: NINROWARR(KEEP(195))
+      INTEGER, INTENT(IN) :: PTRDEBARR(KEEP(196))
       INTEGER(8) KEEP8(150)
+      INTEGER, INTENT(IN) :: FILS( N )
       INTEGER MYID, COMM, NBRECORDS
       INTEGER(8) :: LA
       INTEGER SLAVEF
@@ -132,10 +137,12 @@ C
       COMPLEX(kind=8) ZERO
       PARAMETER( ZERO = (0.0D0,0.0D0) )
       INTEGER, ALLOCATABLE, DIMENSION(:,:) :: IW4
+      INTEGER(8), ALLOCATABLE, DIMENSION(:) :: PTRAW
       INTEGER END_MSG_2_RECV
-      INTEGER I
-      INTEGER(8) :: I18, IA8
+      INTEGER I, J
+      INTEGER(8) :: IS8
       INTEGER(8) :: K8
+      INTEGER :: IARR1, IORG
       INTEGER TYPE_NODE, DEST, DEST_SHR
       INTEGER IOLD, JOLD, IARR, ISEND, JSEND
       INTEGER ISEND_SHR, JSEND_SHR
@@ -148,8 +155,7 @@ C
      &        ILOCROOT, JLOCROOT
       INTEGER MP,LP
       INTEGER KPROBE, FREQPROBE
-      INTEGER(8) :: IS18, IIW8, IS8, IAS8
-      INTEGER ISHIFT
+      INTEGER TAILLE
       INTEGER, ALLOCATABLE, DIMENSION(:,:,:) :: BUFI
       COMPLEX(kind=8), ALLOCATABLE, DIMENSION(:,:,:) :: BUFR
       INTEGER, ALLOCATABLE, DIMENSION(:) :: BUFRECI
@@ -250,22 +256,41 @@ C
       IF ( allocok .GT. 0 ) THEN
         WRITE(LP,*) '** Error allocating IW4 for matrix distribution'
         INFO(1) = -13
-        INFO(2) = N * 2
+        CALL MUMPS_SET_IERROR( int(N,8) * 2_8, INFO(2) )
+        GOTO 20
+      END IF
+      ALLOCATE( PTRAW( N ), stat = allocok )
+      IF ( allocok .GT. 0 ) THEN
+        WRITE(LP,*) '** Error allocating IW4 for matrix distribution'
+        INFO(1) = -13
+        CALL MUMPS_SET_IERROR( int(N,8) * KEEP(10), INFO(2) )
+        GOTO 20
       END IF
  20   CONTINUE
       CALL MUMPS_PROPINFO( ICNTL, INFO, COMM, MYID )
       IF ( INFO(1) .LT. 0 ) GOTO 100
       ARROW_ROOT = 0
-      DO I = 1, N
-          I18 = PTRAIW( I )
-          IA8 = PTRARW( I )
-          IF ( IA8 .GT. 0_8 ) THEN
-            DBLARR( IA8 ) = ZERO
-            IW4( I, 1 ) = INTARR( I18 )
-            IW4( I, 2 ) = -INTARR( I18 + 1_8 )
-            INTARR( I18 + 2_8 ) = I
-          END IF
-      END DO
+      DO J = 1, N
+        ISTEP=STEP(J)
+        IF (ISTEP .GT. 0) THEN
+          IARR1 = PTRDEBARR( ISTEP )
+          IF ( IARR1 .GT. 0 ) THEN
+            I = J
+            IORG = 0
+            DO WHILE ( I .GT. 0 )
+              IORG = IORG + 1
+              IW4(I, 1)  = NINCOLARR( IARR1 + IORG - 1 )
+              IW4(I, 2)  = NINROWARR( IARR1 + IORG - 1 ) +
+     &                     NINCOLARR( IARR1 + IORG - 1 )
+              IS8        = PTR8ARR( IARR1 + IORG - 1 )
+              PTRAW( I ) = IS8
+              INTARR( IS8 ) = I
+              DBLARR( IS8 ) = ZERO
+              I = FILS(I)
+            ENDDO
+          ENDIF
+        ENDIF
+      ENDDO
       EARLYT3ROOTINS = KEEP(200) .EQ.0
      &        .OR.  ( KEEP(200) .LT. 0 .AND. KEEP(400) .EQ. 0 )
       IF ( KEEP(38) .NE. 0 .AND. EARLYT3ROOTINS ) THEN
@@ -290,12 +315,12 @@ C
       NOMP = 1
 !$    NOMP=omp_get_max_threads()
       OMP_FLAG = KEEP(399).EQ.1 .AND. NOMP .GE.2 .AND. SLAVEF.EQ.1
-!$OMP PARALLEL PRIVATE( K8, I, DEST,
+!$OMP PARALLEL PRIVATE( K8, I, DEST, TAILLE,
 !$OMP&          T4MASTER, T4_MASTER_CONCERNED,
 !$OMP&          INIV2, NCAND, IROW_GRID, JCOL_GRID, IPOSROOT, JPOSROOT,
 !$OMP&          ILOCROOT, JLOCROOT,
 !$OMP&          TYPE_NODE, TYPESPLIT, MASTER_NODE,
-!$OMP&          IA8, ISHIFT, IIW8, IS18, IS8, IAS8, VAL,
+!$OMP&          IS8, VAL,
 !$OMP&          IARR, ISTEP, ISEND, JSEND,
 !$OMP&          IOLD, JOLD, IOMP, DOIT, P2, NOMP_P, OMP_FLAG_P )
 !$OMP& REDUCTION(+:NSEND8, NLOCAL8, ARROW_ROOT) IF (OMP_FLAG)
@@ -345,7 +370,9 @@ C
      &               KEEP,KEEP8, LOCAL_M, LOCAL_N, root, PTR_ROOT,
      &               A, LA,
      &               END_MSG_2_RECV, MYID, PROCNODE_STEPS, SLAVEF,
-     &               PTRAIW, PTRARW, PERM, STEP,
+     &               PTRAW,
+     &               PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &               PERM, STEP,
      &               INTARR, LINTARR, DBLARR, LDBLARR
      &               )
             END IF
@@ -402,26 +429,25 @@ C
             IF (DEST.EQ.MYID) THEN
               NLOCAL8 = NLOCAL8 + 1_8
               IF (ISEND.EQ.JSEND) THEN
-                IA8 = PTRARW(ISEND)
-                DBLARR(IA8) = DBLARR(IA8) + VAL
+                IS8 = PTRAW(ISEND)
+                DBLARR(IS8) = DBLARR(IS8) + VAL
               ELSE IF (ISEND.GE.0) THEN 
-                IS18         = PTRAIW(IARR)
-                ISHIFT       = INTARR(IS18) + IW4(IARR,2)
-                INTARR(IS18+ISHIFT+2)       = JSEND
-                DBLARR(PTRARW(IARR)+ISHIFT) = VAL
-                IW4(IARR,2)  = IW4(IARR,2) - 1
+                IS8 = PTRAW(IARR) + IW4(IARR,2)
+                IW4(IARR,2) = IW4(IARR,2) - 1
+                INTARR(IS8) = JSEND
+                DBLARR(IS8) = VAL
               ELSE 
-                ISHIFT = IW4(IARR,1)
-                INTARR(PTRAIW(IARR)+ISHIFT+2)  = JSEND
-                DBLARR(PTRARW(IARR)+ISHIFT) = VAL
-                IW4(IARR,1)  = IW4(IARR,1) - 1
+                IS8 = PTRAW(IARR) + IW4(IARR,1)
+                IW4(IARR,1) = IW4(IARR,1) - 1
+                INTARR(IS8) = JSEND
+                DBLARR(IS8) = VAL
                 IF ( IW4(IARR,1) .EQ. 0
      &             .AND. STEP(IARR) > 0 ) THEN
+                  TAILLE = NINCOLARR(PTRDEBARR(STEP( IARR ) ))
                   CALL ZMUMPS_QUICK_SORT_ARROWHEADS( N, PERM,
-     &               INTARR( PTRAIW(IARR) + 3 ),
-     &               DBLARR( PTRARW(IARR) + 1 ),
-     &               INTARR( PTRAIW(IARR) ), 1,
-     &               INTARR( PTRAIW(IARR) ) )
+     &               INTARR( PTRAW(IARR) + 1 ),
+     &               DBLARR( PTRAW(IARR) + 1 ),
+     &               TAILLE, 1, TAILLE )
                 END IF
               ENDIF
               CYCLE
@@ -445,11 +471,11 @@ C
             ARROW_ROOT = ARROW_ROOT + 1
             IF (EARLYT3ROOTINS) THEN
               IF ( ISEND < 0 ) THEN
-                IPOSROOT = root%RG2L_ROW(JSEND)
-                JPOSROOT = root%RG2L_ROW(IARR )
+                IPOSROOT = root%RG2L(JSEND)
+                JPOSROOT = root%RG2L(IARR )
               ELSE
-                IPOSROOT = root%RG2L_ROW(IARR )
-                JPOSROOT = root%RG2L_ROW(JSEND)
+                IPOSROOT = root%RG2L(IARR )
+                JPOSROOT = root%RG2L(JSEND)
               END IF
               IROW_GRID = mod( ( IPOSROOT-1 )/root%MBLOCK, root%NPROW )
               JCOL_GRID = mod( ( JPOSROOT-1 )/root%NBLOCK, root%NPCOL )
@@ -482,30 +508,25 @@ C
                      ENDIF
               ELSE
                     IF (ISEND.EQ.JSEND) THEN
-                      IA8 = PTRARW(ISEND)
-                      DBLARR(IA8) = DBLARR(IA8) + VAL
+                      IS8         = PTRAW(ISEND)
+                      DBLARR(IS8) = DBLARR(IS8) + VAL
                     ELSE IF (ISEND.GE.0) THEN 
-                      IS18         = PTRAIW(IARR)
-                      ISHIFT       = INTARR(IS18) + IW4(IARR,2)
-                      IW4(IARR,2)  = IW4(IARR,2) - 1
-                      IIW8         = IS18 + ISHIFT + 2
-                      INTARR(IIW8) = JSEND
-                      IS8          = PTRARW(IARR)
-                      IAS8         = IS8 + ISHIFT
-                      DBLARR(IAS8) = VAL
+                      IS8         = PTRAW(IARR)+IW4(IARR,2)
+                      IW4(IARR,2) = IW4(IARR,2) - 1
+                      INTARR(IS8) = JSEND
+                      DBLARR(IS8) = VAL
                     ELSE 
-                      IS8          = PTRAIW(IARR)+IW4(IARR,1)+2
-                      INTARR(IS8)  = JSEND
-                      IAS8         = PTRARW(IARR)+IW4(IARR,1)
-                      IW4(IARR,1)  = IW4(IARR,1) - 1
-                      DBLARR(IAS8) = VAL
+                      IS8         = PTRAW(IARR)+IW4(IARR,1)
+                      IW4(IARR,1) = IW4(IARR,1) - 1
+                      INTARR(IS8) = JSEND
+                      DBLARR(IS8) = VAL
                       IF ( IW4(IARR,1) .EQ. 0
      &                   .AND. STEP(IARR) > 0 ) THEN
+                        TAILLE = NINCOLARR(PTRDEBARR(STEP( IARR ) ))
                         CALL ZMUMPS_QUICK_SORT_ARROWHEADS( N, PERM,
-     &                     INTARR( PTRAIW(IARR) + 3 ),
-     &                     DBLARR( PTRARW(IARR) + 1 ),
-     &                     INTARR( PTRAIW(IARR) ), 1,
-     &                     INTARR( PTRAIW(IARR) ) )
+     &                     INTARR( PTRAW(IARR) + 1 ),
+     &                     DBLARR( PTRAW(IARR) + 1 ),
+     &                     TAILLE, 1, TAILLE )
                       END IF
                     ENDIF
               ENDIF
@@ -590,7 +611,9 @@ C
      &           KEEP,KEEP8, LOCAL_M, LOCAL_N, root, PTR_ROOT,
      &           A, LA,
      &           END_MSG_2_RECV, MYID, PROCNODE_STEPS, SLAVEF,
-     &           PTRAIW, PTRARW, PERM, STEP,
+     &           PTRAW,
+     &           PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &           PERM, STEP,
      &           INTARR, LINTARR, DBLARR, LDBLARR
      &           )
       END DO
@@ -650,7 +673,9 @@ C
      &              KEEP,KEEP8, LOCAL_M, LOCAL_N, root, PTR_ROOT,
      &              A, LA,
      &              END_MSG_2_RECV, MYID, PROCNODE_STEPS, SLAVEF,
-     &              PTRAIW, PTRARW, PERM, STEP,
+     &              PTRAW,
+     &              PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &              PERM, STEP,
      &              INTARR, LINTARR, DBLARR, LDBLARR
      &              )
                 END IF
@@ -694,7 +719,9 @@ C
      &              KEEP,KEEP8, LOCAL_M, LOCAL_N, root, PTR_ROOT,
      &              A, LA,
      &              END_MSG_2_RECV, MYID, PROCNODE_STEPS, SLAVEF,
-     &              PTRAIW, PTRARW, PERM, STEP,
+     &              PTRAW,
+     &              PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &              PERM, STEP,
      &              INTARR, LINTARR, DBLARR, LDBLARR
      &              )
       END IF
@@ -706,7 +733,9 @@ C
      &             KEEP,KEEP8, LOCAL_M, LOCAL_N, root, PTR_ROOT, A, LA,
      &             END_MSG_2_RECV, MYID, PROCNODE_STEPS,
      &             SLAVEF,
-     &             PTRAIW, PTRARW, PERM, STEP,
+     &             PTRAW, 
+     &             PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &             PERM, STEP,
      &             INTARR, LINTARR, DBLARR, LDBLARR )
       USE ZMUMPS_STRUC_DEF, ONLY : ZMUMPS_ROOT_STRUC
       IMPLICIT NONE
@@ -718,7 +747,11 @@ C
       INTEGER KEEP(500)
       INTEGER(8) KEEP8(150)
       INTEGER END_MSG_2_RECV
-      INTEGER(8) :: PTRAIW( N ), PTRARW( N )
+      INTEGER(8), INTENT(IN) :: PTRAW( N )
+      INTEGER(8), INTENT(IN) :: PTR8ARR(KEEP(193))
+      INTEGER, INTENT(IN) :: NINCOLARR(KEEP(194))
+      INTEGER, INTENT(IN) :: NINROWARR(KEEP(195))
+      INTEGER, INTENT(IN) :: PTRDEBARR(KEEP(196))
       INTEGER :: PERM( N ), STEP( N )
       INTEGER PROCNODE_STEPS( KEEP(28) )
       INTEGER(8), INTENT(IN) :: LINTARR, LDBLARR
@@ -730,8 +763,8 @@ C
       EXTERNAL MUMPS_TYPENODE, MUMPS_PROCNODE
       INTEGER IREC, NB_REC, NODE_TYPE, IPROC
       INTEGER IPOSROOT, JPOSROOT, ILOCROOT, JLOCROOT
-      INTEGER(8) :: IA8, IS18, IIW8, IS8, IAS8
-      INTEGER ISHIFT, IARR, JARR
+      INTEGER(8) :: IS8
+      INTEGER IARR, JARR
       INTEGER TAILLE
       LOGICAL :: EARLYT3ROOTINS
       COMPLEX(kind=8) VAL
@@ -752,11 +785,11 @@ C
      &              KEEP(199) )
         IF ( NODE_TYPE .eq. 3 .AND. EARLYT3ROOTINS ) THEN
           IF ( IARR .GT. 0 ) THEN
-            IPOSROOT = root%RG2L_ROW( IARR )
-            JPOSROOT = root%RG2L_COL( JARR )
+            IPOSROOT = root%RG2L( IARR )
+            JPOSROOT = root%RG2L( JARR )
           ELSE
-            IPOSROOT = root%RG2L_ROW( JARR )
-            JPOSROOT = root%RG2L_COL( -IARR )
+            IPOSROOT = root%RG2L( JARR )
+            JPOSROOT = root%RG2L( -IARR )
           END IF
           ILOCROOT = root%MBLOCK * ( ( IPOSROOT - 1 ) /
      &                 ( root%MBLOCK * root%NPROW ) )
@@ -781,34 +814,29 @@ C
           ENDIF
         ELSE IF (IARR.GE.0) THEN
           IF (IARR.EQ.JARR) THEN
-            IA8 = PTRARW(IARR)
-            DBLARR(IA8) = DBLARR(IA8) + VAL
+            IS8 = PTRAW(IARR)
+            DBLARR(IS8) = DBLARR(IS8) + VAL
           ELSE
-            IS18         = PTRAIW(IARR)
-            ISHIFT       = INTARR(IS18) + IW4(IARR,2)
-            IW4(IARR,2)  = IW4(IARR,2) - 1
-            IIW8         = IS18 + ISHIFT + 2
-            INTARR(IIW8) = JARR
-            IS8          = PTRARW(IARR)
-            IAS8         = IS8 + ISHIFT
-            DBLARR(IAS8) = VAL
+            IS8         = PTRAW(IARR)+IW4(IARR,2)
+            IW4(IARR,2) = IW4(IARR,2) - 1
+            INTARR(IS8) = JARR
+            DBLARR(IS8) = VAL
           ENDIF
         ELSE
-          IARR = -IARR
-          IS8          = PTRAIW(IARR)+IW4(IARR,1)+2
-          INTARR(IS8)  = JARR
-          IAS8         = PTRARW(IARR)+IW4(IARR,1)
+          IARR         = -IARR
+          IS8          = PTRAW(IARR)+IW4(IARR,1)
           IW4(IARR,1)  = IW4(IARR,1) - 1
-          DBLARR(IAS8) = VAL
+          INTARR(IS8)  = JARR
+          DBLARR(IS8)  = VAL
           IF ( IW4(IARR,1) .EQ. 0
      &         .AND. STEP(IARR) > 0 ) THEN
             IPROC = MUMPS_PROCNODE( PROCNODE_STEPS(STEP(IARR)),
      &                            KEEP(199) )
             IF ( IPROC .EQ. MYID ) THEN
-              TAILLE = INTARR( PTRAIW(IARR) )
+              TAILLE = NINCOLARR(PTRDEBARR(STEP( IARR ) ))
               CALL ZMUMPS_QUICK_SORT_ARROWHEADS( N, PERM,
-     &           INTARR( PTRAIW(IARR) + 3 ),
-     &           DBLARR( PTRARW(IARR) + 1 ),
+     &           INTARR( PTRAW(IARR) + 1 ),
+     &           DBLARR( PTRAW(IARR) + 1 ),
      &           TAILLE, 1, TAILLE )
             ENDIF
           END IF

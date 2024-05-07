@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -15,7 +15,7 @@ C
      &    ISON, NBROWS, NBCOLS, ROWLIST,
      &    VALSON, PTLUST_S, PTRAST, STEP, PIMASTER,
      &    OPASSW, IWPOSCB, MYID, KEEP,KEEP8, IS_ofType5or6,
-     &    LDA_VALSON )
+     &    LDA_VALSON, ICOL_BEG )
       USE SMUMPS_LOAD
       IMPLICIT NONE
       INTEGER KEEP(500)
@@ -30,8 +30,9 @@ C
       REAL A(LA), VALSON(LDA_VALSON,NBROWS)
       DOUBLE PRECISION OPASSW
       LOGICAL, INTENT(IN) :: IS_ofType5or6
+      INTEGER, INTENT(IN) :: ICOL_BEG
       INTEGER(8) :: POSELT, POSEL1, APOS, JJ2
-      INTEGER HF,HS, NSLAVES, NFRONT, NASS1,
+      INTEGER HS, NSLAVES, NFRONT, NASS1,
      &        IOLDPS, ISTCHK, LSTK, NSLSON,NELIM,
      &        NPIVS,NCOLS,J1,JJ,JJ1,NROWS,
      &        LDAFS_PERE, IBEG, DIAG
@@ -51,7 +52,6 @@ C
           LDAFS_PERE = NASS1
         ENDIF
       ENDIF
-      HF      = 6 + NSLAVES + KEEP(IXSZ)
       POSEL1 = POSELT - int(LDAFS_PERE,8)
       ISTCHK = PIMASTER(STEP(ISON))
       LSTK = IW(ISTCHK+KEEP(IXSZ))
@@ -74,7 +74,7 @@ C
          APOS = POSEL1 + int(ROWLIST(1),8) * int(LDAFS_PERE,8)
          DO JJ = 1, NBROWS
            DO JJ1 = 1, NBCOLS
-             JJ2 = APOS + int(JJ1-1,8)
+             JJ2 = APOS + int(JJ1-1+(ICOL_BEG-1),8)
              A(JJ2)=A(JJ2)+VALSON(JJ1,JJ)
            ENDDO
            APOS = APOS + int(LDAFS_PERE,8)
@@ -83,7 +83,7 @@ C
         DO 170 JJ = 1, NBROWS
          APOS = POSEL1 + int(ROWLIST(JJ),8) * int(LDAFS_PERE,8)
          DO 160 JJ1 = 1, NBCOLS
-           JJ2 = APOS + int(IW(J1 + JJ1 - 1) - 1,8)
+           JJ2 = APOS + int(IW(J1 + ICOL_BEG-1 + JJ1 - 1) - 1,8)
            A(JJ2) = A(JJ2) + VALSON(JJ1,JJ) 
   160    CONTINUE
   170   CONTINUE
@@ -93,9 +93,9 @@ C
         APOS = POSEL1 + int(ROWLIST(1),8) * int(LDAFS_PERE,8)
         DIAG = ROWLIST(1)
         DO JJ = 1, NBROWS
-          DO JJ1 = 1, DIAG
+          DO JJ1 = ICOL_BEG, min(DIAG,ICOL_BEG+NBCOLS-1)
             JJ2 = APOS+int(JJ1-1,8)
-            A(JJ2) = A(JJ2) + VALSON(JJ1,JJ)
+            A(JJ2) = A(JJ2) + VALSON(JJ1-ICOL_BEG+1,JJ)
           ENDDO
           DIAG = DIAG+1
           APOS = APOS + int(LDAFS_PERE,8)
@@ -104,19 +104,19 @@ C
         DO JJ = 1, NBROWS
          IF (ROWLIST(JJ).LE.NASS1.and..NOT.IS_ofType5or6) THEN
           APOS = POSEL1 + int(ROWLIST(JJ) - 1,8)
-          DO JJ1 = 1, NELIM
+          DO JJ1 = ICOL_BEG, min(NELIM, ICOL_BEG+NBCOLS-1)
            JJ2 = APOS + int(IW(J1+JJ1-1),8)*int(LDAFS_PERE,8)
-            A(JJ2) = A(JJ2) + VALSON(JJ1,JJ)
+            A(JJ2) = A(JJ2) + VALSON(JJ1-ICOL_BEG+1,JJ)
           ENDDO
-          IBEG = NELIM+1
+          IBEG = max(NELIM+1,ICOL_BEG)
          ELSE
-          IBEG = 1
+          IBEG = ICOL_BEG
          ENDIF
          APOS = POSEL1 + int(ROWLIST(JJ),8) * int(LDAFS_PERE,8)
-         DO JJ1 = IBEG, NBCOLS
+         DO JJ1 = IBEG, ICOL_BEG + NBCOLS - 1
           IF (ROWLIST(JJ).LT.IW(J1 + JJ1 - 1)) EXIT
           JJ2 = APOS + int(IW(J1 + JJ1 - 1) - 1,8)
-          A(JJ2) = A(JJ2) + VALSON(JJ1,JJ)
+          A(JJ2) = A(JJ2) + VALSON(JJ1-ICOL_BEG+1,JJ)
          ENDDO
         ENDDO
        ENDIF  
@@ -127,7 +127,8 @@ C
      &    (N, INODE, IW, LIW, A, LA, 
      &    NBROWS, NBCOLS,
      &    OPASSW, OPELIW, STEP, PTRIST, PTRAST, ITLOC,
-     &    RHS_MUMPS, FILS, PTRARW, PTRAIW, INTARR, DBLARR, 
+     &    RHS_MUMPS, FILS,
+     &    PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR, INTARR, DBLARR, 
      &    ICNTL, KEEP,KEEP8, MYID, LRGROUPS)
       USE SMUMPS_DYNAMIC_MEMORY_M, ONLY : SMUMPS_DM_SET_DYNPTR
       IMPLICIT NONE
@@ -140,13 +141,16 @@ C
       INTEGER(8) :: PTRAST(KEEP(28))
       INTEGER IW(LIW), ITLOC(N+KEEP(253)), STEP(N),
      &        PTRIST(KEEP(28)), FILS(N)
-      INTEGER(8), INTENT(IN) :: PTRARW(N), PTRAIW(N)
+      INTEGER(8), INTENT(IN) :: PTR8ARR(KEEP(193))
+      INTEGER, INTENT(IN) :: NINCOLARR(KEEP(194))
+      INTEGER, INTENT(IN) :: NINROWARR(KEEP(195))
+      INTEGER, INTENT(IN) :: PTRDEBARR(KEEP(196))
       REAL :: RHS_MUMPS(KEEP(255))
       REAL :: A(LA)
       INTEGER :: INTARR(KEEP8(27))
       REAL :: DBLARR(KEEP8(26))
       DOUBLE PRECISION OPASSW, OPELIW
-      INTEGER, INTENT(IN)    :: LRGROUPS(N)
+      INTEGER, INTENT(IN)    :: LRGROUPS(KEEP(280))
       INTEGER(8) :: POSELT
       REAL, DIMENSION(:), POINTER :: A_PTR
       INTEGER(8) :: LA_PTR
@@ -167,10 +171,12 @@ C
       IF (NASS.LT.0) THEN
           NASS         = -NASS
           IW(IOLDPS+1+KEEP(IXSZ)) = NASS
-          CALL SMUMPS_ASM_SLAVE_ARROWHEADS(INODE, N, IW, LIW,
+          CALL SMUMPS_ASM_SLAVE_ARROWHEADS(INODE, STEP(INODE),
+     &           N, IW, LIW,
      &           IOLDPS, A_PTR(POSELT), LA_PTR, 1_8, KEEP, KEEP8,
-     &           ITLOC, FILS, PTRAIW, PTRARW, INTARR, DBLARR,
-     &           KEEP8(27), KEEP8(26),
+     &           ITLOC, FILS,
+     &           PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &           INTARR, DBLARR, KEEP8(27), KEEP8(26),
      &           RHS_MUMPS, LRGROUPS)
       ENDIF
       IF (NBROWS.GT.0) THEN
@@ -595,7 +601,7 @@ C
       DOUBLE PRECISION OPASSW
       INTEGER HF,HS, NSLAVES, NASS1,
      &     IOLDPS, ISTCHK,
-     &     LSTK, NSLSON,NELIM,NPIVS,NCOLS, J1,
+     &     LSTK, NSLSON,NPIVS,NCOLS, J1,
      &     JJ1,NROWS
       INTEGER(8) POSELT, APOS, JJ2
       INCLUDE 'mumps_headers.h'
@@ -610,7 +616,6 @@ C
       LSTK = IW(ISTCHK + KEEP(IXSZ))
       NSLSON  = IW(ISTCHK + 5 + KEEP(IXSZ))
       HS      = 6 + NSLSON + KEEP(IXSZ)
-      NELIM = IW(ISTCHK + 1 + KEEP(IXSZ))
       NPIVS = IW(ISTCHK + 3 + KEEP(IXSZ))
       IF (NPIVS.LT.0) NPIVS = 0
       NCOLS = NPIVS + LSTK
@@ -630,16 +635,19 @@ C
       ENDDO
       RETURN
       END SUBROUTINE SMUMPS_ASM_MAX
-      SUBROUTINE SMUMPS_ASM_SLAVE_ARROWHEADS(INODE, N, IW, LIW, IOLDPS,
+      SUBROUTINE SMUMPS_ASM_SLAVE_ARROWHEADS(INODE, ISTEP,
+     &           N, IW, LIW, IOLDPS,
      &           A, LA, POSELT, KEEP, KEEP8,
-     &           ITLOC, FILS, PTRAIW, PTRARW, INTARR, DBLARR,
+     &           ITLOC, FILS,
+     &           PTR8ARR, NINCOLARR, NINROWARR, PTRDEBARR,
+     &           INTARR, DBLARR,
      &           LINTARR, LDBLARR, RHS_MUMPS, LRGROUPS)
 !$    USE OMP_LIB
       USE SMUMPS_ANA_LR,    ONLY : GET_CUT
       USE SMUMPS_LR_CORE,   ONLY : MAX_CLUSTER
       USE MUMPS_LR_COMMON,  ONLY : COMPUTE_BLR_VCS
       IMPLICIT NONE
-      INTEGER, intent(in)    :: N, LIW, IOLDPS, INODE
+      INTEGER, intent(in)    :: N, LIW, IOLDPS, INODE, ISTEP
       INTEGER(8), intent(in) :: LA, POSELT
       INTEGER(8), intent(in) :: LINTARR, LDBLARR
       INTEGER, intent(in)    :: IW(LIW)
@@ -651,16 +659,19 @@ C
       REAL, intent(in)    :: DBLARR(LDBLARR)
       INTEGER, intent(in)    :: INTARR(LINTARR)
       INTEGER, intent(in)    :: FILS(N)
-      INTEGER(8), intent(in) :: PTRAIW(N), PTRARW(N)
-      INTEGER, INTENT(IN)    :: LRGROUPS(N)
+      INTEGER(8), INTENT(IN) :: PTR8ARR(KEEP(193))
+      INTEGER, INTENT(IN) :: NINCOLARR(KEEP(194))
+      INTEGER, INTENT(IN) :: NINROWARR(KEEP(195))
+      INTEGER, INTENT(IN) :: PTRDEBARR(KEEP(196))
+      INTEGER, INTENT(IN)    :: LRGROUPS(KEEP(280))
 !$    INTEGER :: NOMP
 !$    INTEGER(8) :: CHUNK8  
 !$    INTEGER    :: CHUNK
       INCLUDE 'mumps_headers.h'
       INTEGER    :: HF, NBROWF, NBCOLF, NASS, NSLAVES
       INTEGER    :: ILOC, J, K, K1, K2, JPOS, IJROW
-      INTEGER    :: IN
-      INTEGER(8) :: J18, J28, JJ8, JK8
+      INTEGER    :: IN, IARR1, IORG
+      INTEGER(8) :: J18, J28, JJ8
       INTEGER(8) :: APOS, ICT12
       INTEGER(8) :: AINPUT8
       INTEGER, POINTER, DIMENSION(:) :: BEGS_BLR_LS
@@ -678,7 +689,11 @@ C
 !$    NOMP = OMP_GET_MAX_THREADS()
       IF (KEEP(50) .EQ. 0 .OR. NBROWF .LT. KEEP(63)) THEN
 !$      CHUNK8 = int(KEEP(361),8)
+#if defined(_CRAYFTN)
+!$OMP   PARALLEL DO PRIVATE(JJ8) SCHEDULE(STATIC, KEEP(361))
+#else
 !$OMP   PARALLEL DO PRIVATE(JJ8) SCHEDULE(STATIC, CHUNK8)
+#endif
 !$OMP&  IF (int(NBROWF,8)*int(NBCOLF,8) > int(KEEP(361),8)
 !$OMP&    .AND. NOMP .GT. 1)
         DO JJ8=POSELT, POSELT+int(NBROWF,8)*int(NBCOLF,8)-1_8
@@ -757,12 +772,13 @@ C
            ENDDO
       ENDIF
       IN = INODE
-      DO WHILE (IN.GT.0) 
-           AINPUT8 = PTRARW(IN)
-           JK8     = PTRAIW(IN)
-           JJ8     = JK8 + 1_8
-           J18     = JJ8 + 1_8
-           J28 = J18 + INTARR(JK8)
+      IORG = 0
+      IARR1 = PTRDEBARR(ISTEP)
+      DO WHILE (IN.GT.0)
+           IORG = IORG + 1
+           AINPUT8 = PTR8ARR( IARR1 + IORG -1 )
+           J18 = AINPUT8
+           J28 = J18 + NINCOLARR(IARR1+IORG-1)
            IJROW = -ITLOC(INTARR(J18))
            ICT12 = POSELT +int(- NBCOLF + IJROW - 1,8)
            DO JJ8= J18,J28

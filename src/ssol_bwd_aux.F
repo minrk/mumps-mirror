@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -103,8 +103,7 @@ C
       INTEGER(8) :: APOS, IST
       INTEGER(8) :: IFR8
       INTEGER(8) :: APOSDEB, NBENTRIES_ALLPANELS
-      INTEGER(8) :: PTWCB_PANEL
-      INTEGER LDAJ, NBJ, LIWFAC,
+      INTEGER LDAJ, NBJ,
      &        NBJLAST, NPIV_LAST, PANEL_SIZE,
      &        NCB_PANEL, TYPEF
       INTEGER BEG_PANEL
@@ -450,7 +449,6 @@ C
       NSLAVES = IW( PTRIST(STEP(INODE)) + 5 + KEEP(IXSZ) )
       IPOS = IPOS + 1 + NSLAVES
       IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) THEN 
-         LIWFAC =  IW(PTRIST(STEP(INODE))+XXI)
          IF (MTYPE.NE.1) THEN
            TYPEF = TYPEF_L
          ELSE
@@ -603,7 +601,6 @@ C
             ENDIF
             LDAJ    = LIELL-BEG_PANEL+1 
             APOSDEB = APOSDEB - int(NBJ,8)*int(LDAJ,8)
-            PTWCB_PANEL = PTWCB + int(BEG_PANEL - 1,8)
             IPOSINRHSCOMP_PANEL = IPOSINRHSCOMP + BEG_PANEL - 1
             NCB_PANEL   = LDAJ - NBJ
             IF (KEEP(50).NE.1.AND.MUST_BE_PERMUTED) THEN
@@ -693,15 +690,6 @@ C
           ENDIF
         ELSE
           IF ( LIELL .GT. NPIV ) THEN
-#if defined(LDLTPANEL_DEBUG)
-          WRITE(*,*) 'before gemm LIELL, NPIV, PTWCB=',LIELL,NPIV,PTWCB
-          WRITE(*,*) 'before gemm RHSCOMP=',
-     &        RHSCOMP(IPOSINRHSCOMP:IPOSINRHSCOMP+NPIV-1,1)
-          WRITE(*,*) 'before gemm W',
-     &        W(PTWCB+NPIV:PTWCB+LIELL-1)
-          CALL MUMPS_GETI8(IST, IW(PTRIST(STEP(INODE))+XXR))
-          WRITE(*,*) "FACTORS=",A(APOS:APOS+IST-1)
-#endif
             IF ( MTYPE .eq. 1 ) THEN
               IST = APOS + int(NPIV,8)
 #if defined(MUMPS_USE_BLAS2)
@@ -1130,9 +1118,8 @@ C
       LOGICAL, DIMENSION(:), ALLOCATABLE :: DEJA_SEND
       INTEGER :: NCB
       INTEGER(8) :: APOSDEB, NBENTRIES_ALLPANELS
-      INTEGER(8) :: PTWCB_PANEL
       INTEGER(8) :: PTWCB, PPIV_COURANT
-      INTEGER LDAJ, NBJ, LIWFAC,
+      INTEGER LDAJ, NBJ,
      &        NBJLAST, NPIV_LAST, PANEL_SIZE,
      &        NCB_PANEL, TYPEF
       LOGICAL TWOBYTWO
@@ -1452,7 +1439,6 @@ C
           APOS = PTRFAC(IW(INODEPOS))
           IF (KEEP(201).EQ.1.AND.OOCWRITE_COMPATIBLE_WITH_BLR) 
      &    THEN 
-             LIWFAC =  IW(PTRIST(STEP(INODE))+XXI)
              TYPEF = TYPEF_L
              NROW_L   = NPIV+NELIM 
              PANEL_SIZE = SMUMPS_OOC_PANEL_SIZE(NROW_L)
@@ -1550,7 +1536,6 @@ C
             LDAJ    = NROW_L-BEG_PANEL+1 
             APOSDEB = APOSDEB - int(NBJ,8)*int(LDAJ,8)
             PTWCB   = PTRACB(STEP(INODE))
-            PTWCB_PANEL =  PTRACB(STEP(INODE)) + int(BEG_PANEL - 1,8)
             IPOSINRHSCOMP_PANEL = IPOSINRHSCOMP + BEG_PANEL - 1
             NCB_PANEL   = LDAJ - NBJ
             NCB     = NROW_L - NPIV

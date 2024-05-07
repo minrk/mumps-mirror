@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -148,6 +148,9 @@ C
       LP      = ICNTL(1)
       MP      = ICNTL(2)
       LDIAG   = ICNTL(4)
+      CALL MUMPS_STOP_ON_USER_REQUEST( KEEP, KEEP8, ICNTL, INFO, MYID )
+      CALL MUMPS_PROPINFO(ICNTL, INFO, COMM_NODES, MYID )
+      IF(INFO(1).LT.0) GOTO 500
 #if defined(V_T)
       CALL VTCLASSDEF( 'Soln_c',soln_c_class,ierr)
       CALL VTFUNCDEF( 'forw_soln',soln_c_class,forw_soln,ierr)
@@ -172,6 +175,7 @@ C
      &   IPANEL_POS, LPANEL_POS, LIW1
          CALL MUMPS_ABORT()
       ENDIF
+      KEEP(405)=0
       DOFORWARD = .TRUE.
       DOBACKWARD= .TRUE.
       SPECIAL_ROOT_REACHED = .TRUE.
@@ -435,6 +439,7 @@ C
           ENDDO
         ENDIF
         IF ( DO_L0OMP_FWD ) THEN
+          KEEP(405)=1
           CALL SMUMPS_SOL_L0OMP_R( N, MTYPE_LOC, NRHS, LIW, IW,
      &    IW1(PTRICB), RHSCOMP, LRHSCOMP, POSINRHSCOMP_FWD,
      &    STEP, FRERE, DAD, FILS, IW1(NSTK_S), 
@@ -455,7 +460,15 @@ C
      &    L0_OMP_FACTORS, LL0_OMP_FACTORS,
      &    DO_PRUN, TO_PROCESS
      &    )
+          CALL MUMPS_STOP_ON_USER_REQUEST( KEEP, KEEP8, ICNTL,
+     &                                    INFO, MYID )
+          IF (INFO(1).LT.0) THEN
+            CALL SMUMPS_BDC_ERROR(MYID_NODES, SLAVEF, COMM_NODES, KEEP)
+          ENDIF
+          KEEP(405)=0
           MYROOT = MYROOT - NBROOT_UNDER_L0
+        ENDIF
+        IF ( DO_L0OMP_FWD ) THEN
           IF ( DO_PRUN ) THEN
             MYLEAF_NOT_PRUNED = IPOOL_A_L0_OMP(LPOOL_A_L0_OMP)
             DO I=1, MYLEAF_NOT_PRUNED
@@ -537,6 +550,9 @@ C
         CALL VTEND(forw_soln,ierr)
 #endif
       ENDIF
+      CALL MUMPS_STOP_ON_USER_REQUEST( KEEP, KEEP8, ICNTL, INFO, MYID )
+      CALL MUMPS_PROPINFO(ICNTL, INFO, COMM_NODES, MYID )
+      IF(INFO(1).LT.0) GOTO 500
       CALL MUMPS_PROPINFO(ICNTL, INFO, COMM_NODES, MYID )
       IF ( INFO(1) .LT. 0 ) THEN
         IF ( LP .GT. 0 ) THEN
@@ -986,6 +1002,9 @@ C
             ENDIF
           ENDDO
         ENDIF
+      CALL MUMPS_STOP_ON_USER_REQUEST( KEEP, KEEP8, ICNTL, INFO, MYID )
+      CALL MUMPS_PROPINFO(ICNTL, INFO, COMM_NODES, MYID )
+      IF(INFO(1).LT.0) GOTO 500
         CALL SMUMPS_SOL_S( N, A, LA, IW, LIW, W(1), LWC,
      &          NRHS,
      &          RHSCOMP, LRHSCOMP, POSINRHSCOMP_BWD,
@@ -1012,9 +1031,11 @@ C
             ENDIF
           ENDDO
         ENDIF
+        CALL MUMPS_STOP_ON_USER_REQUEST(KEEP, KEEP8, ICNTL, INFO, MYID)
         IF (DO_L0OMP_BWD .AND. INFO(1) .GE. 0) THEN
           KEEP(31) = 0
           PRUN_BELOW_BWD = AM1
+          KEEP(405)=1
           CALL SMUMPS_SOL_L0OMP_S(N, MTYPE_LOC, NRHS, LIW, IW,
      &      IW1(PTRICB), PTRACB, RHSCOMP, LRHSCOMP, POSINRHSCOMP_BWD,
      &      STEP, FRERE, FILS, NE_STEPS, PTRIST, PTRFAC, INFO,
@@ -1031,11 +1052,13 @@ C
      &    PERM_L0_OMP, PTR_LEAFS_L0_OMP,
      &    L0_OMP_MAPPING, LL0_OMP_MAPPING,
      &    L0_OMP_FACTORS, LL0_OMP_FACTORS )
+          KEEP(405)=0
         ENDIF
         CALL SMUMPS_CLEAN_PENDING( INFO(1), KEEP,
      &     BUFR, LBUFR,LBUFR_BYTES,
      &     COMM_NODES, IDUMMY,       
      &     SLAVEF, .TRUE., .FALSE. ) 
+        CALL MUMPS_STOP_ON_USER_REQUEST(KEEP, KEEP8, ICNTL, INFO, MYID)
         CALL MUMPS_PROPINFO(ICNTL, INFO, COMM_NODES, MYID )
 #if defined(V_T)
         CALL VTEND(back_soln,ierr)

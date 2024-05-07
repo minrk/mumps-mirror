@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.5.1, released
- *  on Tue Jul 12 13:17:24 UTC 2022
+ *  This file is part of MUMPS 5.6.0, released
+ *  on Wed Apr 19 15:50:57 UTC 2023
  *
  *
- *  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -122,12 +122,12 @@ MUMPS_SCOTCH_SET_PTHREAD_NUMBER (MUMPS_INT *PTHREAD_NUMBER)
   {
 #if (SCOTCH_VERSION>=7) 
   char param[32];
-#if defined(MUMPS_WIN32)
+#if defined(MUMPS_WIN32) || defined(__MINGW32__)
   int ierr;
 #endif
   if (*PTHREAD_NUMBER == -1) 
   {
-#if defined(MUMPS_WIN32)
+#if defined(MUMPS_WIN32) || defined(__MINGW32__)
      ierr = _putenv("SCOTCH_PTHREAD_NUMBER=");
 #else
      unsetenv("SCOTCH_PTHREAD_NUMBER");
@@ -135,7 +135,7 @@ MUMPS_SCOTCH_SET_PTHREAD_NUMBER (MUMPS_INT *PTHREAD_NUMBER)
   }
   else
   {
-#if defined(MUMPS_WIN32)
+#if defined(MUMPS_WIN32) || defined(__MINGW32__)
     sprintf(param, "SCOTCH_PTHREAD_NUMBER=%d",*PTHREAD_NUMBER);
     ierr = _putenv(param);
 #else

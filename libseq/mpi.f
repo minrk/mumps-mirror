@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -275,14 +275,6 @@ C***********************************************************************
       IERR = 0
       RETURN
       END SUBROUTINE MPI_COMM_SPLIT
-C***********************************************************************
-c     SUBROUTINE MPI_ERRHANDLER_SET( COMM, ERRHANDLER, IERR )
-c     IMPLICIT NONE
-c     INCLUDE 'mpif.h'
-c     INTEGER COMM, ERRHANDLER, IERR
-c     IERR = 0
-c     RETURN
-c     END SUBROUTINE MPI_ERRHANDLER_SET
 C***********************************************************************
       SUBROUTINE MPI_FINALIZE( IERR )
       IMPLICIT NONE
@@ -566,7 +558,54 @@ C     write(*,*) 'Entering MPI_WTIME'
 C     write(*,*) 'Exiting MPI_WTIME'
       RETURN
       END FUNCTION MPI_WTIME
-
+C***********************************************************************
+      SUBROUTINE MPI_COMM_SET_ERRHANDLER(COMM, ERRHANDLER, IERR )
+      IMPLICIT NONE
+      INTEGER COMM, ERRHANDLER, IERR
+      IERR = 0
+      RETURN
+      END SUBROUTINE MPI_COMM_SET_ERRHANDLER
+C***********************************************************************
+      SUBROUTINE MPI_COMM_GET_ERRHANDLER(COMM, ERRHANDLER, IERR )
+      IMPLICIT NONE
+      INTEGER COMM, ERRHANDLER, IERR
+      IERR = 0
+      RETURN
+      END SUBROUTINE MPI_COMM_GET_ERRHANDLER
+C***********************************************************************
+      SUBROUTINE MPI_WIN_ALLOCATE_SHARED( SIZE_ARRAY_BYTES, DISP_UNIT,
+     &     INFO, COMM, CPTR_ARRAY, WIN, IERR )
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY : C_PTR
+      IMPLICIT NONE
+      INCLUDE 'mpif.h'
+      INTEGER :: DISP_UNIT, INFO, COMM, WIN, IERR
+      INTEGER(KIND=MPI_ADDRESS_KIND) :: SIZE_ARRAY_BYTES
+      TYPE(C_PTR) :: CPTR_ARRAY
+      WRITE(*,*) 'Error. MPI_WIN_ALLOCATE_SHARED should not be called.'
+      STOP
+      RETURN
+      END SUBROUTINE MPI_WIN_ALLOCATE_SHARED
+C***********************************************************************
+      SUBROUTINE MPI_WIN_SHARED_QUERY( WIN, RANK, SIZE_ARRAY_BYTES,
+     &     DISP_UNIT, CPTR_ARRAY, IERR )
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY : C_PTR
+      IMPLICIT NONE
+      INCLUDE 'mpif.h'
+      INTEGER :: WIN, RANK, DISP_UNIT, IERR
+      INTEGER(KIND=MPI_ADDRESS_KIND) :: SIZE_ARRAY_BYTES
+      TYPE(C_PTR) :: CPTR_ARRAY
+      WRITE(*,*) 'Error. MPI_WIN_SHARED_QUERY should not be called.'
+      STOP
+      RETURN
+      END SUBROUTINE MPI_WIN_SHARED_QUERY
+C***********************************************************************
+      SUBROUTINE MPI_WIN_FREE( WIN, IERROR )
+      IMPLICIT NONE
+      INTEGER :: WIN, IERROR
+      WRITE(*,*) 'Error. MPI_WIN_FREE should not be called.'
+      STOP
+      RETURN
+      END SUBROUTINE MPI_WIN_FREE
 
 C***********************************************************************
 C

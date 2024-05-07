@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -68,11 +68,13 @@ C
       DOUBLE PRECISION :: TIME_DIAGCOPY
       DOUBLE PRECISION :: TIME_DECOMP
       DOUBLE PRECISION :: TIME_DECOMP_UCFS
-      DOUBLE PRECISION :: TIME_DECOMP_ASM1
-      DOUBLE PRECISION :: TIME_DECOMP_LOCASM2
-      DOUBLE PRECISION :: TIME_DECOMP_MAPLIG1
-      DOUBLE PRECISION :: TIME_DECOMP_ASMS2S
-      DOUBLE PRECISION :: TIME_DECOMP_ASMS2M
+      DOUBLE PRECISION :: TIME_LRASM_NIV1
+      DOUBLE PRECISION :: TIME_LRASM_LOCASM2
+      DOUBLE PRECISION :: TIME_LRASM_MAPLIG1
+      DOUBLE PRECISION :: TIME_LRASM_CONTRIB2
+      DOUBLE PRECISION :: TIME_FRASM_LOCASM2
+      DOUBLE PRECISION :: TIME_FRASM_MAPLIG1
+      DOUBLE PRECISION :: TIME_FRASM_CONTRIB2
       DOUBLE PRECISION :: TIME_LRANA_LRGROUPING
       DOUBLE PRECISION :: TIME_LRANA_SEPGROUPING
       DOUBLE PRECISION :: TIME_LRANA_GETHALO
@@ -400,11 +402,13 @@ C
         TIME_FRSWAP_COMPRESS = 0.D0 
         TIME_DECOMP = 0.D0 
         TIME_DECOMP_UCFS = 0.D0 
-        TIME_DECOMP_ASM1 = 0.D0 
-        TIME_DECOMP_LOCASM2 = 0.D0 
-        TIME_DECOMP_MAPLIG1 = 0.D0 
-        TIME_DECOMP_ASMS2S = 0.D0 
-        TIME_DECOMP_ASMS2M = 0.D0 
+        TIME_LRASM_NIV1 = 0.D0 
+        TIME_LRASM_LOCASM2 = 0.D0 
+        TIME_LRASM_MAPLIG1 = 0.D0 
+        TIME_LRASM_CONTRIB2 = 0.D0 
+        TIME_FRASM_LOCASM2 = 0.D0 
+        TIME_FRASM_MAPLIG1 = 0.D0 
+        TIME_FRASM_CONTRIB2 = 0.D0 
       END SUBROUTINE INIT_STATS_GLOBAL
       SUBROUTINE UPD_MRY_LU_FR(NASS, NCB, SYM, NELIM)
         INTEGER,INTENT(IN) :: NASS, NCB, SYM, NELIM
@@ -572,20 +576,24 @@ C
       SUBROUTINE SAVEandWRITE_GAINS(LOCAL, K489, DKEEP, N, 
      &         ICNTL36,
      &         DEPTH, BCKSZ, NASSMIN, NFRONTMIN, SYM, K486,
-     &         K472, K475, K478, K480, K481, K483, K484, 
+     &         NBTHREADS, K472, K475, K478, K480, K481, K483, K484, 
      &         K8110, K849, 
      &         NBTREENODES, NPROCS, MPG, PROKG)
         INTEGER, INTENT(IN) :: LOCAL,K489,DEPTH, N,
      &      ICNTL36, BCKSZ,NASSMIN,
      &      NFRONTMIN, K486, NBTREENODES, MPG, 
-     &      K472, K475, K478, K480, K481, K483, K484, 
+     &      NBTHREADS, K472, K475, K478, K480, K481, K483, K484, 
      &      SYM, NPROCS
         INTEGER(8), INTENT(IN) :: K8110, K849
         LOGICAL, INTENT(IN) :: PROKG
         REAL :: DKEEP(230)
-        LOGICAL PROK
-        PROK = (PROKG.AND.(MPG.GE.0))
-        IF (PROK) THEN
+        TIME_UPDATE_LRLR1    = TIME_UPDATE_LRLR1/dble(NBTHREADS)
+        TIME_UPDATE_LRLR2    = TIME_UPDATE_LRLR2/dble(NBTHREADS)
+        TIME_UPDATE_LRLR3    = TIME_UPDATE_LRLR3/dble(NBTHREADS)
+        TIME_UPDATE_FRLR     = TIME_UPDATE_FRLR/dble(NBTHREADS)
+        TIME_UPDATE_FRFR     = TIME_UPDATE_FRFR/dble(NBTHREADS)
+        TIME_MIDBLK_COMPRESS = TIME_MIDBLK_COMPRESS/dble(NBTHREADS)
+        IF (PROKG) THEN
         WRITE(MPG,'(/A,A)') 
      & '-------------- Beginning of BLR statistics -------------------',
      & '--------------'
@@ -600,10 +608,10 @@ C
      &    '     Number of BLR fronts                     = ',
      &                          CNT_NODES
         ENDIF  
-        IF (PROK) WRITE(MPG,'(A,F8.1,A)')
+        IF (PROKG) WRITE(MPG,'(A,F8.1,A)')
      &    '     Fraction of factors in BLR fronts        =',
      &                FACTOR_PROCESSED_FRACTION,'% ' 
-        IF (PROK) THEN
+        IF (PROKG) THEN
           WRITE(MPG,'(A)') 
      &  '     Statistics on the number of entries in factors :'
           WRITE(MPG,'(A,ES10.3,A,F5.1,A)') 
@@ -615,14 +623,14 @@ C
      &     ,real(100)*(real(K849)/real(max(K8110,1_8)))
      &     ,'%)'
         ENDIF
-        IF (PROK) WRITE(MPG,'(A)')
+        IF (PROKG) WRITE(MPG,'(A)')
      &  '     Statistics on operation counts (OPC):'
         TOTAL_FLOP = MAX(TOTAL_FLOP,EPSILON(1.0D0))
         DKEEP(55)=real(TOTAL_FLOP)
         DKEEP(60)=real(100)
         DKEEP(56)=real(FLOP_FACTO_LR+FLOP_FRFRONTS)
         DKEEP(61)=real(100*(FLOP_FACTO_LR+FLOP_FRFRONTS)/TOTAL_FLOP)
-        IF (PROK) THEN 
+        IF (PROKG) THEN 
         WRITE(MPG,'(A,ES10.3,A,F5.1,A)') 
      &  '     RINFOG(3) Total theoretical operations counts       ='
      &     ,TOTAL_FLOP,' (',100*TOTAL_FLOP/TOTAL_FLOP,'%)'
@@ -632,7 +640,7 @@ C
      &,100*(FLOP_FACTO_LR+FLOP_FRFRONTS)/TOTAL_FLOP
      &,'%)'
         ENDIF
-      IF (PROK) WRITE(MPG,'(A,A)') 
+      IF (PROKG) WRITE(MPG,'(A,A)') 
      & '-------------- End of BLR statistics -------------------------',
      & '--------------'
       RETURN

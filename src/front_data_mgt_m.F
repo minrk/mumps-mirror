@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -151,11 +151,11 @@ C     and manage multiple instances.
 C
       CHARACTER, INTENT(IN) :: WHAT
       INTEGER, INTENT(INOUT) :: INFO(2)
-#if defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
+      CHARACTER, DIMENSION(:), POINTER :: id_FDM_ENCODING
+#else
       CHARACTER, DIMENSION(:), POINTER, intent(inout) ::
      &                                           id_FDM_ENCODING
-#else
-      CHARACTER, DIMENSION(:), POINTER :: id_FDM_ENCODING
 #endif
 C
 C     Local variables
@@ -207,11 +207,11 @@ C     responsibility of pointing to module data is now inside
 C     the module.
 C
       CHARACTER, INTENT(IN) :: WHAT
-#if defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
+      CHARACTER, DIMENSION(:), POINTER :: id_FDM_ENCODING
+#else
       CHARACTER, DIMENSION(:), POINTER, INTENT(INOUT)
      &                                        :: id_FDM_ENCODING
-#else
-      CHARACTER, DIMENSION(:), POINTER :: id_FDM_ENCODING
 #endif
 C
 C     Local variables
@@ -340,10 +340,10 @@ C     Private subroutines
 C     ===================
       SUBROUTINE MUMPS_FDM_SET_PTR(WHAT, FDM_PTR)
       CHARACTER, INTENT(IN) :: WHAT
-#if defined(MUMPS_F2003)
-      TYPE(FDM_STRUC_T), POINTER, INTENT(OUT) :: FDM_PTR
-#else
+#if defined(MUMPS_NOF2003)
       TYPE(FDM_STRUC_T), POINTER :: FDM_PTR
+#else
+      TYPE(FDM_STRUC_T), POINTER, INTENT(OUT) :: FDM_PTR
 #endif
 C
       IF ( WHAT .EQ. 'A' ) THEN
@@ -470,7 +470,7 @@ C     the file size computation
       elseif(trim(mode).EQ."save") then
          size_written=size_written+SIZE_VARIABLES
      &        +int(SIZE_GEST,kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
          size_written=size_written
      &        +int(2*SIZE_INT*NbRecords,kind=8)
 #endif
@@ -478,7 +478,7 @@ C     the file size computation
          size_allocated=size_allocated+SIZE_VARIABLES
          size_read=size_read+SIZE_VARIABLES
      &        +int(SIZE_GEST,kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
          size_read=size_read
      &        +int(2*SIZE_INT*NbRecords,kind=8)
 #endif
@@ -486,10 +486,12 @@ C     the file size computation
       if(trim(mode).EQ."memory_save") then
          SIZE_VARIABLES=SIZE_VARIABLES+SIZE_VARIABLES_FDM_F
          SIZE_GEST=SIZE_GEST+SIZE_GEST_FDM_F
-#if !defined(MUMPS_F2003)
-C     If the file is not written with access="stream", which is only done in MUMPS_F2003,
-C     the record length's is written at the beginning and at the end of each record
-C     This is done using 2 INTEGERs so we use 2*SIZE_INT more space for each record
+#if defined(MUMPS_NOF2003)
+C        If the file is not written with access="stream"  (stream is
+C        only in case of Fortran 2003), the record's length is written
+C        at the beginning and at the end of each record.
+C        This is done using 2 INTEGERs so we use 2*SIZE_INT more space
+C        for each record
          SIZE_GEST=SIZE_GEST+2*SIZE_INT*NbRecords
 #endif
       endif
@@ -551,7 +553,10 @@ C
       INTEGER,dimension(NBVARIABLES_FDM_STRUC_T)::SIZE_GEST_FDM_STRUC_T
       INTEGER,dimension(NBVARIABLES_FDM_STRUC_T)::NbRecords_FDM_STRUC_T
       INTEGER:: size_array1,dummy,allocok
-      INTEGER:: err,i1,NbSubRecords,Local_NbRecords
+      INTEGER:: err,i1,NbSubRecords
+#if defined(MUMPS_NOF2003)
+      INTEGER:: Local_NbRecords
+#endif
       INTEGER(4) :: I4
       VARIABLES_FDM_STRUC_T(1)="NB_FREE_IDX"
       VARIABLES_FDM_STRUC_T(2)="STACK_FREE_IDX"
@@ -756,7 +761,7 @@ C     the file size computation
          elseif(trim(mode).EQ."save") then
             size_written=size_written+SIZE_VARIABLES_FDM_STRUC_T(i1)
      &           +int(SIZE_GEST_FDM_STRUC_T(i1),kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
             size_written=size_written
      &           +int(2*SIZE_INT*NbRecords_FDM_STRUC_T(i1),kind=8)
 #endif
@@ -765,7 +770,7 @@ C     the file size computation
      &           SIZE_VARIABLES_FDM_STRUC_T(i1)
             size_read=size_read+SIZE_VARIABLES_FDM_STRUC_T(i1)
      &           +int(SIZE_GEST_FDM_STRUC_T(i1),kind=8)
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
             size_read=size_read
      &           +int(2*SIZE_INT*NbRecords_FDM_STRUC_T(i1),kind=8)
 #endif
@@ -774,7 +779,7 @@ C     the file size computation
       if(trim(mode).EQ."memory_save") then
          Local_SIZE_VARIABLES=sum(SIZE_VARIABLES_FDM_STRUC_T)
          Local_SIZE_GEST=sum(SIZE_GEST_FDM_STRUC_T)        
-#if !defined(MUMPS_F2003)
+#if defined(MUMPS_NOF2003)
          Local_NbRecords=sum(NbRecords_FDM_STRUC_T)
          Local_SIZE_GEST=Local_SIZE_GEST+2*SIZE_INT*Local_NbRecords
 #endif

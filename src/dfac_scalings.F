@@ -1,9 +1,9 @@
 C
-C  This file is part of MUMPS 5.5.1, released
-C  on Tue Jul 12 13:17:24 UTC 2022
+C  This file is part of MUMPS 5.6.0, released
+C  on Wed Apr 19 15:50:57 UTC 2023
 C
 C
-C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Copyright 1991-2023 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
 C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
@@ -280,20 +280,15 @@ C
       DOUBLE PRECISION, INTENT(OUT) :: ANORMINF
       LOGICAL, INTENT(IN)  :: LSCAL
       INTEGER, INTENT(IN)  :: EFF_SIZE_SCHUR
-      INTEGER, DIMENSION (:), POINTER :: KEEP,INFO
-      INTEGER(8), DIMENSION (:), POINTER :: KEEP8
       LOGICAL :: I_AM_SLAVE
       DOUBLE PRECISION DUMMY(1)
       DOUBLE PRECISION ZERO
       PARAMETER( ZERO = 0.0D0)
       DOUBLE PRECISION, ALLOCATABLE :: SUMR(:), SUMR_LOC(:)
       INTEGER :: allocok, MTYPE, I
-      INFO =>id%INFO
-      KEEP =>id%KEEP
-      KEEP8 =>id%KEEP8
       I_AM_SLAVE = ( id%MYID .ne. MASTER  .OR.
      &             ( id%MYID .eq. MASTER .AND.
-     &               KEEP(46) .eq. 1 ) )
+     &               id%KEEP(46) .eq. 1 ) )
       IF (id%MYID .EQ. MASTER) THEN
        ALLOCATE( SUMR( id%N ), stat =allocok )
        IF (allocok .GT.0 ) THEN
@@ -302,20 +297,20 @@ C
         RETURN
        ENDIF
       ENDIF
-      IF ( KEEP(54) .eq. 0 ) THEN
+      IF ( id%KEEP(54) .eq. 0 ) THEN
           IF (id%MYID .EQ. MASTER) THEN
-            IF (KEEP(55).EQ.0) THEN
+            IF (id%KEEP(55).EQ.0) THEN
              IF (.NOT.LSCAL) THEN
               CALL DMUMPS_SOL_X(id%A(1),
      &          id%KEEP8(28), id%N,
      &          id%IRN(1), id%JCN(1),
-     &          SUMR, KEEP(1),KEEP8(1),
+     &          SUMR, id%KEEP(1),id%KEEP8(1),
      &          EFF_SIZE_SCHUR, id%SYM_PERM(1) )
              ELSE
               CALL DMUMPS_SCAL_X(id%A(1),
      &          id%KEEP8(28), id%N,
      &          id%IRN(1), id%JCN(1), 
-     &          SUMR, KEEP(1), KEEP8(1),
+     &          SUMR, id%KEEP(1), id%KEEP8(1),
      &          id%COLSCA(1), 
      &          EFF_SIZE_SCHUR, id%SYM_PERM(1) )
              ENDIF
@@ -326,14 +321,14 @@ C
      &           id%NELT, id%ELTPTR(1),
      &           id%LELTVAR, id%ELTVAR(1),
      &           id%KEEP8(30), 
-     &           id%A_ELT(1), SUMR, KEEP(1),KEEP8(1) )
+     &           id%A_ELT(1), SUMR, id%KEEP(1),id%KEEP8(1) )
              ELSE
               CALL DMUMPS_SOL_SCALX_ELT(MTYPE, id%N,
      &           id%NELT, id%ELTPTR(1),
      &           id%LELTVAR, id%ELTVAR(1),
      &           id%KEEP8(30), 
      &           id%A_ELT(1),
-     &           SUMR, KEEP(1),KEEP8(1), id%COLSCA(1))
+     &           SUMR, id%KEEP(1), id%KEEP8(1), id%COLSCA(1))
              ENDIF
             ENDIF
           ENDIF
