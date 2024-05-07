@@ -7,6 +7,10 @@ on:
     branches:
       - mirror
 
+env:
+  GIT_AUTHOR_NAME: "github-actions[bot]"
+  GIT_AUTHOR_EMAIL: "github-actions[bot]@users.noreply.github.com"
+
 jobs:
   update-mirror:
     runs-on: ubuntu-22.04
