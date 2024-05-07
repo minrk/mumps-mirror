@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.0, released
+C  on Thu Apr 18 09:55:07 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -199,9 +199,9 @@ C
       SUBROUTINE DMUMPS_SET_PAR_ORD(id, ord)
       TYPE(DMUMPS_STRUC)  :: id
       TYPE(ORD_TYPE)      :: ord
-      INTEGER  :: IERR, WORKERS
+      INTEGER  :: IERR
 #if defined(parmetis) || defined(parmetis3)
-      INTEGER  :: I, COLOR, BASE
+      INTEGER  :: I, COLOR, BASE, WORKERS
       LOGICAL  :: IDO
 #endif
       IF(id%MYID .EQ. 0) id%KEEP(245) = id%ICNTL(29)
@@ -714,7 +714,7 @@ C
       TYPE(DMUMPS_STRUC) :: id
       INTEGER, ALLOCATABLE :: ALIST(:), AWEIGHTS(:), LIST(:), WORK(:)
       INTEGER  :: NNODES, BIG, CURR, ND, NACTIVE, RPROC, ANODE, BASE, I,
-     &     NK, PEAKMEM
+     &     NK, PEAKMEM, allocok
       LOGICAL  :: SD
       NNODES = ord%NSLAVES
       CALL MUMPS_REALLOC(ord%TOPNODES, 2*max(NNODES,2), id%INFO, LP,
@@ -725,7 +725,13 @@ C
      &     MEMCNT=MEMCNT, ERRCODE=-7)
       IF(MEMCNT .GT. MAXMEM) MAXMEM=MEMCNT
       ALLOCATE(ALIST(NNODES), AWEIGHTS(NNODES), LIST(NNODES),
-     &     WORK(0:NNODES+1))
+     &     WORK(0:NNODES+1), stat=allocok)
+      IF(allocok.GT.0) THEN
+         id%INFO(1)=-13
+         id%INFO(2)=4*NNODES+2
+      ENDIF
+      CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1), id%COMM, id%MYID )
+      IF ( id%INFO(1) .LT. 0 ) GO TO 90
       NACTIVE = 0
       DO I=1, ord%CBLKNBR
          IF (ord%TREETAB(I).EQ.-1) THEN
@@ -836,6 +842,7 @@ C
          ord%LAST(BASE+I) = id%N
       END DO      
       DEALLOCATE(LIST, ALIST, AWEIGHTS, WORK)
+ 90   continue
       RETURN
       END SUBROUTINE DMUMPS_GET_SUBTREES
       SUBROUTINE DMUMPS_PARSYMFACT(id, ord, GPE, GNV, WORK)  
@@ -1290,10 +1297,14 @@ C
 #if defined(parmetis) || defined(parmetis3)
       SUBROUTINE DMUMPS_BUILD_TREETAB(TREETAB, RANGTAB, SIZES, CBLKNBR)
       INTEGER, POINTER  :: TREETAB(:), RANGTAB(:), SIZES(:)
-      INTEGER           :: CBLKNBR
+      INTEGER           :: CBLKNBR,allocok
       INTEGER           :: LCHILD, RCHILD, K, I
       INTEGER, POINTER  :: PERM(:)
-      ALLOCATE(PERM(CBLKNBR))
+      ALLOCATE(PERM(CBLKNBR),stat=allocok)
+      if(allocok.GT.0) then
+         write(*,*) "Allocation error of PERM in DMUMPS_BUILD_TREETAB"
+         return
+      endif
       TREETAB(CBLKNBR) = -1
       IF(CBLKNBR .EQ. 1) THEN
          DEALLOCATE(PERM)
@@ -1364,7 +1375,7 @@ C
       INTEGER, POINTER        :: PCNT(:), TSENDI(:),
      &     TSENDJ(:), RCVBUF(:)
       TYPE(ARRPNT), POINTER   :: APNT(:)
-      INTEGER                 :: BUFSIZE, SOURCE, MAXS
+      INTEGER                 :: BUFSIZE, SOURCE, MAXS, allocok
       INTEGER, PARAMETER      :: ITAG=30
       LOGICAL                 :: FLAG
       DOUBLE PRECISION        :: SYMMETRY
@@ -1391,7 +1402,13 @@ C
       CALL MUMPS_REALLOC(RDISPL, NPROCS, id%INFO, LP,
      &     MEMCNT=MEMCNT, ERRCODE=-7)
       IF(MEMCNT .GT. MAXMEM) MAXMEM=MEMCNT
-      ALLOCATE(APNT(NPROCS))
+      ALLOCATE(APNT(NPROCS), stat=allocok)
+      IF(allocok.GT.0) THEN
+         id%INFO(1)=-13
+         id%INFO(2)=NPROCS
+      ENDIF
+      CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1), id%COMM, id%MYID )
+      IF ( id%INFO(1) .LT. 0 ) GO TO 90
       SNDCNT = 0
       BUFSIZE = 1000
       BUFSIZE = id%KEEP(39)
@@ -1408,7 +1425,13 @@ C
             MAPTAB(J) = I
          END DO
       END DO
-      ALLOCATE(SIPES(max(1,MAXS), NPROCS))
+      ALLOCATE(SIPES(max(1,MAXS), NPROCS), stat=allocok)
+      IF(allocok.GT.0) THEN
+         id%INFO(1)=-13
+         id%INFO(2)=max(1,MAXS)*NPROCS
+      ENDIF
+      CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1), id%COMM, id%MYID )
+      IF ( id%INFO(1) .LT. 0 ) GO TO 90
       OFFDIAG=0
       SIPES=0
       DO INNZ=1, LOCNNZ
@@ -1533,6 +1556,7 @@ C
      &        PE(IPE(I):IPE(I+1)-1))
       END DO
 #endif
+ 90   continue
       RETURN
       END SUBROUTINE DMUMPS_BUILD_DIST_GRAPH
 #endif      
@@ -1561,7 +1585,7 @@ C
       INTEGER, POINTER       :: PCNT(:), TSENDI(:),
      &     TSENDJ(:), RCVBUF(:)
       TYPE(ARRPNT), POINTER  :: APNT(:)
-      INTEGER                :: BUFSIZE, SOURCE, MAXS
+      INTEGER                :: BUFSIZE, SOURCE, MAXS, allocok
       INTEGER(8)             :: PNT, SAVEPNT
       INTEGER, PARAMETER     :: ITAG=30
       INTEGER(KIND=8)        :: TLEN
@@ -1587,7 +1611,13 @@ C
       CALL MUMPS_REALLOC(RDISPL, NPROCS, id%INFO, LP,
      &     MEMCNT=MEMCNT, ERRCODE=-7)
       IF(MEMCNT .GT. MAXMEM) MAXMEM=MEMCNT
-      ALLOCATE(APNT(NPROCS))
+      ALLOCATE(APNT(NPROCS), stat=allocok)
+      IF(allocok.GT.0) THEN
+         id%INFO(1)=-13
+         id%INFO(2)=NPROCS
+      ENDIF
+      CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1), id%COMM, id%MYID )
+      IF ( id%INFO(1) .LT. 0 ) GO TO 90
       SNDCNT = 0
       TOP_CNT = 0
       BUFSIZE = 10000
@@ -1603,7 +1633,13 @@ C
             MAPTAB(ord%PERITAB(J)) = I
          END DO
       END DO
-      ALLOCATE(SIPES(max(1,MAXS), NPROCS))
+      ALLOCATE(SIPES(max(1,MAXS), NPROCS), stat=allocok)
+      IF(allocok.GT.0) THEN
+         id%INFO(1)=-13
+         id%INFO(2)=max(1,MAXS)*NPROCS
+      ENDIF
+      CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1), id%COMM, id%MYID )
+      IF ( id%INFO(1) .LT. 0 ) GO TO 90
       SIPES(:,:)  = 0
       TOP_CNT     = 0
       DO INNZ=1, LOCNNZ
@@ -1800,8 +1836,17 @@ C
          CALL MUMPS_IREALLOC8(top_graph%JCN_LOC, max(1_8,NEW_LOCNNZ), 
      &        id%INFO, LP, MEMCNT=MEMCNT, ERRCODE=-7)
          IF(MEMCNT .GT. MAXMEM) MAXMEM=MEMCNT
+         CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1), id%COMM, id%MYID)
+         IF ( id%INFO(1) .LT. 0 ) GO TO 90
       ELSE
-         ALLOCATE(top_graph%IRN_LOC(1), top_graph%JCN_LOC(1))
+         ALLOCATE(top_graph%IRN_LOC(1), top_graph%JCN_LOC(1),
+     &        stat=allocok)
+         IF(allocok.GT.0) THEN
+            id%INFO(1)=-13
+            id%INFO(2)=2
+         ENDIF
+         CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1), id%COMM, id%MYID)
+         IF ( id%INFO(1) .LT. 0 ) GO TO 90
       END IF
       IF(MYID.EQ.0) THEN
          top_graph%IRN_LOC(1:TOP_CNT) = TSENDI(1:TOP_CNT)
@@ -1831,12 +1876,13 @@ C
      &     TSENDJ, MEMCNT=MEMCNT)
       CALL MUMPS_I8DEALLOC(MSGCNT, SNDCNT, RCVCNT, MEMCNT=MEMCNT)
       DEALLOCATE(APNT)
+ 90   continue
       RETURN
       END SUBROUTINE DMUMPS_BUILD_LOC_GRAPH
       SUBROUTINE DMUMPS_SEND_BUF(APNT, PROC, NPROCS, BUFSIZE, IPE, PE,
      &     LENG, RCVBUF, MSGCNT, SNDCNT, COMM)
       IMPLICIT NONE
-      INTEGER                 :: NPROCS, PROC, COMM
+      INTEGER                 :: NPROCS, PROC, COMM, allocok
       TYPE(ARRPNT)            :: APNT(:)
       INTEGER                 :: BUFSIZE
       INTEGER, POINTER        :: RCVBUF(:), LENG(:), PE(:)
@@ -1856,10 +1902,27 @@ C
       CALL MPI_COMM_RANK (COMM, MYID, IERR)
       CALL MPI_COMM_SIZE (COMM, NPROCS, IERR)
       IF(INIT) THEN
-         ALLOCATE(SPACE(2*BUFSIZE, 2, NPROCS))
-         ALLOCATE(RCVBUF(2*BUFSIZE))
-         ALLOCATE(PENDING(NPROCS), CPNT(NPROCS))
-         ALLOCATE(REQ(NPROCS))
+         ALLOCATE(SPACE(2*BUFSIZE, 2, NPROCS), stat=allocok)
+         IF(allocok.GT.0) THEN
+            write(*,*) "Allocation error of SPACE in DMUMPS_SEND_BUF"
+            return
+         ENDIF
+         ALLOCATE(RCVBUF(2*BUFSIZE), stat=allocok)
+         IF(allocok.GT.0) THEN
+            write(*,*) "Allocation error of RCVBUF in DMUMPS_SEND_BUF"
+            return
+         ENDIF
+         ALLOCATE(PENDING(NPROCS), CPNT(NPROCS), stat=allocok)
+         IF(allocok.GT.0) THEN
+            write(*,*) "Allocation error of PENDING/CPNT"
+     &           ," in DMUMPS_SEND_BUF"
+            return
+         ENDIF
+         ALLOCATE(REQ(NPROCS), stat=allocok)
+         IF(allocok.GT.0) THEN
+            write(*,*) "Allocation error of REQ in DMUMPS_SEND_BUF"
+            return
+         ENDIF
          PENDING = .FALSE.
          DO I=1, NPROCS
             APNT(I)%BUF => SPACE(:,1,I)
@@ -1884,7 +1947,11 @@ C
                CALL MPI_WAIT(REQ(I), TSTATUS, IERR)
             END IF
          END DO
-         ALLOCATE(RCVCNT(NPROCS))
+         ALLOCATE(RCVCNT(NPROCS), stat=allocok)
+         IF(allocok.GT.0) THEN
+            write(*,*) "Allocation error of RCVCNT in DMUMPS_SEND_BUF"
+            return
+         ENDIF
          CALL MPI_ALLTOALL(SNDCNT(1), 1, MPI_INTEGER, RCVCNT(1), 1,
      &        MPI_INTEGER, COMM, IERR)
          DO I=1, NPROCS
@@ -2055,6 +2122,7 @@ C
             LAST(BASE+J)  = id%N
          END DO
       END IF         
+      RETURN
       END SUBROUTINE DMUMPS_GRAPH_DIST
 #endif     
       SUBROUTINE DMUMPS_MERGESWAP(N, L, A1, A2)

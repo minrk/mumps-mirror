@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.0, released
+C  on Thu Apr 18 09:55:07 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -18,10 +18,11 @@ C
      &    RHS_MUMPS,
      &    FILS, PTRARW, PTRAIW, INTARR, DBLARR, 
      &    ICNTL, KEEP, KEEP8, MYID)
+      USE SMUMPS_DYNAMIC_MEMORY_M, ONLY : SMUMPS_DM_SET_DYNPTR
       IMPLICIT NONE
       INTEGER NELT, N,LIW
       INTEGER(8) :: LA
-      INTEGER KEEP(500), ICNTL(40)
+      INTEGER KEEP(500), ICNTL(60)
       INTEGER(8) KEEP8(150)
       INTEGER INODE, MYID
       INTEGER NBROWS, NBCOLS 
@@ -37,13 +38,17 @@ C
       REAL :: DBLARR(KEEP8(26))
       DOUBLE PRECISION OPASSW, OPELIW
       INTEGER(8) :: POSELT
+      REAL, DIMENSION(:), POINTER :: A_PTR
+      INTEGER(8) :: LA_PTR
       INTEGER IOLDPS, NBCOLF, NBROWF, NSLAVES, HF,
      &        K1,K2,K,J,JPOS,NASS
       REAL ZERO
       PARAMETER( ZERO = 0.0E0 )
       INCLUDE 'mumps_headers.h'
       IOLDPS  = PTRIST(STEP(INODE))
-      POSELT  = PTRAST(STEP(INODE))
+      CALL SMUMPS_DM_SET_DYNPTR( IW(IOLDPS+XXS), A, LA,
+     &     PTRAST(STEP(INODE)), IW(IOLDPS+XXD), IW(IOLDPS+XXR),
+     &     A_PTR, POSELT, LA_PTR )
       NBCOLF  = IW(IOLDPS+KEEP(IXSZ))
       NBROWF  = IW(IOLDPS+2+KEEP(IXSZ))
       NASS    = IW(IOLDPS+1+KEEP(IXSZ))
@@ -53,7 +58,7 @@ C
           NASS         = -NASS
           IW(IOLDPS+1+KEEP(IXSZ)) = NASS
           CALL SMUMPS_ASM_SLAVE_ELEMENTS( INODE, N, NELT, IW, LIW,
-     &    IOLDPS, A, LA, POSELT, KEEP, KEEP8, ITLOC, FILS,
+     &    IOLDPS, A_PTR(POSELT), LA_PTR, 1_8, KEEP, KEEP8, ITLOC, FILS,
      &    PTRAIW, PTRARW,
      &    INTARR, DBLARR, KEEP8(27), KEEP8(26), FRT_PTR, FRT_ELT,
      &    RHS_MUMPS)
@@ -73,6 +78,7 @@ C
       SUBROUTINE SMUMPS_ASM_SLAVE_ELEMENTS( INODE, N, NELT, IW, LIW,
      &IOLDPS, A, LA, POSELT, KEEP, KEEP8, ITLOC, FILS, PTRAIW, PTRARW,
      &INTARR, DBLARR, LINTARR, LDBLARR, FRT_PTR, FRT_ELT, RHS_MUMPS)
+!$    USE OMP_LIB
       IMPLICIT NONE
       INTEGER, intent(in)    :: N, NELT, LIW, IOLDPS, INODE
       INTEGER(8), intent(in) :: LA, POSELT, LINTARR, LDBLARR
@@ -87,6 +93,9 @@ C
       INTEGER, intent(in)    :: FRT_PTR(N+1), FRT_ELT(NELT)
       INTEGER, intent(in)    :: FILS(N)
       INTEGER(8), intent(in) :: PTRAIW(NELT+1), PTRARW(NELT+1)
+!$    INTEGER :: NOMP
+!$    INTEGER(8) :: CHUNK8  
+!$    INTEGER    :: CHUNK
       INCLUDE 'mumps_headers.h'
       INTEGER    :: HF, NBROWF, NBCOLF, NASS, NSLAVES
       INTEGER    :: ILOC, IELL, ELTI, ELBEG, NUMELT
@@ -104,7 +113,27 @@ C
       NBCOLF  = IW(IOLDPS+KEEP(IXSZ))
       NBROWF  = IW(IOLDPS+2+KEEP(IXSZ))
       NASS    = IW(IOLDPS+1+KEEP(IXSZ))
-      A(POSELT:POSELT+int(NBROWF,8)*int(NBCOLF,8)-1_8) = ZERO
+!$    NOMP = OMP_GET_MAX_THREADS()
+      IF (KEEP(50) .EQ. 0 .OR. NBROWF .LT. KEEP(63)) THEN
+!$      CHUNK8 = int(KEEP(361),8)
+!$OMP   PARALLEL DO PRIVATE(JJ8) SCHEDULE(STATIC, CHUNK8)
+!$OMP&  IF (int(NBROWF,8)*int(NBCOLF,8) > int(KEEP(361),8)
+!$OMP&    .AND. NOMP .GT. 1)
+        DO JJ8=POSELT, POSELT+int(NBROWF,8)*int(NBCOLF,8)-1_8
+          A(JJ8) = ZERO
+        ENDDO
+!$OMP   END PARALLEL DO
+      ELSE
+!$      CHUNK = max( KEEP(360)/2,
+!$   &               ((NBROWF+NOMP-1)/NOMP +2) / 3 )
+!$OMP   PARALLEL DO PRIVATE(APOS,JJ8) SCHEDULE(STATIC,CHUNK)
+!$OMP&  IF (NBROWF .GT. KEEP(360) .AND. NOMP .GT. 1)
+        DO JJ8 = 0_8, int(NBROWF-1,8)
+          APOS = POSELT+ JJ8*int(NBCOLF,8)
+          A(APOS: APOS+JJ8+int(NBCOLF-NBROWF,8)) = ZERO
+        ENDDO
+!$OMP   END PARALLEL DO
+      ENDIF
       NSLAVES= IW(IOLDPS+5 + KEEP(IXSZ))
       HF      = 6 + NSLAVES + KEEP(IXSZ)
           K1 = IOLDPS + HF + NBROWF

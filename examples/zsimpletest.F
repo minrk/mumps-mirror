@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.0, released
+C  on Thu Apr 18 09:55:07 UTC 2019
 C
       PROGRAM MUMPS_TEST
       IMPLICIT NONE

@@ -1,10 +1,10 @@
 C
-C  This file is part of MUMPS 5.1.2, released
-C  on Mon Oct  2 07:37:01 UTC 2017
+C  This file is part of MUMPS 5.2.0, released
+C  on Thu Apr 18 09:55:07 UTC 2019
 C
 C
-C  Copyright 1991-2017 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
-C  University of Bordeaux.
+C  Copyright 1991-2019 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+C  Mumps Technologies, University of Bordeaux.
 C
 C  This version of MUMPS is provided to you free of charge. It is
 C  released under the CeCILL-C license:
@@ -66,7 +66,6 @@ C
         IF (JOB.NE.2) THEN
           SchurON   = (SIZE_COMPLEM_LIST > 0)
           IF ((JOB.EQ.1) .AND. (.NOT.SchurON) .AND. (N .GT. 0)) THEN
-           WRITE(6,*) ' WARNING MUMPS_SYMQAMD_NEW on Options '
           ENDIF
           IBEGSchur = N-SIZE_COMPLEM_LIST+1
           IF (THRESM.GT.N) THRESM = N
@@ -292,10 +291,10 @@ C
             GOTO 30
           ENDIF
           IF (DEGREE(ME).EQ.N+1) THEN
-           IF (NBD.NE.NBED) THEN
+             IF (NBD.NE.NBED) THEN
           write(6,*) ' ERROR in MUMPS_SYMQAMD_NEW ',
      &                ' quasi dense rows remains'
-            CALL MUMPS_ABORT()
+          CALL MUMPS_ABORT()
            ENDIF
            IF (JOB.EQ.1) THEN
             DO I = 1,SIZE_COMPLEM_LIST
