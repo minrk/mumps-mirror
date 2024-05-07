@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -21,6 +21,14 @@ C
 #endif
 #if defined(GEMMT_AVAILABLE)
       write(MPG, *) "MUMPS compiled with option -DGEMMT_AVAILABLE"
+#endif
+#if defined(WORKAROUNDINTELILP64MPI2INTEGER)
+      write(MPG,*) "MUMPS compiled with option"
+     &     ," -DWORKAROUNDINTELILP64MPI2INTEGER"
+#endif
+#if defined(WORKAROUNDILP64MPICUSTOMREDUCE)
+      write(MPG,*) "MUMPS compiled with option"
+     &     ," -DWORKAROUNDILP64MPICUSTOMREDUCE"
 #endif
 #if defined(DETERMINISTIC_PARALLEL_GRAPH)
       write(MPG,*) "MUMPS compiled with option"

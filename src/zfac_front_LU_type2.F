@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -140,7 +140,6 @@ C
       INTEGER :: OMP_NUM
       INTEGER(8) :: UPOS, LPOS
       INTEGER :: MY_NUM
-      INTEGER :: NOMP
       INCLUDE 'mumps_headers.h'
       NULLIFY(BLR_L,BLR_U) 
       NULLIFY(PTDummy)
@@ -155,8 +154,6 @@ C
       ELSE 
         Inextpiv = 0   
       ENDIF
-      NOMP=1
-!$    NOMP=OMP_GET_MAX_THREADS()
       idummy  = 0
       IOLDPS = PTLUST_S(STEP( INODE ))
       POSELT = PTRAST(STEP( INODE ))
@@ -198,7 +195,7 @@ C
      &   ) THEN
          NSLAVES = IW(IOLDPS+5+XSIZE)
          IROW_L = IOLDPS+6+XSIZE+NSLAVES+NASS
-         CALL ZMUMPS_COMPUTE_SIZE_SCHUR_IN_FRONT ( 
+         CALL ZMUMPS_GET_SIZE_SCHUR_IN_FRONT ( 
      &     N, 
      &     NFRONT-NASS-KEEP(253), 
      &     KEEP(116), 
@@ -1019,10 +1016,12 @@ C
            DO IP=1,NPARTSASS
              CALL ZMUMPS_BLR_RETRIEVE_PANEL_LORU(
      &               IW(IOLDPS+XXF), 0, IP, BLR_PANEL)
-             CALL UPD_MRY_LU_LRGAIN(BLR_PANEL, NPARTSASS-IP)
+             CALL UPD_MRY_LU_LRGAIN(BLR_PANEL, NPARTSASS-IP
+     &               )
              CALL ZMUMPS_BLR_RETRIEVE_PANEL_LORU(
      &               IW(IOLDPS+XXF), 1, IP, BLR_PANEL)
-             CALL UPD_MRY_LU_LRGAIN(BLR_PANEL, NB_BLR-IP)
+             CALL UPD_MRY_LU_LRGAIN(BLR_PANEL, NB_BLR-IP
+     &               )
            ENDDO
            CALL UPD_FLOP_FACTO_FR(NFRONT, NASS, NASS-NELIM, 0, 2)
           ENDIF

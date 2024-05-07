@@ -2,6 +2,19 @@
 = ChangeLog =
 -------------
 
+Changes from 5.5.0 to 5.5.1
+* 64-bit default integer version: avoid MPI buffer size > 2^31
+  (could lead to negative counts in MPI_Recv with Intel ilp64 MPI)
+* Use ICNTL(3) unit instead of '*' to print parallel ordering time
+* Output symbolic factorization choice (ICNTL(58)) on ICNTL(3) unit
+* SCOTCH 7.x on Windows: use _putenv instead of setenv
+  (unsymmetric case, #MPI >1)
+* Fixed parallel analysis in case of 64-bit integers in parmetis and -i8 MUMPS
+* Limit recursivity depth in mumps_static_mapping.F (limit stack
+  usage on trees with small nodes at the top and large nodes below)
+* Limit subroutine names to 32 characters
+* -DWORKAROUNDILP64MPICUSTOMREDUCE introduced (platformMPI and 64-bit default integer)
+
 Changes from 5.4.1 to 5.5.0
 * New feature: analysis by blocks with compressed graph (ICNTL(15))
 * New feature: symbolic factorization using column counts (ICNTL(58))
@@ -709,6 +722,8 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.5.1            : July 2022
+Release 5.5.0            : April 2022
 Release 5.4.1            : August 2021
 Release 5.4.0            : April 2021
 Release 5.3.5            : October 2020

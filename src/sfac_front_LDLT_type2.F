@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -923,7 +923,8 @@ C
            DO IP=1,NPARTSASS
              CALL SMUMPS_BLR_RETRIEVE_PANEL_LORU(
      &               IW(IOLDPS+XXF), 0, IP, BLR_PANEL)
-             CALL UPD_MRY_LU_LRGAIN(BLR_PANEL, NPARTSASS-IP)
+             CALL UPD_MRY_LU_LRGAIN(BLR_PANEL, NPARTSASS-IP
+     &            )
            ENDDO
            CALL UPD_FLOP_FACTO_FR(NFRONT, NASS, NASS-NELIM, 2, 2)
          ENDIF 

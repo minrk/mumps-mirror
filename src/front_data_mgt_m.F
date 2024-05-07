@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -420,6 +420,7 @@ C
       INTEGER:: NbRecords,NbSubRecords
       INTEGER:: SIZE_GEST_FDM_F
       INTEGER(8):: SIZE_VARIABLES_FDM_F
+      INTEGER(4) :: I4
       NbRecords=0
       SIZE_GEST_FDM_F=0
       SIZE_VARIABLES_FDM_F=0_8
@@ -462,7 +463,7 @@ C
 C     If the size to write (SIZE_VARIABLES) is greater than 2^31
 C     Subrecords are created which need to be taken into account in
 C     the file size computation
-         NbSubRecords=int(SIZE_VARIABLES/huge(0))
+         NbSubRecords=int(SIZE_VARIABLES/huge(I4))
          IF(NbSubRecords.GT.0) then
             NbRecords=NbRecords+NbSubRecords
          ENDIF
@@ -551,6 +552,7 @@ C
       INTEGER,dimension(NBVARIABLES_FDM_STRUC_T)::NbRecords_FDM_STRUC_T
       INTEGER:: size_array1,dummy,allocok
       INTEGER:: err,i1,NbSubRecords,Local_NbRecords
+      INTEGER(4) :: I4
       VARIABLES_FDM_STRUC_T(1)="NB_FREE_IDX"
       VARIABLES_FDM_STRUC_T(2)="STACK_FREE_IDX"
       VARIABLES_FDM_STRUC_T(3)="COUNT_ACCESS"
@@ -746,7 +748,7 @@ C
 C     If the size to write (SIZE_VARIABLES_FDM_STRUC_T(i1)) is greater than 2^31
 C     Subrecords are created which need to be taken into account in
 C     the file size computation
-            NbSubRecords=int(SIZE_VARIABLES_FDM_STRUC_T(i1)/huge(0))
+            NbSubRecords=int(SIZE_VARIABLES_FDM_STRUC_T(i1)/huge(I4))
             IF(NbSubRecords.GT.0) then
                NbRecords_FDM_STRUC_T(i1)=NbRecords_FDM_STRUC_T(i1)
      &              +NbSubRecords

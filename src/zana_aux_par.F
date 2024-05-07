@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -105,7 +105,8 @@ C
       CALL ZMUMPS_DO_PAR_ORD(id, ord, WORK2)
       IF (PROKG) THEN
        CALL MUMPS_SECFIN( TIMEB )
-       WRITE(*,'(" ELAPSED time in parallel ordering       =",F12.4)') 
+       WRITE(MPG,
+     &   '(" ELAPSED time in parallel ordering       =",F12.4)')
      &   TIMEB
       ENDIF
       CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1),
@@ -2376,10 +2377,12 @@ C
       CALL MUMPS_PROPINFO( id%ICNTL(1), id%INFO(1),
      &     COMM, id%MYID )
       IF ( id%INFO(1) .LT. 0 ) GOTO 10
-      CALL MUMPS_ICOPY_64TO32(ORDER_I8(1),
-     &     size(ORDER), ORDER(1))
-      CALL MUMPS_ICOPY_64TO32(SIZES_I8(1),
-     &     size(SIZES), SIZES(1))
+      IF ( id%KEEP(10) .NE. 1 ) THEN
+        CALL MUMPS_ICOPY_64TO32(ORDER_I8(1),
+     &       size(ORDER), ORDER(1))
+        CALL MUMPS_ICOPY_64TO32(SIZES_I8(1),
+     &       size(SIZES), SIZES(1))
+      ENDIF
  10   CONTINUE 
       CALL MUMPS_I8DEALLOC(FIRST_I8, MEMCNT=MEMCNT)
       CALL MUMPS_I8DEALLOC(SIZES_I8, MEMCNT=MEMCNT)

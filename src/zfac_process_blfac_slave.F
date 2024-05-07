@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -36,8 +36,7 @@ C
       USE ZMUMPS_LR_DATA_M
       USE ZMUMPS_STRUC_DEF, ONLY : ZMUMPS_ROOT_STRUC
       USE ZMUMPS_DYNAMIC_MEMORY_M, ONLY : ZMUMPS_DM_SET_DYNPTR
-      USE ZMUMPS_FAC_FRONT_AUX_M, 
-     &                ONLY : ZMUMPS_COMPUTE_SIZE_SCHUR_IN_FRONT
+      USE ZMUMPS_FAC_FRONT_AUX_M, ONLY : ZMUMPS_GET_SIZE_SCHUR_IN_FRONT
 #if defined(BLR_MT)
 !$    USE OMP_LIB
 #endif
@@ -464,7 +463,7 @@ C
                  NSLAVES_L = IW(PTRIST(STEP(INODE)) + 5 + KEEP(IXSZ))
                  IROW_L    = PTRIST(STEP(INODE)) + 6 + NSLAVES_L + 
      &                       KEEP(IXSZ)
-                 CALL ZMUMPS_COMPUTE_SIZE_SCHUR_IN_FRONT ( 
+                 CALL ZMUMPS_GET_SIZE_SCHUR_IN_FRONT ( 
      &                N, 
      &                NROW1,
      &                KEEP(116), 

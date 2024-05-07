@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -839,14 +839,14 @@ C
       OUT=int(DOUT,kind=8)
       RETURN
       END SUBROUTINE MUMPS_ALLREDUCEI8
-      SUBROUTINE MUMPS_SETI8TOI4(I8, I4)
+      SUBROUTINE MUMPS_SETI8TOI4(I8, I)
       IMPLICIT NONE
-      INTEGER   , INTENT(OUT) :: I4
+      INTEGER   , INTENT(OUT) :: I
       INTEGER(8), INTENT(IN)  :: I8
-      IF ( I8 .GT. int(huge(I4),8) ) THEN
-        I4 = -int(I8/1000000_8,kind(I4))
+      IF ( I8 .GT. int(huge(I),8) ) THEN
+        I = -int(I8/1000000_8,kind(I))
       ELSE
-        I4 = int(I8,kind(I4))
+        I = int(I8,kind(I))
       ENDIF
       RETURN
       END SUBROUTINE MUMPS_SETI8TOI4
@@ -854,8 +854,8 @@ C
       IMPLICIT NONE
       INTEGER(8), INTENT(IN) :: I8
       CHARACTER(*), INTENT(IN) :: STRING
-      INTEGER I4
-      IF ( I8 .GT. int(huge(I4),8)) THEN
+      INTEGER I
+      IF ( I8 .GT. int(huge(I),8)) THEN
         WRITE(*,*) STRING
         CALL MUMPS_ABORT()
       ENDIF

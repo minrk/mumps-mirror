@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -959,7 +959,7 @@ C
   260 CONTINUE
       IF (PARPIV_T1.NE.0.AND.(.NOT.SON_LEVEL2)) THEN
         IOLDPS = PTLUST(STEP(INODE))
-        CALL DMUMPS_PARPIVT1_SET_NVSCHUR_and_MAX (
+        CALL DMUMPS_PARPIVT1_SET_NVSCHUR_MAX (
      &     N, INODE, IW, LIW, A, LA, KEEP, PERM,
      &     IOLDPS, POSELT, 
      &     NFRONT, NASS1, LR_ACTIVATED, PARPIV_T1, NASS)

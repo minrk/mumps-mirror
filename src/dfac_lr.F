@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -1421,7 +1421,8 @@ C
      &        BEGS_BLR, BEGS_BLR_U, NB_ROWS, NB_INCB, NB_INASM, NASS,
      &        IWHANDLER, NIV, LBANDSLAVE, IFLAG, IERROR,
      &        MIDBLK_COMPRESS, TOLEPS, TOL_OPT, KPERCENT_RMB,
-     &        ACC_LUA, K480, K479, K478, KPERCENT_LUA, KPERCENT,
+     &        ACC_LUA, K480, K479, K478, KPERCENT_LUA,
+     &        KPERCENT,
      &        MAXI_CLUSTER, MAXI_RANK,
      &        K474, FSorCB, BLR_U_COL, COMPRESS_CB, CB_LRB, KEEP8)
 !$    USE OMP_LIB

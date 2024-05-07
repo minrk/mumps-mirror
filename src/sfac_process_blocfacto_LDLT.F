@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -40,8 +40,7 @@ C
       USE SMUMPS_LR_DATA_M
       USE SMUMPS_STRUC_DEF, ONLY : SMUMPS_ROOT_STRUC
       USE SMUMPS_DYNAMIC_MEMORY_M, ONLY : SMUMPS_DM_SET_DYNPTR
-      USE SMUMPS_FAC_FRONT_AUX_M, 
-     &                ONLY : SMUMPS_COMPUTE_SIZE_SCHUR_IN_FRONT
+      USE SMUMPS_FAC_FRONT_AUX_M, ONLY : SMUMPS_GET_SIZE_SCHUR_IN_FRONT
 !$    USE OMP_LIB
       IMPLICIT NONE
       INCLUDE 'mumps_headers.h'
@@ -800,7 +799,8 @@ C
 !$OMP END PARALLEL
 #endif          
           IF (IFLAG.LT.0) GOTO 700
-          CALL UPD_MRY_LU_LRGAIN(BLR_LS, NPARTSCB)
+          CALL UPD_MRY_LU_LRGAIN(BLR_LS, NPARTSCB
+     &               )
           CALL DEALLOC_BLR_PANEL(BLR_LM, NB_BLR_LM, KEEP8, KEEP(34))
           DEALLOCATE(BLR_LM)
           IF (NSLAVES_PREC.GT.0
@@ -1114,7 +1114,7 @@ C
                   NSLAVES_L = IW(PTRIST(STEP(INODE)) + 5 + KEEP(IXSZ))
                   IROW_L    = PTRIST(STEP(INODE)) + 6 + NSLAVES_L + 
      &                        KEEP(IXSZ)
-                  CALL SMUMPS_COMPUTE_SIZE_SCHUR_IN_FRONT ( 
+                  CALL SMUMPS_GET_SIZE_SCHUR_IN_FRONT ( 
      &                 N, 
      &                 NROW1,
      &                 KEEP(116), 
@@ -1124,7 +1124,7 @@ C
                   NSLAVES_L = IW(PTRIST(STEP(INODE)) + 5 + KEEP(IXSZ))
                   IROW_L    = PTRIST(STEP(INODE)) + 6 + NSLAVES_L + 
      &                        KEEP(IXSZ)
-                  CALL SMUMPS_COMPUTE_SIZE_SCHUR_IN_FRONT ( 
+                  CALL SMUMPS_GET_SIZE_SCHUR_IN_FRONT ( 
      &                 N, 
      &                 NROW1,
      &                 0,  

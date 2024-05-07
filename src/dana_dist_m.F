@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -145,6 +145,7 @@ C
       PARAMETER (FLAG_L0OMP=-2014)
       INCLUDE 'mumps_headers.h'
       INTEGER WHAT
+      INTEGER(4) :: I4
       INTEGER(8) IDUMMY8
       INTRINSIC min, int, real
       INTEGER DMUMPS_OOC_GET_PANEL_SIZE
@@ -187,11 +188,11 @@ C
       IF (KEEP(198).NE.0.AND.SLAVEF.GT.1) THEN
          IF ( KEEP(50).EQ.0 ) THEN
            NBouter_MIN = ceiling
-     &    (
+     &     (
      &       (dble(KEEP(59))*dble(KEEP(108))*dble(KEEP(35)))
      &       /
-     &       (dble(huge(KEEP(108))-10000000)) 
-     &    )
+     &       (dble(huge(I4)-10000000)) 
+     &     )
          ELSE
            NBouter_MIN = ceiling
      &    (
@@ -200,7 +201,7 @@ C
      &             )
      &        *dble(KEEP(35)))
      &       /
-     &       (dble(huge(KEEP(108))-10000000)) 
+     &       (dble(huge(I4)-10000000)) 
      &    )
          ENDIF
            NBouter_MIN = max (NBouter_MIN, 4)

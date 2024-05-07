@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -763,7 +763,7 @@ C
       IF ( IW(PTRIST(STEP(INODE))+XXLR) .LT. 2 .OR.
      &         KEEP(485).EQ.0) THEN
         IF (KEEP(201) .GT. 0 .AND. OOCWRITE_COMPATIBLE_WITH_BLR) THEN
-        CALL SMUMPS_SOLVE_LD_AND_RELOAD(
+        CALL SMUMPS_SOL_LD_AND_RELOAD(
      &    INODE, N, NPIV, LIELL, NELIM, NSLAVES,
      &    PPIV_COURANT, 
      &    IW, IPOS, LIW, 
@@ -775,7 +775,7 @@ C
      &    .FALSE.
      &    )
         ELSE
-        CALL SMUMPS_SOLVE_LD_AND_RELOAD_PANEL (
+        CALL SMUMPS_SOL_LD_AND_RELOAD_PANEL (
      &    INODE, N, NPIV, LIELL, NELIM, NSLAVES,
      &    PPIV_COURANT, 
      &    IW, IPOS, LIW, 

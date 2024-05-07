@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -1084,6 +1084,7 @@ C
       INTEGER:: j1,NbRecords,NbSubRecords,size_array1,dummy,allocok,err
       INTEGER:: SIZE_GEST_BLR_ARRAY,SIZE_GEST_BLR_ARRAY_j1
       INTEGER(8):: SIZE_VARIABLES_BLR_ARRAY,SIZE_VARIABLES_BLR_ARRAY_j1
+      INTEGER(4) :: I4
       NbRecords=0
       SIZE_GEST_BLR_ARRAY=0
       SIZE_GEST_BLR_ARRAY_j1=0
@@ -1211,7 +1212,7 @@ C
          endif
       endif
       if(trim(mode).EQ."memory_save") then
-         NbSubRecords=int(SIZE_VARIABLES/huge(0))
+         NbSubRecords=int(SIZE_VARIABLES/huge(I4))
          IF(NbSubRecords.GT.0) then
             NbRecords=NbRecords+NbSubRecords
          ENDIF
@@ -1279,6 +1280,7 @@ C
       INTEGER::SIZE_GEST_DIAG_BLOCKS,SIZE_GEST_DIAG_BLOCKS_j1
       INTEGER(8)::SIZE_VARIABLES_DIAG_BLOCKS
       INTEGER(8)::SIZE_VARIABLES_DIAG_BLOCKS_j1
+      INTEGER(4)::I4
       VARIABLES_BLR_STRUC_T(1)="IsSYM"
       VARIABLES_BLR_STRUC_T(2)="IsT2"
       VARIABLES_BLR_STRUC_T(3)="IsSLAVE"
@@ -2249,7 +2251,7 @@ C
          CASE DEFAULT
          END SELECT
          if(trim(mode).EQ."memory_save") then
-            NbSubRecords=int(SIZE_VARIABLES_BLR_STRUC_T(i1)/huge(0))
+            NbSubRecords=int(SIZE_VARIABLES_BLR_STRUC_T(i1)/huge(I4))
             IF(NbSubRecords.GT.0) then
                NbRecords_BLR_STRUC_T(i1)=NbRecords_BLR_STRUC_T(i1)
      &              +NbSubRecords
@@ -2321,6 +2323,7 @@ C
      &     NbRecords_LRB_TYPE
       INTEGER:: size_array1,size_array2,dummy,allocok
       INTEGER:: err,i1,NbSubRecords,Local_NbRecords
+      INTEGER(4) ::I4
       VARIABLES_LRB_TYPE(1)="Q"
       VARIABLES_LRB_TYPE(2)="R"
       VARIABLES_LRB_TYPE(3)="K"
@@ -2586,7 +2589,7 @@ C
          CASE DEFAULT
          END SELECT
          if(trim(mode).EQ."memory_save") then
-            NbSubRecords=int(SIZE_VARIABLES_LRB_TYPE(i1)/huge(0))
+            NbSubRecords=int(SIZE_VARIABLES_LRB_TYPE(i1)/huge(I4))
             IF(NbSubRecords.GT.0) then
                NbRecords_LRB_TYPE(i1)=
      &              NbRecords_LRB_TYPE(i1)
@@ -2653,6 +2656,7 @@ C
       INTEGER:: err,i1,j1,NbSubRecords,Local_NbRecords
       INTEGER:: SIZE_GEST_LRB_PANEL_j1,SIZE_GEST_LRB_PANEL
       INTEGER(8)::SIZE_VARIABLES_LRB_PANEL_j1,SIZE_VARIABLES_LRB_PANEL
+      INTEGER(4)::I4
       VARIABLES_BLR_PANEL_TYPE(1)="NB_ACCESSES_LEFT"
       VARIABLES_BLR_PANEL_TYPE(2)="LRB_PANEL"
       SIZE_VARIABLES_BLR_PANEL_TYPE(:)=0_8
@@ -2809,7 +2813,7 @@ C
          CASE DEFAULT
          END SELECT
          if(trim(mode).EQ."memory_save") then
-            NbSubRecords=int(SIZE_VARIABLES_BLR_PANEL_TYPE(i1)/huge(0))
+            NbSubRecords=int(SIZE_VARIABLES_BLR_PANEL_TYPE(i1)/huge(I4))
             IF(NbSubRecords.GT.0) then
                NbRecords_BLR_PANEL_TYPE(i1)=
      &              NbRecords_BLR_PANEL_TYPE(i1)
@@ -2876,6 +2880,7 @@ C
      &     NbRecords_DIAG_BLOCK_TYPE
       INTEGER:: size_array1,dummy,allocok
       INTEGER:: err,i1,NbSubRecords,Local_NbRecords
+      INTEGER(4) :: I4
       VARIABLES_DIAG_BLOCK_TYPE(1)="DIAG_BLOCK"
       SIZE_VARIABLES_DIAG_BLOCK_TYPE(:)=0_8
       SIZE_GEST_DIAG_BLOCK_TYPE(:)=0
@@ -2965,7 +2970,8 @@ C
          CASE DEFAULT
          END SELECT
          if(trim(mode).EQ."memory_save") then
-            NbSubRecords=int(SIZE_VARIABLES_DIAG_BLOCK_TYPE(i1)/huge(0))
+            NbSubRecords=int(SIZE_VARIABLES_DIAG_BLOCK_TYPE(i1)/
+     &      huge(I4))
             IF(NbSubRecords.GT.0) then
                NbRecords_DIAG_BLOCK_TYPE(i1)=
      &              NbRecords_DIAG_BLOCK_TYPE(i1)

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -86,6 +86,7 @@ C
       INCLUDE 'mumps_headers.h'
       INTEGER(8) :: NSEND8, NSEND_TOT8
       INTEGER(8) :: NLOCAL8, NLOCAL_TOT8
+      INTEGER(4) :: I4
       INTEGER :: LDPTRAR, NELT_arg, NBRECORDS
       INTEGER :: ITMP, JTMP
       INTEGER :: KEEP464COPY, KEEP465COPY
@@ -1592,7 +1593,7 @@ C
         IF ( (KEEP(400).GT.0) .AND. (KEEP(406).EQ.2) ) THEN
 C         Compute KEEP8(77) the peak authorized used by 
 C         ZMUMPS_PERFORM_COPIES
-          CALL ZMUMPS_L0_COMPUTE_PEAK_AUTHORIZED (
+          CALL ZMUMPS_L0_COMPUTE_PEAK_ALLOWED(
      &          id%MYID, id%N,
      &          id%NELT, id%NA(1), id%LNA, id%NSLAVES,
      &          BLR_STRAT, id%KEEP(201),
@@ -2396,7 +2397,7 @@ C
      &        + int( 2.0D0 * dble(max(PERLU,MIN_PERLU))*
      &        dble(ZMUMPS_LBUFR_BYTES8)/100D0, 8)
         ZMUMPS_LBUFR_BYTES8 = min(ZMUMPS_LBUFR_BYTES8,
-     &                            int(huge (KEEP(44))-100,8))
+     &                            int(huge(I4)-100,8))
         ZMUMPS_LBUFR_BYTES  = int( ZMUMPS_LBUFR_BYTES8 )
         IF (KEEP(48)==5) THEN
 C          Since the buffer is going to be allocated, use
@@ -2427,7 +2428,7 @@ C   -----------
      &                 + int( 2.0D0 * dble(max(PERLU,MIN_PERLU))*
      &                   dble(ZMUMPS_LBUF8)/100D0, 8)
 C       Make ZMUMPS_LBUF8 small enough to be stored in a standard integer
-        ZMUMPS_LBUF8 = min(ZMUMPS_LBUF8, int(huge (KEEP(43))-100,8))
+        ZMUMPS_LBUF8 = min(ZMUMPS_LBUF8, int(huge(I4)-100,8))
 C
 C       No reason to have send buffer smaller than receive buffer.
 C       This should never occur with the formulas above but just
@@ -2695,7 +2696,7 @@ C     Compute DKEEP(17)
      &               
       IF (PROK.AND.id%MYID.EQ.MASTER) THEN
         IF (id%NSLAVES.LE.1) THEN
-         WRITE(MPG,'(/A,A,1PD10.3)')
+         WRITE(MP,'(/A,A,1PD10.3)')
      &' Start factorization with total', 
      &' estimated flops (RINFOG(1))                         = ', 
      &   RINFOG(1)
@@ -3816,8 +3817,8 @@ C
  174  FORMAT( ' KEEP(268) Relaxed pivoting effective value =',I16)
  180  FORMAT(/' Elapsed time for factorization             =',F12.4)
  185  FORMAT(/' Elapsed time for (failed) factorization    =',F12.4)
- 187  FORMAT(' Elapsed time under L0                      =',F12.4)
- 188  FORMAT(' Elapsed time under L0 (avg/max across MPI) =',
+ 187  FORMAT( ' Elapsed time under L0                      =',F12.4)
+ 188  FORMAT( ' Elapsed time under L0 (avg/max across MPI) =',
      &          F12.4,F12.4)
  189  FORMAT(/' Flops under L0 layer                       =',1PD12.3)
  190  FORMAT(/' Flops under L0 Layer  (avg/max across MPI) =',
@@ -3937,6 +3938,7 @@ C
       INTEGER :: IERR
       INTEGER, PARAMETER :: MASTER = 0
       INTEGER :: ID_SCHUR, SIZE_SCHUR, LD_SCHUR, IB, BL4
+      INTEGER(4) :: I4 ! 32-bit even in 64-bit version
       INTEGER :: ROW_LENGTH, I
       INTEGER(8) :: SURFSCHUR8, BL8, SHIFT8
       INTEGER(8) :: ISCHUR_SRC, ISCHUR_DEST, ISCHUR_SYM, ISCHUR_UNS
@@ -4040,8 +4042,9 @@ C         ---------------------
 C         -----------------------------------------
 C         The processor responsible of the Schur
 C         complement sends it to the host processor
+C         Use blocks to avoid too large messages.
 C         -----------------------------------------
-          BL8=int(huge(BL4)/id%KEEP(35)/10,8)
+          BL8=int(huge(I4)/id%KEEP(35)/10,8)
           DO IB=1, int((SURFSCHUR8+BL8-1_8) / BL8)
             SHIFT8 = int(IB-1,8) * BL8                ! Where to send
             BL4    = int(min(BL8,SURFSCHUR8-SHIFT8)) ! Size of block

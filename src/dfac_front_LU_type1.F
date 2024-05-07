@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -204,7 +204,7 @@ C
      &    (KEEP(116).GT.0) .AND. ((NFRONT-NASS-KEEP(253)).GT.0) 
      &   ) THEN
          IROW_L = IOLDPS+6+XSIZE+NASS
-         CALL DMUMPS_COMPUTE_SIZE_SCHUR_IN_FRONT ( 
+         CALL DMUMPS_GET_SIZE_SCHUR_IN_FRONT ( 
      &     N, 
      &     NFRONT-NASS-KEEP(253), 
      &     KEEP(116), 
@@ -1079,7 +1079,8 @@ C
            DO LorU=0,1
              CALL DMUMPS_BLR_RETRIEVE_PANEL_LORU(
      &             IW(IOLDPS+XXF), LorU, IP, BLR_PANEL)
-             CALL UPD_MRY_LU_LRGAIN(BLR_PANEL, NB_BLR-IP)
+             CALL UPD_MRY_LU_LRGAIN(BLR_PANEL, NB_BLR-IP
+     &             )
            ENDDO
          ENDDO
          CALL UPD_FLOP_FACTO_FR(NFRONT, NASS, NPIV, 0, 1)

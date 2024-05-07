@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -184,6 +184,7 @@ C
       LOGICAL                 :: GCOMP_PROVIDED
       TYPE(COMPACT_GRAPH_T)   :: GCOMP
       TYPE(COMPACT_GRAPH_T)   :: GCOMP_DIST
+      INTEGER(4) :: I4
       INTEGER, POINTER, DIMENSION(:) ::  
      &     NFSIZPTR,
      &     FILSPTR,
@@ -3493,7 +3494,7 @@ C
          UPDATE_BUFFER = .TRUE.
 C
          MIN_BUF_SIZE8 = KEEP8(22) / int(KEEP(238),8)
-         MIN_BUF_SIZE8 = min(MIN_BUF_SIZE8,int(huge(KEEP(43)),8))
+         MIN_BUF_SIZE8 = min(MIN_BUF_SIZE8,int(huge(I4),8))
          MIN_BUF_SIZE  = int( MIN_BUF_SIZE8 )
          IF (UPDATE_BUFFER) THEN
 C          Send buffer 

@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -3010,9 +3010,9 @@ C
       return
       end subroutine MUMPS_PROCINIT
       recursive subroutine MUMPS_MOD_PROPMAP
-     &                    (inode,ctr,istat)
+     &                    (inode_entry,ctr_entry,istat)
       implicit none
-      integer, intent(in)::inode,ctr
+      integer, intent(in)::inode_entry,ctr_entry
       integer, intent(inout)::istat
       integer::j,k,in,in1,ierr,son,nmb_procs_inode,nmb_sons_inode,
      &         current,i
@@ -3022,12 +3022,16 @@ C
       DOUBLE PRECISION :: relative_weight,costs_sons
       DOUBLE PRECISION :: loc_relax
       INTEGER :: depth
+      INTEGER :: inode,ctr
       logical force_cand
       DOUBLE PRECISION Y
       integer nmb_propmap_strict,share2,procsrest,current2
       integer k69onid
       INTEGER, ALLOCATABLE, DIMENSION(:) :: procs_inode
       LOGICAL UPDATE_CTR
+      inode = inode_entry
+      ctr   = ctr_entry
+ 1234 CONTINUE
       if (ctr.le.0) then
          istat = 0
          return
@@ -3036,6 +3040,53 @@ C
       if(cv_frere(inode).eq.cv_n+1) return
       subname='MOD_PROPMAP'
       if(.NOT.associated(cv_prop_map(inode)%ind_proc)) return
+      nmb_sons_inode = 0
+      costs_sons = dble(0)
+      force_cand=(mod(cv_keep(24),2).eq.0)
+      in = inode
+      do while (cv_fils(in).gt.0)
+         in=cv_fils(in)
+      end do
+      if (cv_fils(in).eq.0) then
+         istat = 0
+         goto 999
+      endif
+      in = -cv_fils(in)
+      son=in 
+      do while(in.gt.0)
+         nmb_sons_inode = nmb_sons_inode + 1
+         if(cv_tcostw(in).le.0.0D0) then
+            if(cv_lp.gt.0)
+     &           write(cv_lp,*)'Subtree costs for ',in,
+     &                         ' should be positive in ',subname
+            goto 999
+         endif
+         if (cv_keep(67) .ne. 1) then
+           costs_sons = costs_sons + cv_tcostw(in)
+         else
+           costs_sons = costs_sons + cv_tcostm(in)
+         end if
+         in=cv_frere(in)
+      enddo
+      if(costs_sons.le.0D0) then
+         if(cv_lp.gt.0)
+     &        write(cv_lp,*)'Error in ',subname
+     &        ,subname
+         goto 999
+      endif
+      if ((cv_nodelayer(inode).eq.0).AND.
+     &         (cv_frere(inode).ne.cv_n+1)) then
+         istat = 0
+         goto 999
+      endif
+      IF (nmb_sons_inode.eq.1) THEN
+          if(.NOT.associated(cv_prop_map(son)%ind_proc)) then
+          WRITE(6,*) son, " cv_prop_map(son)%ind_proc not associated "
+          endif
+         cv_prop_map(son)%ind_proc = cv_prop_map(inode)%ind_proc
+         inode = son
+         GOTO 1234
+      ENDIF
       ALLOCATE(procs_inode(cv_slavef),
      &         procs4son(cv_size_ind_proc),stat=allocok)
       if (allocok.gt.0) then
@@ -3078,45 +3129,6 @@ C
      &        ,subname
          goto 999
       end if
-      if ((cv_nodelayer(inode).eq.0).AND.
-     &         (cv_frere(inode).ne.cv_n+1)) then
-         istat = 0
-         goto 999
-      endif
-      nmb_sons_inode = 0
-      costs_sons = dble(0)
-      force_cand=(mod(cv_keep(24),2).eq.0)
-      in = inode
-      do while (cv_fils(in).gt.0)
-         in=cv_fils(in)
-      end do
-      if (cv_fils(in).eq.0) then
-         istat = 0
-         goto 999
-      endif
-      in = -cv_fils(in)
-      son=in 
-      do while(in.gt.0)
-         nmb_sons_inode = nmb_sons_inode + 1
-         if(cv_tcostw(in).le.0.0D0) then
-            if(cv_lp.gt.0)
-     &           write(cv_lp,*)'Subtree costs for ',in,
-     &                         ' should be positive in ',subname
-            goto 999
-         endif
-         if (cv_keep(67) .ne. 1) then
-           costs_sons = costs_sons + cv_tcostw(in)
-         else
-           costs_sons = costs_sons + cv_tcostm(in)
-         end if
-         in=cv_frere(in)
-      enddo
-      if(costs_sons.le.0D0) then
-         if(cv_lp.gt.0)
-     &        write(cv_lp,*)'Error in ',subname
-     &        ,subname
-         goto 999
-      endif
       depth= max(cv_mixed_strat_bound - ctr,0)
       if ((cv_keep(24).eq.16).OR.(cv_keep(24).eq.18)) then
          if(depth.ge.cv_mixed_strat_bound) then
@@ -3215,12 +3227,13 @@ C
       end do
       istat = 0
  999  continue
-      DEALLOCATE(procs_inode,procs4son)
+      if (allocated(procs_inode)) DEALLOCATE(procs_inode)
+      if (allocated(procs4son)) DEALLOCATE(procs4son)
       return
       end subroutine MUMPS_MOD_PROPMAP
-      recursive subroutine MUMPS_PROPMAP(inode,ctr,istat)
+      recursive subroutine MUMPS_PROPMAP(inode_entry, ctr_entry, istat)
       implicit none
-      integer, intent(in)::inode,ctr
+      integer, intent(in)::inode_entry,ctr_entry
       integer, intent(inout)::istat
       integer::j,k,in,in1,ierr,son,nmb_procs_inode,nmb_sons_inode,
      &           share,current,offset,
@@ -3242,9 +3255,13 @@ C
       integer nmb_propmap_strict,share2,procsrest,current2
       integer k69onid,nb_free_procs,local_son_indice,nb_procs_for_sons,
      &     ptr_upper_ro_procs
+      integer :: inode, ctr
       INTEGER :: allocok
       logical upper_round_off,are_sons_treated
       DOUBLE PRECISION tmp_cost
+      inode = inode_entry
+      ctr   = ctr_entry
+ 1234 CONTINUE
       if (ctr.le.0) then
          istat = 0
          return
@@ -3269,8 +3286,8 @@ C
          return
       endif
       ptr_upper_ro_procs=1
-      work_per_proc(1:cv_slavef)=0.0D0
-      id_son(1:cv_slavef)=0
+      work_per_proc(1:cv_slavef)=0.0D0  
+      id_son(1:cv_slavef)=0             
       nmb_sons_inode = 0
       costs_sons = dble(0)
       force_cand=(mod(cv_keep(24),2).eq.0)
@@ -3300,6 +3317,22 @@ C
          endif
          in=cv_frere(in)
       enddo
+      IF (nmb_sons_inode.eq.1) THEN
+         if(.NOT.associated(cv_prop_map(son)%ind_proc)) then
+                 call MUMPS_PROPMAP_INIT(son,ierr)
+              if(ierr.ne.0) then
+               if(cv_lp.gt.0)
+     &              write(cv_lp,*)'PROPMAP_INIT signalled error to'
+     &              ,subname
+               istat = ierr
+               goto 999
+              end if
+         endif
+         ctr = ctr -1
+         cv_prop_map(son)%ind_proc = cv_prop_map(inode)%ind_proc
+         inode = son
+         GOTO 1234
+      ENDIF
       costs_sons_real = costs_sons
       SkipSmallNodes = .true.
       IF (costs_sons_real.gt.0.0D0) then
@@ -3720,6 +3753,7 @@ C
          ierr=0
          in1=in
          cv_prop_map(in1)%ind_proc = procs4son
+         IF (nmb_sons_inode.EQ.1) DEALLOCATE(procs4son)
          call MUMPS_PROPMAP(in1,ctr-1,ierr)
          if(ierr.ne.0) then
             if(cv_lp.gt.0) write(cv_lp,*)
@@ -3731,7 +3765,7 @@ C
       end do
       istat = 0
  999  CONTINUE
-      DEALLOCATE(procs4son)
+      if (allocated(procs4son)) DEALLOCATE(procs4son)
       return
       end subroutine MUMPS_PROPMAP
       subroutine MUMPS_PROPMAP_INIT(inode,istat)

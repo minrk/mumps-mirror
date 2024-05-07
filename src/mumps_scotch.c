@@ -1,7 +1,7 @@
 /*
  *
- *  This file is part of MUMPS 5.5.0, released
- *  on Thu Apr 14 11:45:33 UTC 2022
+ *  This file is part of MUMPS 5.5.1, released
+ *  on Tue Jul 12 13:17:24 UTC 2022
  *
  *
  *  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -122,14 +122,26 @@ MUMPS_SCOTCH_SET_PTHREAD_NUMBER (MUMPS_INT *PTHREAD_NUMBER)
   {
 #if (SCOTCH_VERSION>=7) 
   char param[32];
+#if defined(MUMPS_WIN32)
+  int ierr;
+#endif
   if (*PTHREAD_NUMBER == -1) 
   {
+#if defined(MUMPS_WIN32)
+     ierr = _putenv("SCOTCH_PTHREAD_NUMBER=");
+#else
      unsetenv("SCOTCH_PTHREAD_NUMBER");
+#endif
   }
   else
   {
+#if defined(MUMPS_WIN32)
+    sprintf(param, "SCOTCH_PTHREAD_NUMBER=%d",*PTHREAD_NUMBER);
+    ierr = _putenv(param);
+#else
     sprintf(param, "%d", *PTHREAD_NUMBER);
     setenv("SCOTCH_PTHREAD_NUMBER",param,1);
+#endif
   }
 #endif
   return;

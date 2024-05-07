@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -163,7 +163,7 @@ C
      &        KEEP8, KEEP(34), KEEP(450), .FALSE.,   
      &        IFLAG, IERROR)
         IF (IFLAG.LT.0) RETURN
-        CALL ZMUMPS_SOLVE_LD_AND_RELOAD_PANEL (
+        CALL ZMUMPS_SOL_LD_AND_RELOAD_PANEL (
      &  INODE, N, DIAGSIZ_DYN, LIELL, NELIM, NSLAVES,
      &  PPIV,
      &  IW, IPOS, LIW, 

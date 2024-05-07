@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -865,7 +865,15 @@ C          MPI and OpenMP information
      &                 id%NPROCS, ', without OMP'
 !$         ENDIF
           IF (JOB.GE.1 .AND. JOB.LE.6) THEN
-            WRITE(MPG, 99997) id%KEEP(401)
+            IF ( id%KEEP(370).EQ.1.OR.id%KEEP(371).EQ.1) THEN
+              WRITE(MPG, 99996) id%KEEP(370), id%KEEP(371)
+            ENDIF
+99996       FORMAT(/'Advanced settings:'/
+     &       '   KEEP(370) Static mapping                    =',I4/
+     &       '   KEEP(371) Advanced optimizations            =',I4)
+            IF (id%KEEP(401) .EQ.1) THEN
+              WRITE(MPG, 99997) id%KEEP(401)
+            ENDIF
 99997       FORMAT('L0 thread based multithreading setting:'/
      &       '   KEEP(401) (0=OFF, 1=ON)                     =',I4)
             WRITE(MPG, '(A)')
@@ -2250,12 +2258,12 @@ C--------------------------------------------------------------------
             WRITE (LP,991) ICNTL(5),ICNTL(6),ICNTL(7),ICNTL(12),
      &          ICNTL(13),
      &          ICNTL(15),
-     &          ICNTL(18),ICNTL(19),ICNTL(22)
+     &          ICNTL(18),ICNTL(19),ICNTL(22),ICNTL(58)
            ELSE
             WRITE (LP,891) ICNTL(5),ICNTL(6),ICNTL(7),
      &          ICNTL(13),
      &          ICNTL(15),
-     &          ICNTL(18),ICNTL(19),ICNTL(22)
+     &          ICNTL(18),ICNTL(19),ICNTL(22),ICNTL(58)
            ENDIF
            IF ((ICNTL(6).EQ.5).OR.(ICNTL(6).EQ.6).OR.
      &          (ICNTL(12).NE.1) )  THEN
@@ -2295,12 +2303,12 @@ C--------------------------------------------------------------------
             WRITE (LP,991) ICNTL(5),ICNTL(6),ICNTL(7),ICNTL(12),
      &          ICNTL(13),
      &          ICNTL(15),
-     &          ICNTL(18),ICNTL(19),ICNTL(22)
+     &          ICNTL(18),ICNTL(19),ICNTL(22),ICNTL(58)
            ELSE
             WRITE (LP,891) ICNTL(5),ICNTL(6),ICNTL(7),
      &          ICNTL(13),
      &          ICNTL(15),
-     &          ICNTL(18),ICNTL(19),ICNTL(22)
+     &          ICNTL(18),ICNTL(19),ICNTL(22),ICNTL(58)
            ENDIF
            WRITE (LP,992) ICNTL(8)
            WRITE (LP,993) ICNTL(14)
@@ -2316,12 +2324,12 @@ C--------------------------------------------------------------------
             WRITE (LP,991) ICNTL(5),ICNTL(6),ICNTL(7),ICNTL(12),
      &          ICNTL(13),
      &          ICNTL(15),
-     &          ICNTL(18),ICNTL(19),ICNTL(22)
+     &          ICNTL(18),ICNTL(19),ICNTL(22),ICNTL(58)
            ELSE
             WRITE (LP,891) ICNTL(5),ICNTL(6),ICNTL(7),
      &          ICNTL(13),
      &          ICNTL(15),
-     &          ICNTL(18),ICNTL(19),ICNTL(22)
+     &          ICNTL(18),ICNTL(19),ICNTL(22),ICNTL(58)
            ENDIF
            IF (id%ICNTL(19).NE.0)
      &      WRITE(LP,998) id%SIZE_SCHUR
@@ -2354,7 +2362,8 @@ C--------------------------------------------------------------------
      &     'ICNTL(15)  Analysis by block                       =',I10/
      &     'ICNTL(18)  Distributed matrix  ( keep(54) )        =',I10/
      &     'ICNTL(19)  Schur option ( keep(60) 0=off,else=on ) =',I10/
-     &     'ICNTL(22)  Out-off-core option (0=off, >0=on)      =',I10)
+     &     'ICNTL(22)  Out-of-core option (0=off, >0=on)       =',I10/
+     &     'ICNTL(58)  Symbolic factorization option           =',I10)
  891  FORMAT (
      &     'ICNTL(5)   Matrix format  ( keep(55) )             =',I10/
      &     'ICNTL(6)   Maximum transversal  ( keep(23) )       =',I10/
@@ -2363,7 +2372,8 @@ C--------------------------------------------------------------------
      &     'ICNTL(15)  Analysis by block                       =',I10/
      &     'ICNTL(18)  Distributed matrix  ( keep(54) )        =',I10/
      &     'ICNTL(19)  Schur option ( keep(60) 0=off,else=on ) =',I10/
-     &     'ICNTL(22)  Out-off-core option (0=off, >0=on)      =',I10)
+     &     'ICNTL(22)  Out-of-core option (0=off, >0=on)       =',I10/
+     &     'ICNTL(58)  Symbolic factorization option           =',I10)
  992  FORMAT (
      &     'ICNTL(8)   Scaling strategy                        =',I10)
  923  FORMAT (
@@ -2480,7 +2490,7 @@ C--------------------------------------------------------------------
      &     'ICNTL(13)  Parallel root (0=on, 1=off)             =',I10/
      &     'ICNTL(18)  Distributed matrix  ( keep(54) )        =',I10/
      &     'ICNTL(19)  Schur option ( keep(60) 0=off,else=on ) =',I10/
-     &     'ICNTL(22)  Out-off-core option (0=Off, >0=ON)      =',I10)
+     &     'ICNTL(22)  Out-of-core option (0=Off, >0=ON)       =',I10)
  992  FORMAT (
      &     'ICNTL(8)   Scaling strategy ( keep(52) )           =',I10)
  993  FORMAT (

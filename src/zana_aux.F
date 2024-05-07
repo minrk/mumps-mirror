@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -2877,6 +2877,7 @@ C
      &  ICNTL(7), KEEP(12), 
      &  ITMP,
      &  ICNTL(18),
+     &  KEEP(106),
      &  KEEP(56), KEEP(61), RINFOG(1)
        IF (KEEP(95).GT.1)             
      &      WRITE(MPG, 99993) KEEP(95) 
@@ -2900,6 +2901,7 @@ C
      &       ' ICNTL(14) Percentage of memory relaxation      =',I16/
      &       ' ICNTL(15) Analysis by block effectively used   =',I16/
      &       ' ICNTL(18) Distributed input matrix (on if >0)  =',I16/
+     &       ' ICNTL(58) Symbolic factorization option        =',I16/
      &       ' Number of level 2 nodes                        =',I16/
      &       ' Number of split nodes                          =',I16/
      &       ' RINFOG(1) Operations during elimination (estim)=',

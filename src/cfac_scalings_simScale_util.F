@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -469,7 +469,7 @@ C         if this number of entries is odd we take the proc with largest id
 C         if this number of entries is even we take the proc with smallest id
 C     
       IMPLICIT NONE
-#if defined(WORKAROUNDINTELILP64MPI2INTEGER)
+#if defined(WORKAROUNDINTELILP64MPI2INTEGER) || defined(WORKAROUNDILP64MPICUSTOMREDUCE)
       INTEGER(4) :: LEN
       INTEGER(4) :: INV(2*LEN) 
       INTEGER(4) :: INOUTV(2*LEN)
@@ -481,7 +481,7 @@ C
       INTEGER :: DTYPE
 #endif
       INTEGER I
-#if defined(WORKAROUNDINTELILP64MPI2INTEGER)
+#if defined(WORKAROUNDINTELILP64MPI2INTEGER) || defined(WORKAROUNDILP64MPICUSTOMREDUCE)
       INTEGER(4) DIN, DINOUT, PIN, PINOUT
 #else
       INTEGER DIN, DINOUT, PIN, PINOUT

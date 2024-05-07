@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -107,6 +107,7 @@ C
       LOGICAL LAST_CALL
       INTEGER LRELAY_INFO
       INTEGER :: INFO_TMP(2)
+      INTEGER :: IDUMMY(1)
       INTEGER :: NELIM, NPARTSASS_MASTER, NPARTSASS_MASTER_AUX,
      &           IPANEL, 
      &           CURRENT_BLR, 
@@ -606,7 +607,8 @@ C
             CALL DEALLOC_BLR_PANEL( BLR_L, NB_BLR_L, KEEP8, KEEP(34))
             DEALLOCATE(BLR_L)
           ELSE
-            CALL UPD_MRY_LU_LRGAIN(BLR_L, NPARTSCB)
+            CALL UPD_MRY_LU_LRGAIN(BLR_L, NPARTSCB
+     &               )
           ENDIF
       ENDIF 
       ENDIF 
@@ -697,8 +699,8 @@ C
      &      CB_LRB(1,1),
      &      WORK, TAU, JPVT, LWORK, RWORK, BLOCK,
      &      MAXI_CLUSTER, KEEP8, OMP_NUM,
-     &      -9999, -9999, -9999, KEEP(1)
-     &       )
+     &      -9999, -9999, -9999, KEEP(1),
+     &      IDUMMY, 0, -9999 )
 #if defined(BLR_MT)
 !$OMP BARRIER
 #endif

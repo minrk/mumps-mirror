@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -299,6 +299,7 @@ C  Vampir
       INTEGER :: KEEP350_SAVE
       LOGICAL STOP_AT_NEXT_EMPTY_COL
       INTEGER  MTYPE_LOC
+      INTEGER(4) :: I4
       INTEGER  MAT_ALLOC_LOC, MAT_ALLOC
       INTEGER MUMPS_PROCNODE
       EXTERNAL MUMPS_PROCNODE
@@ -1764,9 +1765,9 @@ C       --------------------------------------
      &  + int(16*KEEP(34),8) ! for request id, pointer to next + safety
 C       Note that
         IF ( MSG_MAX_BYTES_SOLVE8 .GT.
-     &                int(huge(MSG_MAX_BYTES_SOLVE),8)) THEN
+     &                int(huge(I4),8)) THEN
           INFO(1) = -18
-          INFO(2) = ( huge(MSG_MAX_BYTES_SOLVE) -
+          INFO(2) = ( huge(I4) -
      &    ( 16 + 4 + KEEP(133) ) ) / 
      &    ( KEEP(133) * KEEP(35) )
         ENDIF
@@ -1856,11 +1857,11 @@ C       destinations simultaneously
      &      int((MSG_MAX_BYTES_SOLVE+2*KEEP(34)),8) * 
      &      int(min(id%NSLAVES,3),8) )
         DMUMPS_LBUF_8 = DMUMPS_LBUF_8 + 2_8*int(KEEP(34),8)
-C       Convert to integer and bound it to largest integer
+C       Convert to integer and bound it to largest 32-bit integer
 C       and suppress 10 integers (one should be enough!) 
 C       to enable computation of integer size.
         DMUMPS_LBUF_8 = min(DMUMPS_LBUF_8, 
-     &                      int(huge(DMUMPS_LBUF),8)
+     &                      int(huge(I4),8)
      &                      - 10_8*int(KEEP(34),8)
      &                     )
         DMUMPS_LBUF   = int(DMUMPS_LBUF_8, kind(DMUMPS_LBUF))

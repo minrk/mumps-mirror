@@ -1,5 +1,5 @@
 ===========================================
-MUMPS 5.5.0 INSTALLATION
+MUMPS 5.5.1 INSTALLATION
 ===========================================
 
 Pre-requisites
@@ -35,8 +35,8 @@ Installation
 
 The following steps can be applied.
 
-% tar zxvf MUMPS_5.5.0.tar.gz
-% cd MUMPS_5.5.0
+% tar zxvf MUMPS_5.5.1.tar.gz
+% cd MUMPS_5.5.1
 
 You then need to build a file called Makefile.inc corresponding
 to your architecture. A few examples are available in the
@@ -110,11 +110,11 @@ since dynamic libraries require the -fPIC option during compilation (if
 needed, the definition FPIC_OPT=-fPIC can be adapted in the Makefile.inc)
 
 The dynamic libraries (e.g. libmumps.so, libdmumps.so, etc.) are
-installed in the directory MUMPS_5.5.0/lib/
-so that including the directory MUMPS_5.5.0/lib in your
+installed in the directory MUMPS_5.5.1/lib/
+so that including the directory MUMPS_5.5.1/lib in your
 LD_LIBRARY_PATH environment variable will allow them to be successively
 loaded at runtime. Alternatively, you can uncomment and adapt the line
-#RPATH_OPT= -Wl,-rpath /path/to/MUMPS_5.5.0/lib
+#RPATH_OPT= -Wl,-rpath /path/to/MUMPS_5.5.1/lib
 in the Makefile.inc
 
 Although we do not currently support an official SONAME, note that, given a
@@ -298,6 +298,10 @@ Furthermore:
   In order to have MUMPS working correcly with such MPI versions, please
   try adding -DWORKAROUNDINTELILP64MPI2INTEGER to the OPTF variable of
   your Makefile.inc
+
+  Platform MPI also provides an interface for 64-bit default integers,
+  for which we had feedback that MUMPS should be compiled with
+  -DWORKAROUNDILP64MPICUSTOMREDUCE (but not -DWORKAROUNDINTELILP64MPI2INTEGER)
 
 - The OpenMP runtime library should also rely on 64-bit integers. Adding
   -DWORKAROUNDINTELILP64OPENMPLIMITATION to the OPTF variable from the

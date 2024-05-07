@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -69,6 +69,7 @@ C
       INTEGER:: j1,NbRecords,NbSubRecords,size_array1,dummy,allocok,err
       INTEGER:: SIZE_GEST_L0FAC_ARRAY,
      &          SIZE_GEST_L0FAC_ARRAY_j1
+      INTEGER(4) :: I4
       INTEGER(8):: SIZE_VARIABLES_L0FAC_ARRAY,
      &             SIZE_VARIABLES_L0FAC_ARRAY_j1
       SIZE_GEST = 0
@@ -196,7 +197,7 @@ C
          endif
       ENDIF
       if(trim(mode).EQ."memory_save") then
-         NbSubRecords=int(SIZE_VARIABLES/huge(0))
+         NbSubRecords=int(SIZE_VARIABLES/huge(I4))
          IF(NbSubRecords.GT.0) then
             NbRecords=NbRecords+NbSubRecords
          ENDIF

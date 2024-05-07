@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -671,6 +671,7 @@ C
      &              SUM_NRLADU_if_LR_LU_underL0, 
      &              SUM_NRLADULR_UD_underL0, 
      &              SUM_NRLADULR_WC_underL0
+      INTEGER(4) :: I4
       INTEGER(8) :: MIN_NRLADU_underL0, MIN_NRLADU_if_LR_LU_underL0
       INTEGER    :: ITH, ITHMIN, ITHMIN_if_LRLU
       INTEGER(8) ::  I8_L0_OMP_2, I8_L0_OMP_3, 
@@ -952,7 +953,7 @@ C
      &        + int( 2.0D0 * dble(max(PERLU,MIN_PERLU))*
      &        dble(ZMUMPS_LBUFR_BYTES8)/100D0,8)
         ZMUMPS_LBUFR_BYTES8 = min(ZMUMPS_LBUFR_BYTES8,
-     &                            int(huge (KEEP(43))-100,8))
+     &                            int(huge (I4)-100,8))
         NB_BYTES = NB_BYTES + ZMUMPS_LBUFR_BYTES8
         IF (.NOT.UNDER_L0_OMP) THEN
           IF (BLR_STRAT.NE.0) THEN
@@ -966,7 +967,7 @@ C
           ZMUMPS_LBUF8 = ZMUMPS_LBUF8
      &                   + int( 2.0D0 * dble(max(PERLU,MIN_PERLU))*
      &                     dble(ZMUMPS_LBUF8)/100D0, 8)
-          ZMUMPS_LBUF8 = min(ZMUMPS_LBUF8, int(huge (KEEP(43)-100),8))
+          ZMUMPS_LBUF8 = min(ZMUMPS_LBUF8, int(huge(I4)-100,8))
           ZMUMPS_LBUF8 = max(ZMUMPS_LBUF8, ZMUMPS_LBUFR_BYTES8+
      &                   3_8*int(KEEP(34),8))
           NB_BYTES = NB_BYTES + ZMUMPS_LBUF8
@@ -1468,7 +1469,7 @@ C
       ENDIF
       RETURN
       END SUBROUTINE ZMUMPS_MEM_ALLOWED_SET_K75
-      SUBROUTINE ZMUMPS_L0_COMPUTE_PEAK_AUTHORIZED (
+      SUBROUTINE ZMUMPS_L0_COMPUTE_PEAK_ALLOWED (
      &           MYID, N,
      &           NELT, NA, LNA, NSLAVES,
      &           BLR_STRAT, OOC_STRAT, 
@@ -1563,7 +1564,7 @@ C
        KEEP8(77) = ( max(TOTAL_UNDER,TOTAL_ABOVE) - TOTAL_STATIC )
      &             / int(KEEP(35),8)
       RETURN
-      END SUBROUTINE ZMUMPS_L0_COMPUTE_PEAK_AUTHORIZED
+      END SUBROUTINE ZMUMPS_L0_COMPUTE_PEAK_ALLOWED
       SUBROUTINE ZMUMPS_SETMAXTOZERO(M_ARRAY, M_SIZE)
       IMPLICIT NONE
       INTEGER M_SIZE

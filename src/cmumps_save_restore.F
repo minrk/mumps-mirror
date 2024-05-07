@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.5.0, released
-C  on Thu Apr 14 11:45:33 UTC 2022
+C  This file is part of MUMPS 5.5.1, released
+C  on Tue Jul 12 13:17:24 UTC 2022
 C
 C
 C  Copyright 1991-2022 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -694,6 +694,7 @@ C
      &            SIZE_VARIABLES_L0FAC
       INTEGER::SIZE_GEST_BLR,SIZE_GEST_FRONT_DATA,SIZE_GEST_L0FAC
       INTEGER :: KEEP411_SAVE
+      INTEGER(4) :: I4
       TYPE (CMUMPS_STRUC) :: id
       allocate(VARIABLES(NBVARIABLES),  stat=allocok)
       if (allocok .GT. 0) THEN
@@ -7687,7 +7688,7 @@ C
             CASE DEFAULT
             END SELECT
             if(trim(mode).EQ."memory_save") then
-               NbSubRecords=int(SIZE_VARIABLES_ROOT(i2)/huge(0))
+               NbSubRecords=int(SIZE_VARIABLES_ROOT(i2)/huge(I4))
                IF(NbSubRecords.GT.0) then
                   NbRecords_ROOT(i2)=NbRecords_ROOT(i2)+NbSubRecords
                ENDIF
@@ -9033,7 +9034,7 @@ C
       CASE DEFAULT
       END SELECT
       if(trim(mode).EQ."memory_save") then
-         NbSubRecords=int(SIZE_VARIABLES(i1)/huge(0))
+         NbSubRecords=int(SIZE_VARIABLES(i1)/huge(I4))
          IF(NbSubRecords.GT.0) then
             NbRecords(i1)=NbRecords(i1)+NbSubRecords
          ENDIF
