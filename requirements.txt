@@ -20,7 +20,7 @@ gitpython==3.1.43
     # via -r requirements.in
 idna==3.7
     # via requests
-requests==2.31.0
+requests==2.32.3
     # via -r requirements.in
 smmap==5.0.1
     # via gitdb
