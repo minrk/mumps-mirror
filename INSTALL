@@ -1,5 +1,5 @@
 ===========================================
-MUMPS 5.7.1 INSTALLATION
+MUMPS 5.7.2 INSTALLATION
 ===========================================
 
 Pre-requisites
@@ -35,8 +35,8 @@ Installation
 
 The following steps can be applied.
 
-% tar zxvf MUMPS_5.7.1.tar.gz
-% cd MUMPS_5.7.1
+% tar zxvf MUMPS_5.7.2.tar.gz
+% cd MUMPS_5.7.2
 
 You then need to build a file called Makefile.inc corresponding
 to your architecture. A few examples are available in the
@@ -113,11 +113,11 @@ since dynamic libraries require the -fPIC option during compilation (if
 needed, the definition FPIC_OPT=-fPIC can be adapted in the Makefile.inc)
 
 The dynamic libraries (e.g. libmumps.so, libdmumps.so, etc.) are
-installed in the directory MUMPS_5.7.1/lib/
-so that including the directory MUMPS_5.7.1/lib in your
+installed in the directory MUMPS_5.7.2/lib/
+so that including the directory MUMPS_5.7.2/lib in your
 LD_LIBRARY_PATH environment variable will allow them to be successively
 loaded at runtime. Alternatively, you can uncomment and adapt the line
-#RPATH_OPT= -Wl,-rpath /path/to/MUMPS_5.7.1/lib
+#RPATH_OPT= -Wl,-rpath /path/to/MUMPS_5.7.2/lib
 in the Makefile.inc
 
 Although we do not currently support an official SONAME, note that, given a

@@ -1,7 +1,7 @@
 /*
  *
- *  This file is part of MUMPS 5.7.1, released
- *  on Thu May  2 10:15:09 UTC 2024
+ *  This file is part of MUMPS 5.7.2, released
+ *  on Mon Jun 17 08:20:17 UTC 2024
  *
  */
 /* Example program using the C interface to the 

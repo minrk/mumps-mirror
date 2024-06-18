@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.7.1, released
-C  on Thu May  2 10:15:09 UTC 2024
+C  This file is part of MUMPS 5.7.2, released
+C  on Mon Jun 17 08:20:17 UTC 2024
 C
       PROGRAM MUMPS_TEST_SAVE_RESTORE
       IMPLICIT NONE

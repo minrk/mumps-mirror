@@ -1,10 +1,11 @@
-This version of MUMPS has been developed by employees of CERFACS, ENS Lyon,
-INPT(ENSEEIHT)-IRIT, Inria, Mumps Technologies and University of Bordeaux: 
+This version of MUMPS has been developed by employees of 
+CERFACS, CNRS, EDF, ENS Lyon, Toulouse INP-IRIT, Inria, 
+Mumps Technologies and University of Bordeaux: 
 Emmanuel Agullo, Patrick Amestoy, Maurice Bremond, Alfredo Buttari, Philippe
-Combes, Marie Durand, Aurelia Fevre, Abdou Guermouche, Guillaume Joslin,
-Jacko Koster, Jean-Yves L'Excellent, Theo Mary, Stephane Pralet, Chiara
-Puglisi, Francois-Henry Rouet, Wissam Sid-Lakhdar, Tzvetomila Slavova,
-Bora Ucar and Clement Weisbecker.
+Combes, Marie Durand, Aurelia Fevre, Matthieu Gerest, Abdou Guermouche, 
+Guillaume Joslin, Jacko Koster, Jean-Yves L'Excellent, Theo Mary, 
+Stephane Pralet, Chiara Puglisi, Francois-Henry Rouet, Wissam Sid-Lakhdar, 
+Tzvetomila Slavova, Bora Ucar and Clement Weisbecker.
 
 Since January 2019, the MUMPS solver is maintained by Mumps Technologies
 (http://mumps-tech.com).
@@ -18,7 +19,9 @@ at the University of Paderborn. We thank Eddy Caron for the administration of a
 server used on a daily basis for MUMPS.
 
 We want to thank the French ANR programme, the European community, 
-Airbus Group-IW, Altair, ANSYS, CINES, EDF, EMGS, ESI Group, FFT/Hexagon, LBNL, LSTC, Michelin, NEC, SAFRAN, SAMTECH, Shell, Siemens, Total for their support. 
+Airbus Group-IW, Altair, ANSYS, CINES, EDF, EMGS, ESI Group, FFT/Hexagon, LBNL, 
+LSTC, Michelin, NEC, SAFRAN, SAMTECH, Shell, Siemens, Total and 
+University of Southern California for their support. 
 We also thank LBNL, LSTC, PARALLAB and the Rutherford Appleton Laboratory 
 for research discussions that have certainly influenced this work. 
 

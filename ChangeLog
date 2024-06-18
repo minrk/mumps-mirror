@@ -2,11 +2,17 @@
 = ChangeLog =
 -------------
 
+Changes from 5.7.1 to 5.7.2
+* Fixed a bound check error with ICNTL(37)=1 in case of symmetric numerically 
+  difficult problems
+* Fixed compilation with -DAVOID_MPI_IN_PLACE
+* Fixed possible access to uninitialized var for SYM=0 + OOC + static pivoting
+
 Changes from 5.7.0 to 5.7.1
-* Fixed dynamic libray creation for PORD
+* Fixed dynamic library creation for PORD
 * Avoid need to link with deprecated LAPACK routine [csdz]geqpf
-* Fixed an error with ICNTL(37)=1 in case of numerically difficult problems and 
-  very limited workspace
+* Fixed a numerical error with ICNTL(37)=1 in case of numerically difficult 
+  problems and very limited workspace
 
 Changes from 5.6.2 to 5.7.0
 * New feature: Evolution of the distributed RHS: exploit sparsity (empty rows)
@@ -19,7 +25,7 @@ Changes from 5.6.2 to 5.7.0
   WRITE_PROBLEM(1023), OOC_TMPDIR(1023), SAVE_DIR(1023),
 * -DMUMPS_SCOTCHIMPORTOMPTHREADS: uses MUMPS OMP threads in SCOTCH
 * Improved size of BLR groups with analysis by blocks 
-* Allow for larger N (avoid need for 2*N to fit in a 32-bit integers)
+* Allow for larger N (avoid need for 2*N to fit in a 32-bit integer)
 * Improved performance on small matrices (avoid costly string
   comparisons when computing RINFO(7,8) and RINFOG(17,18))
 * -DNO_SAVE_RESTORE: suppress SAVE_RESTORE, RINFO(7,8), RINFOG(17,18)
@@ -804,6 +810,7 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.7.2            : June 2024
 Release 5.7.1            : May 2024
 Release 5.7.0            : April 2024
 Release 5.6.2            : October 2023
