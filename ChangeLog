@@ -2,6 +2,11 @@
 = ChangeLog =
 -------------
 
+Changes from 5.7.2 to 5.7.3
+* Fixed regression for I/O's larger than 2GB during solve (out-of-core)
+* Fixed size of internal workspace in case of OOC+BLR with ICNTL(37)=1
+* Fix: out-of-range values of ICNTL(58) are treated as 2, as documented
+
 Changes from 5.7.1 to 5.7.2
 * Fixed a bound check error with ICNTL(37)=1 in case of symmetric numerically 
   difficult problems
@@ -810,6 +815,7 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.7.3            : July 2024
 Release 5.7.2            : June 2024
 Release 5.7.1            : May 2024
 Release 5.7.0            : April 2024
