@@ -123,12 +123,15 @@ def download(url: str, no_cache=False) -> Path:
         r.raise_for_status()
         total = int(r.headers.get("Content-Length"), 0)
 
-        with dest_temp.open("wb") as f, tqdm(
-            desc=f"Downloading {fname}",
-            total=total,
-            unit="B",
-            unit_scale=True,
-        ) as progress:
+        with (
+            dest_temp.open("wb") as f,
+            tqdm(
+                desc=f"Downloading {fname}",
+                total=total,
+                unit="B",
+                unit_scale=True,
+            ) as progress,
+        ):
             for chunk in r.iter_content(1024):
                 progress.update(len(chunk))
                 f.write(chunk)
