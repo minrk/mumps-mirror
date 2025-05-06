@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.7.3, released
- *  on Mon Jul 15 11:44:21 UTC 2024
+ *  This file is part of MUMPS 5.8.0, released
+ *  on Tue May  6 08:27:40 UTC 2025
  *
  *
- *  Copyright 1991-2024 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2025 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -149,4 +149,28 @@ void MUMPS_CALL
 MUMPS_FREE_C(void *address)
 {
   free(address);
+}
+void MUMPS_CALL
+MUMPS_RCOPY_32TO64_64C_IP_C(float *inouttab, MUMPS_INT8 *sizetab)
+/* Copies in-place *sizetab float values starting at address inouttab
+   into *sizetab double values starting at the same address.
+*/
+{
+   MUMPS_INT8 i8; /* signed integer needed for reversed loop below */
+   for (i8=*sizetab-1; i8 >=0; i8--)
+     {
+       ((double *)inouttab)[i8]=(double)inouttab[i8];
+     }
+}
+void MUMPS_CALL
+MUMPS_RCOPY_64TO32_64C_IP_C(double *inouttab, MUMPS_INT8 *sizetab)
+/* Copies in-place *sizetab double values starting at address inouttab
+   into *sizetab float values starting at the same address */
+{
+   MUMPS_INT8 i8;
+   for (i8=0; i8 < *sizetab; i8++)
+     {
+       /*       outtab4[i8]=(MUMPS_INT)intab8[i8]; */
+       ((float *)inouttab)[i8]=(float)inouttab[i8];
+     }
 }

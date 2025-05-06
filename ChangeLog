@@ -2,6 +2,23 @@
 = ChangeLog =
 -------------
 
+Changes from 5.7.3 to 5.8.0
+* Memory estimations in an MPI context improved using stricter proportional mapping
+* Improved multithreading during scaling and reformat/distribute matrix
+* MPI buffer size not anymore constrained by factored panel sizes
+* Fixed a memory leak (COLSCA_LOC) in LDLT with save-restart
+* Enable different numbers of threads per MPI
+* Fixed a case where error -74 was raised instead of -77
+* More OpenMP parallelism when compacting factors of frontal matrices
+* Fixed a minor issue in BLR clustering when size of halo is 0
+* Provide statistics on iterative refinement settings and timings
+* Fixed error with binary format of WRITE_PROBLEM feature under WINDOWS
+* Avoid pivoting with SYM=1 even when user forces CNTL(1)>0 
+* More multithreading in low intensity arithmetic kernels
+* Fixed error with ICNTL(37)=1 
+* Fixed possible access to uninitialized var for SYM=0 + OOC + static pivoting
+* Fixed a valgrind warning in fac_front_*type1.F
+
 Changes from 5.7.2 to 5.7.3
 * Fixed regression for I/O's larger than 2GB during solve (out-of-core)
 * Fixed size of internal workspace in case of OOC+BLR with ICNTL(37)=1
@@ -11,7 +28,6 @@ Changes from 5.7.1 to 5.7.2
 * Fixed a bound check error with ICNTL(37)=1 in case of symmetric numerically 
   difficult problems
 * Fixed compilation with -DAVOID_MPI_IN_PLACE
-* Fixed possible access to uninitialized var for SYM=0 + OOC + static pivoting
 
 Changes from 5.7.0 to 5.7.1
 * Fixed dynamic library creation for PORD
@@ -26,6 +42,7 @@ Changes from 5.6.2 to 5.7.0
 * New statistics about pivots and number of swaps
 * Reduced time spent in BLR clustering
 * OOC: add support for files > 2GB to avoid opening too many files
+ (requires -DMUMPS_WINLARGEFILES in Windows environments)
 * Increased various string max sizes: OOC_PREFIX(255), SAVE_PREFIX(255),
   WRITE_PROBLEM(1023), OOC_TMPDIR(1023), SAVE_DIR(1023),
 * -DMUMPS_SCOTCHIMPORTOMPTHREADS: uses MUMPS OMP threads in SCOTCH
@@ -815,6 +832,7 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.8.0            : May 2025
 Release 5.7.3            : July 2024
 Release 5.7.2            : June 2024
 Release 5.7.1            : May 2024

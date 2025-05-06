@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.7.3, released
-C  on Mon Jul 15 11:44:21 UTC 2024
+C  This file is part of MUMPS 5.8.0, released
+C  on Tue May  6 08:27:40 UTC 2025
 C
       PROGRAM MUMPS_MULTIPLE_ARITHMETICS_TEST
       IMPLICIT NONE

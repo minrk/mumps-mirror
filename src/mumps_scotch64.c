@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.7.3, released
- *  on Mon Jul 15 11:44:21 UTC 2024
+ *  This file is part of MUMPS 5.8.0, released
+ *  on Tue May  6 08:27:40 UTC 2025
  *
  *
- *  Copyright 1991-2024 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2025 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -94,7 +94,6 @@ MUMPS_SCOTCH_64( const MUMPS_INT8 * const  n,        /* in    */
                        MUMPS_INT8 * const  lasttab,  /* out   */
                        MUMPS_INT  * const  ncmpa,    /* out   */
 #if defined(MUMPS_SCOTCHIMPORTOMPTHREADS)
-/* FIXME: see how to pass contextptr to esmumps/esmumpsv */
                     SCOTCH_Context * const contextptr,
 #endif
                        MUMPS_INT  * const  weightused,         /* out   */
@@ -104,22 +103,44 @@ MUMPS_SCOTCH_64( const MUMPS_INT8 * const  n,        /* in    */
                    = 0 otherwise
 */
 #if ((SCOTCH_VERSION == 6) && (SCOTCH_RELEASE >= 1)) || (SCOTCH_VERSION >= 7)
-/* esmumpsv prototype with 64-bit integers weights of nodes in the graph are used on entry (nvtab) */
+/* esmumpsv with integer weights of nodes in the graph are used on entry (nvtab) */
      if ( *weightrequested == 1 )
      {
+#if defined(MUMPS_SCOTCHIMPORTOMPTHREADS)
+#if ((SCOTCH_VERSION == 7) && (SCOTCH_RELEASE == 0)) || (SCOTCH_VERSION <= 6)
+       *ncmpa = -1;
+       printf("   ** internal error: esmumpsv with threads context but Scotch version < 7.1\n");
+       return;
+#else
+       *ncmpa = esmumpsvc( *n, *iwlen, petab, *pfree,
+                          lentab, iwtab, nvtab, elentab, lasttab, contextptr );
+#endif
+#else
        *ncmpa = esmumpsv( *n, *iwlen, petab, *pfree,
                           lentab, iwtab, nvtab, elentab, lasttab );
+#endif
        *weightused=1;
      }
      else
      {
-       /* esmumps prototype with standard integers (weights of nodes not used on entry) */
+       /* esmumps (weights of nodes not used on entry) */
+#if defined(MUMPS_SCOTCHIMPORTOMPTHREADS)
+#if ((SCOTCH_VERSION == 7) && (SCOTCH_RELEASE == 0)) || (SCOTCH_VERSION <= 6)
+       *ncmpa = -1;
+       printf("   ** internal error: esmumps called with threads context but Scotch version < 7.1\n");
+       return;
+#else
+       *ncmpa = esmumpsc( *n, *iwlen, petab, *pfree,
+                         lentab, iwtab, nvtab, elentab, lasttab, contextptr );
+#endif
+#else
        *ncmpa = esmumps( *n, *iwlen, petab, *pfree,
                          lentab, iwtab, nvtab, elentab, lasttab );
+#endif
        *weightused=0;
      }
 #else
-     /* esmumps prototype with standard integers (weights of nodes not used on entry) */
+     /* esmumps for Scotch before 6.1: no weights and no context */
      *ncmpa = esmumps( *n, *iwlen, petab, *pfree,
                        lentab, iwtab, nvtab, elentab, lasttab );
      *weightused=0;

@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.7.3, released
- *  on Mon Jul 15 11:44:21 UTC 2024
+ *  This file is part of MUMPS 5.8.0, released
+ *  on Tue May  6 08:27:40 UTC 2025
  *
  *
- *  Copyright 1991-2024 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2025 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -18,20 +18,35 @@
 #include "mumps_common.h"
 #if defined(scotch) || defined(ptscotch)
 #include "scotch.h"
+/* Instead of the prototypes below, one could include esmumps.h,
+ * when provided in include directory of scotch installation */
 #if ((SCOTCH_VERSION == 6) && (SCOTCH_RELEASE >= 1)) || (SCOTCH_VERSION >= 7)
-/* esmumpsv prototype with 64-bit integers weights of nodes in the graph are used on entry (nv) */
+/* esmumpsv prototype with weights of nodes in the graph are used on entry (nv) */
 MUMPS_INT esmumpsv( const MUMPS_INT n, const MUMPS_INT iwlen, MUMPS_INT * const pe, const MUMPS_INT pfree,
              MUMPS_INT * const len, MUMPS_INT * const iw, MUMPS_INT * const nv, MUMPS_INT * const elen,
              MUMPS_INT * const last);
 #endif
-/* esmumps prototype with standard integers (weights of nodes not used on entry) */
+/* esmumps prototype (weights of nodes not used on entry) */
 MUMPS_INT esmumps( const MUMPS_INT n, const MUMPS_INT iwlen, MUMPS_INT * const pe, const MUMPS_INT pfree,
              MUMPS_INT * const len, MUMPS_INT * const iw, MUMPS_INT * const nv, MUMPS_INT * const elen,
              MUMPS_INT * const last);
+#if ((SCOTCH_VERSION == 7) && (SCOTCH_RELEASE >= 1)) || (SCOTCH_VERSION >= 8)
+/* prototypes with contexts */
+MUMPS_INT esmumpsvc( const MUMPS_INT n, const MUMPS_INT iwlen, MUMPS_INT * const pe, const MUMPS_INT pfree,
+             MUMPS_INT * const len, MUMPS_INT * const iw, MUMPS_INT * const nv, MUMPS_INT * const elen,
+             MUMPS_INT * const last, SCOTCH_Context * const  esmumpscontext );
+MUMPS_INT esmumpsc( const MUMPS_INT n, const MUMPS_INT iwlen, MUMPS_INT * const pe, const MUMPS_INT pfree,
+             MUMPS_INT * const len, MUMPS_INT * const iw, MUMPS_INT * const nv, MUMPS_INT * const elen,
+             MUMPS_INT * const last, SCOTCH_Context * const  esmumpscontext );
+#endif
 #define  MUMPS_SCOTCH_WEIGHTUSED       \
     F_SYMBOL(scotch_weightused,SCOTCH_WEIGHTUSED)
 void MUMPS_CALL
 MUMPS_SCOTCH_WEIGHTUSED( MUMPS_INT  * const  weightused );
+#define  MUMPS_SCOTCH_ESMUMPSCONTEXT       \
+    F_SYMBOL(scotch_esmumpscontext,SCOTCH_ESMUMPSCONTEXT)
+void MUMPS_CALL
+MUMPS_SCOTCH_ESMUMPSCONTEXT( MUMPS_INT  * const  esmumpscontext );
 #define MUMPS_SCOTCH_ORD        \
     F_SYMBOL(scotch_ord,SCOTCH_ORD)
 void MUMPS_CALL

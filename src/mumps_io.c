@@ -1,10 +1,10 @@
 /*
  *
- *  This file is part of MUMPS 5.7.3, released
- *  on Mon Jul 15 11:44:21 UTC 2024
+ *  This file is part of MUMPS 5.8.0, released
+ *  on Tue May  6 08:27:40 UTC 2025
  *
  *
- *  Copyright 1991-2024 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
+ *  Copyright 1991-2025 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
  *  Mumps Technologies, University of Bordeaux.
  *
  *  This version of MUMPS is provided to you free of charge. It is
@@ -31,7 +31,12 @@ void MUMPS_CALL MUMPS_DUMPRHSBINARY_C ( MUMPS_INT *N, MUMPS_INT *NRHS,
    float *RHSshift; /* float: arbitrary, we use binary content */
    FILE *fd;
    int icol;
+#if defined(MUMPS_WIN32)
+/* "b" flag is necessary under windows */
+   fd=fopen(filename, "wb");
+#else
    fd=fopen(filename, "w");
+#endif
    RHSshift=RHS;
    for(icol=0;icol<*NRHS;icol++)
    {
@@ -48,7 +53,12 @@ void MUMPS_CALL MUMPS_DUMPMATBINARY_C ( MUMPS_INT *N, MUMPS_INT8 *NNZ,
    int64_t i8;
    int32_t myN, tmpi;
    FILE *fd;
+#if defined(MUMPS_WIN32)
+/* "b" flag is necessary under windows */
+   fd=fopen(filename, "wb");
+#else
    fd=fopen(filename, "w");
+#endif
    /* cast to int32_t in case MUMPS_INT is 64-bits */
    myN=(int32_t)(*N);
    fwrite( &myN, sizeof(int32_t), 1, fd);
