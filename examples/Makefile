@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.8.0, released
-#  on Tue May  6 08:27:40 UTC 2025
+#  This file is part of MUMPS 5.8.1, released
+#  on Wed Jul 30 16:49:18 UTC 2025
 #
 topdir = ..
 libdir = $(topdir)/lib
@@ -25,8 +25,8 @@ include $(topdir)/Makefile.inc
 
 LIBSMUMPS = -L$(libdir) -lsmumps$(PLAT) -lmumps_common$(PLAT)
 LIBCMUMPS = -L$(libdir) -lcmumps$(PLAT) -lmumps_common$(PLAT)
-LIBSDMUMPS = -L$(libdir) -lsmumps$(PLAT) -ldmumps$(PLAT) -lmumps_common$(PLAT)
-LIBCZMUMPS = -L$(libdir) -lcmumps$(PLAT) -lzmumps$(PLAT) -lmumps_common$(PLAT)
+LIBSDMUMPS = -L$(libdir) -ldmumps$(PLAT) -lsmumps$(PLAT) -lmumps_common$(PLAT)
+LIBCZMUMPS = -L$(libdir) -lzmumps$(PLAT) -lcmumps$(PLAT) -lmumps_common$(PLAT)
 
 ssimpletest:   $$@.o
 	$(FL) -o $@ $(OPTL) ssimpletest.o  $(LIBSMUMPS) $(LORDERINGS) $(LIBS) $(RPATH_OPT) $(LIBBLAS) $(LIBOTHERS)

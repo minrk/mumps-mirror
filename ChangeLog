@@ -2,6 +2,15 @@
 = ChangeLog =
 -------------
 
+
+Changes from 5.8.0 to 5.8.1
+* Fixed explicit interface expected in [sdcz]ana_driver.F for ftn compiler
+* Fixed error during MPI communication due to irregular blocks in block format
+* Fixed compiler semantic error detected by amdflang 6.2 in atomic statement
+* Fixed error when rank-revealing (ICNTL(56)) on at analysis and off at facto
+* Fixed performance of ICNTL(56) for highly reducible matrices
+* Fixed valgrind warning in [sdcz]mumps_arrow_treat_recv_buf_1th
+
 Changes from 5.7.3 to 5.8.0
 * Memory estimations in an MPI context improved using stricter proportional mapping
 * Improved multithreading during scaling and reformat/distribute matrix
@@ -832,6 +841,7 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.8.1            : July 2025
 Release 5.8.0            : May 2025
 Release 5.7.3            : July 2024
 Release 5.7.2            : June 2024
