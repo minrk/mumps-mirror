@@ -3,6 +3,13 @@
 -------------
 
 
+Changes from 5.8.1 to 5.8.2
+* Fixed compilation error with xlf IBM compiler when generating libmpiseq.a
+* Fixed error during multithreaded scaling on unsymmetric matrices
+* Fixed compilation issue with INTSIZE64 and WORKAROUNDINTELILP64OPENMPLIMITATION
+* Fixed documentation: minor inconsistencies with default setting 
+* Fixed valgrind error with Out-Of-Core introduced in 5.8.0 releases
+
 Changes from 5.8.0 to 5.8.1
 * Fixed explicit interface expected in [sdcz]ana_driver.F for ftn compiler
 * Fixed error during MPI communication due to irregular blocks in block format
@@ -841,6 +848,7 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.8.2            : January 2026
 Release 5.8.1            : July 2025
 Release 5.8.0            : May 2025
 Release 5.7.3            : July 2024
