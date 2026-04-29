@@ -1,6 +1,6 @@
 #
-#  This file is part of MUMPS 5.8.2, released
-#  on Mon Jan 12 15:17:08 UTC 2026
+#  This file is part of MUMPS 5.9.0, released
+#  on Tue Apr 28 13:05:59 UTC 2026
 #
 #
 topdir = ..
@@ -115,6 +115,7 @@ OBJS_C_COMMON = \
         mumps_thread.o\
         mumps_thread_affinity.o\
         mumps_flytes.o\
+	mumps_sol_omp_memory_manager.o \
         mumps_save_restore_C.o\
 
 
@@ -355,7 +356,8 @@ $(ARITH)fac_front_type2_aux.o : mumps_ooc_common.o\
                                 $(ARITH)mumps_comm_buffer.o\
                                 $(ARITH)mumps_intr_types.o \
                                 mumps_load.o\
-                                mumps_pivnul_mod.o
+                                mumps_pivnul_mod.o \
+                                $(ARITH)mumps_lr_data_m.o
 
 $(ARITH)fac_lr.o:               $(ARITH)lr_core.o\
                                 $(ARITH)lr_type.o\

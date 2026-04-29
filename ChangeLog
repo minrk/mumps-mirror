@@ -2,6 +2,23 @@
 = ChangeLog =
 -------------
 
+Changes from 5.8.2 to 5.9.0
+* New feature: mixed/adaptive BLR precision feature (ICNTL(40))
+* New feature: possibility to expose activities on GPUs  (ICNTL(51))
+* New feature: Single precision factorization in double precision
+  MUMPS instance (ICNTL(47))
+* Use some MPI processes as OpenMP resources (ICNTL(17)
+* Stop on user request and monitor progress information
+* Cheap re-analysis to recompute statistics (JOB=13)
+* Accessing control parameters from a configuration file
+* Default value for BLR variant ICNTL(36) is 1 (0 in previous releases)
+* Null-pivot: fixed nb_singular_values was not passed to c interface
+*             fixed user guide, pivnul_list of size INFOG(28) and not N
+*             INFOG(51) nb of null pivots detected with ICNTL(24)=1
+* Fixed error introduced in 5.8.0 leading to incorrect value of INFOG(35)
+* Scaling automatically activated with SYM=1 if ICNTL(35)>0 (BLR compression)
+* Fixed overestimation of INFOG(21-22) with ICNTL(35)>0 (BLR compression)
+* Workaround segfault in MUMPS_SETRVAL_ADDR_C on 32-bit address environments
 
 Changes from 5.8.1 to 5.8.2
 * Fixed compilation error with xlf IBM compiler when generating libmpiseq.a
@@ -848,6 +865,7 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.9.0            : April 2026
 Release 5.8.2            : January 2026
 Release 5.8.1            : July 2025
 Release 5.8.0            : May 2025

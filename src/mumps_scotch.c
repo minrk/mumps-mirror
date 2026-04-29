@@ -1,7 +1,7 @@
 /*
  *
- *  This file is part of MUMPS 5.8.2, released
- *  on Mon Jan 12 15:17:08 UTC 2026
+ *  This file is part of MUMPS 5.9.0, released
+ *  on Tue Apr 28 13:05:59 UTC 2026
  *
  *
  *  Copyright 1991-2026 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -180,6 +180,10 @@ void MUMPS_CALL
 MUMPS_SCOTCH_GET_PTHREAD_NUMBER (MUMPS_INT *PTHREAD_NUMBER)
   {
   *PTHREAD_NUMBER = -1;  /* NOT SET*/
+/* 
+   SCOTCH_VERSION>=8   *PTHREAD_NUMBER = atoi(getenv("SCOTCH_THREAD_NUMBER"));
+   Idem in MUMPS_SCOTCH_SET_PTHREAD_NUMBER
+*/
 #if (SCOTCH_VERSION>=7) 
   if (getenv("SCOTCH_PTHREAD_NUMBER"))
   {

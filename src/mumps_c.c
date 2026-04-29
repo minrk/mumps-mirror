@@ -1,7 +1,7 @@
 /*
  *
- *  This file is part of MUMPS 5.8.2, released
- *  on Mon Jan 12 15:17:08 UTC 2026
+ *  This file is part of MUMPS 5.9.0, released
+ *  on Tue Apr 28 13:05:59 UTC 2026
  *
  *
  *  Copyright 1991-2026 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -140,7 +140,7 @@ MUMPS_F77( MUMPS_INT      *job,
            MUMPS_REAL     *rinfo,
            MUMPS_INT      *infog,
            MUMPS_REAL     *rinfog,
-           MUMPS_INT      *deficiency,
+           MUMPS_INT      *nb_singular_values,
            MUMPS_INT      *lwk_user,
            MUMPS_INT      *size_schur,
            MUMPS_INT      *listvar_schur,
@@ -453,7 +453,7 @@ mumps_c(MUMPS_STRUC_C * mumps_par)
         /* Next line initializes scalars to arbitrary values.
          * Some of those will anyway be overwritten during the
          * call to Fortran routine [SDCZ]MUMPS_INIT_PHASE */
-        mumps_par->n=0; mumps_par->nblk=0; mumps_par->nz=0; mumps_par->nnz=0; mumps_par->nz_loc=0; mumps_par->nnz_loc=0; mumps_par->nelt=0;mumps_par->instance_number=0;mumps_par->deficiency=0;mumps_par->lwk_user=0;mumps_par->size_schur=0;mumps_par->lrhs=0; mumps_par->lredrhs=0; mumps_par->nrhs=0; mumps_par->nz_rhs=0; mumps_par->lsol_loc=0; mumps_par->nloc_rhs=0; mumps_par->lrhs_loc=0; mumps_par->nsol_loc=0;
+        mumps_par->n=0; mumps_par->nblk=0; mumps_par->nz=0; mumps_par->nnz=0; mumps_par->nz_loc=0; mumps_par->nnz_loc=0; mumps_par->nelt=0;mumps_par->instance_number=0;mumps_par->nb_singular_values=0;mumps_par->lwk_user=0;mumps_par->size_schur=0;mumps_par->lrhs=0; mumps_par->lredrhs=0; mumps_par->nrhs=0; mumps_par->nz_rhs=0; mumps_par->lsol_loc=0; mumps_par->nloc_rhs=0; mumps_par->lrhs_loc=0; mumps_par->nsol_loc=0;
  mumps_par->schur_mloc=0; mumps_par->schur_nloc=0; mumps_par->schur_lld=0; mumps_par->mblock=0; mumps_par->nblock=0; mumps_par->nprow=0; mumps_par->npcol=0; mumps_par->ld_rhsintr=0;
       }
      ooc_tmpdirlen=(int)strlen(mumps_par->ooc_tmpdir);
@@ -605,7 +605,8 @@ mumps_c(MUMPS_STRUC_C * mumps_par)
           &(mumps_par->nelt), eltptr, &eltptr_avail, eltvar, &eltvar_avail, a_elt, &a_elt_avail, blkptr, &blkptr_avail, blkvar, &blkvar_avail,
           perm_in, &perm_in_avail, rowind, &rowind_avail, colind, &colind_avail, pivots, &pivots_avail,
           rhs, &rhs_avail, redrhs, &redrhs_avail, info, rinfo, infog, rinfog,
-          &(mumps_par->deficiency), &(mumps_par->lwk_user), &(mumps_par->size_schur), listvar_schur, &listvar_schur_avail, schur,
+          &(mumps_par->nb_singular_values), &(mumps_par->lwk_user), &(mumps_par->size_schur), 
+          listvar_schur, &listvar_schur_avail, schur,
           &schur_avail, wk_user, &wk_user_avail, colsca, &colsca_avail, rowsca, &rowsca_avail,
           &(mumps_par->instance_number), &(mumps_par->nrhs), &(mumps_par->lrhs),
           &(mumps_par->lredrhs),

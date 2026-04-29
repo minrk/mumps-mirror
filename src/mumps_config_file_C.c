@@ -1,7 +1,7 @@
 /*
  *
- *  This file is part of MUMPS 5.8.2, released
- *  on Mon Jan 12 15:17:08 UTC 2026
+ *  This file is part of MUMPS 5.9.0, released
+ *  on Tue Apr 28 13:05:59 UTC 2026
  *
  *
  *  Copyright 1991-2026 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -18,6 +18,19 @@
 #include <string.h>
 #include "mumps_config_file_C.h"
 #include "mumps_common.h"
+/* Functions */
+void MUMPS_CALL
+MUMPS_GET_CONFIG_FILE_C(MUMPS_INT *len_config_file, char* config_file, mumps_ftnlen l1)
+{
+  char *tmp_config_file;
+  tmp_config_file = getenv ("MUMPS_CONFIG_FILE");
+  if (tmp_config_file==NULL)
+    {
+      tmp_config_file = "NAME_NOT_INITIALIZED";
+    }
+  *len_config_file = strlen(tmp_config_file);
+  config_file = strncpy(config_file, tmp_config_file, l1); 
+}
 void MUMPS_CALL
 MUMPS_CONFIG_FILE_RETURN_C()
 {

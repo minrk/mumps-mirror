@@ -1,7 +1,7 @@
 /*
  *
- *  This file is part of MUMPS 5.8.2, released
- *  on Mon Jan 12 15:17:08 UTC 2026
+ *  This file is part of MUMPS 5.9.0, released
+ *  on Tue Apr 28 13:05:59 UTC 2026
  *
  *
  *  Copyright 1991-2026 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -29,7 +29,7 @@ extern "C" {
 
 #ifndef MUMPS_VERSION
 /* Protected in case headers of other arithmetics are included */
-#define MUMPS_VERSION "5.8.2"
+#define MUMPS_VERSION "5.9.0"
 #endif
 #ifndef MUMPS_VERSION_MAX_LEN
 #define MUMPS_VERSION_MAX_LEN 30
@@ -111,10 +111,10 @@ typedef struct {
     ZMUMPS_REAL    rinfo[40], rinfog[40];
 
     /* Null space */
-    MUMPS_INT      deficiency;
     MUMPS_INT      *pivnul_list;
     MUMPS_INT      *mapping;
     ZMUMPS_REAL    *singular_values;
+    MUMPS_INT      nb_singular_values;
 
     /* Schur */
     MUMPS_INT      size_schur;
