@@ -1,6 +1,6 @@
 C
-C  This file is part of MUMPS 5.9.0, released
-C  on Tue Apr 28 13:05:59 UTC 2026
+C  This file is part of MUMPS 5.9.1, released
+C  on Mon Jul 20 09:00:43 UTC 2026
 C
 C
 C  Copyright 1991-2026 CERFACS, CNRS, ENS Lyon, INP Toulouse, Inria,
@@ -1001,7 +1001,10 @@ C
       END SUBROUTINE MUMPS_MPITOOMP_SLEEPSYNC
       END MODULE MUMPS_MPITOOMP_M
 #else
+      MODULE MUMPS_MPITOOMP_M
+      CONTAINS
       SUBROUTINE MUMPS_MPITOOMP_M_RETURN()
         RETURN
       END SUBROUTINE MUMPS_MPITOOMP_M_RETURN
+      END MODULE MUMPS_MPITOOMP_M
 #endif

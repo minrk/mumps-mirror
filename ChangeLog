@@ -2,6 +2,23 @@
 = ChangeLog =
 -------------
 
+Changes from 5.9.0 to 5.9.1
+* GPU: fixed error introduced in 5.9.0 leading to less work exposed on GPU
+* MPI_to_k_OMP: empty module added for Cmake build
+* Print message when MUMPS is compiled with -DUSE_AVX512_VBMI
+* Fixed syntax error detected during compilation with MSVC 14.44
+* OpenMP: add missing !$ OpenMP sentinels to enable compilation without OpenMP
+* Adaptive BLR precision: complete user guide with compiler options to be added
+                          to OPTC to enable using AVX512-VBMI instruction set
+* ICNTL(48)=1: fixed error when calling [SDCZ]MUMPS_DM_FREE_S_WK 
+               introduced since 5.8 releases
+* Combining save/restore and WK_USER: clarify user guide
+* Fixed: restore quantization of off-diagonal non-admissible BLR blocks
+* Fixed: error -20 with single precision factorization and 64-bit integers
+* Introduce compilation flag -Dnrm2_returns_double as a workaround  when
+  snrm2 and scnrm2 BLAS functions return 64-bit instead of 32-bit reals (see INSTALL)
+  
+
 Changes from 5.8.2 to 5.9.0
 * New feature: mixed/adaptive BLR precision feature (ICNTL(40))
 * New feature: possibility to expose activities on GPUs  (ICNTL(51))
@@ -865,6 +882,7 @@ Changes from 4.0.4 to 4.1.4
 = Release history =
 -------------------
 
+Release 5.9.1            : July 2026
 Release 5.9.0            : April 2026
 Release 5.8.2            : January 2026
 Release 5.8.1            : July 2025
